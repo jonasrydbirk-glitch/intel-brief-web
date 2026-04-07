@@ -1,0 +1,139 @@
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const email = searchParams.get("email");
+  if (!email) {
+    return NextResponse.json({ error: "email query param required" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("subscribers")
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(data);
+}
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const id = body.id;
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  // Fetch current profile
+  const { data: profile, error: fetchError } = await supabase
+    .from("subscribers")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !profile) {
+    return NextResponse.json({ error: "Subscriber not found" }, { status: 404 });
+  }
+
+  // Build update object
+  const updates: Record<string, unknown> = {};
+
+  if (body.role !== undefined) updates.role = body.role;
+  if (body.assets !== undefined) {
+    updates.assets = body.assets
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0);
+  }
+  if (body.subjects !== undefined) {
+    updates.subjects = body.subjects.filter(
+      (s: string) => typeof s === "string" && s.trim().length > 0
+    );
+  }
+  if (body.frequency !== undefined) updates.frequency = body.frequency;
+  if (body.depth !== undefined) updates.depth = body.depth;
+  if (body.timezone !== undefined) updates.timezone = body.timezone;
+  if (body.deliveryTime !== undefined) updates.deliveryTime = body.deliveryTime;
+  if (body.monthlyReview !== undefined) {
+    updates.monthlyReview = body.monthlyReview
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0);
+  }
+
+  // Module updates
+  const hasModuleUpdate = [
+    "tenderEnabled", "prospectsEnabled", "offDutyEnabled",
+    "marketPulseEnabled", "regulatoryTimelineEnabled", "monthlyProspectRollupEnabled",
+    "competitorTrackerEnabled", "vesselArrivalsEnabled", "safetyEnabled",
+  ].some((key) => body[key] !== undefined);
+
+  if (hasModuleUpdate) {
+    const modules = { ...profile.modules };
+    if (body.tenderEnabled !== undefined) {
+      modules.tender = body.tenderEnabled
+        ? { enabled: true, region: body.tenderRegion || "", type: body.tenderType || "" }
+        : { enabled: false };
+    }
+    if (body.prospectsEnabled !== undefined) {
+      modules.prospects = body.prospectsEnabled
+        ? {
+            enabled: true,
+            perReport: body.prospectsPerReport || 3,
+            focusAreas: body.prospectsFocusAreas || "",
+          }
+        : { enabled: false };
+    }
+    if (body.offDutyEnabled !== undefined) {
+      modules.offDuty = body.offDutyEnabled
+        ? { enabled: true, interests: body.offDutyInterests || "" }
+        : { enabled: false };
+    }
+    if (body.marketPulseEnabled !== undefined) {
+      modules.marketPulse = body.marketPulseEnabled
+        ? { enabled: true, dataToTrack: body.marketPulseDataToTrack || "" }
+        : { enabled: false };
+    }
+    if (body.regulatoryTimelineEnabled !== undefined) {
+      modules.regulatoryTimeline = body.regulatoryTimelineEnabled
+        ? { enabled: true, regulations: body.regulatoryTimelineRegulations || "" }
+        : { enabled: false };
+    }
+    if (body.monthlyProspectRollupEnabled !== undefined) {
+      modules.monthlyProspectRollup = body.monthlyProspectRollupEnabled
+        ? { enabled: true }
+        : { enabled: false };
+    }
+    if (body.competitorTrackerEnabled !== undefined) {
+      modules.competitorTracker = body.competitorTrackerEnabled
+        ? { enabled: true, companies: body.competitorTrackerCompanies || "" }
+        : { enabled: false };
+    }
+    if (body.vesselArrivalsEnabled !== undefined) {
+      modules.vesselArrivals = body.vesselArrivalsEnabled
+        ? { enabled: true, port: body.vesselArrivalsPort || "", vesselType: body.vesselArrivalsVesselType || "", timeframe: body.vesselArrivalsTimeframe || "" }
+        : { enabled: false };
+    }
+    if (body.safetyEnabled !== undefined) {
+      modules.safety = body.safetyEnabled
+        ? { enabled: true, areas: body.safetyAreas || "" }
+        : { enabled: false };
+    }
+    updates.modules = modules;
+  }
+
+  const { error: updateError } = await supabase
+    .from("subscribers")
+    .update(updates)
+    .eq("id", id);
+
+  if (updateError) {
+    return NextResponse.json({ error: "Failed to update subscriber" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, id });
+}
