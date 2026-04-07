@@ -1,11 +1,13 @@
 /**
  * IQsea PDF Renderer
  *
- * Uses Puppeteer to convert the brief HTML (from /api/print/generate-sample)
- * into a PDF buffer suitable for email attachment.
+ * Uses puppeteer-core + @sparticuz/chromium for Vercel serverless compatibility.
+ * Converts the brief HTML (from /api/print/generate-sample) into a PDF buffer
+ * suitable for email attachment.
  */
 
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 import type { BriefPayload } from "@/engine/brief-generator";
 
 /**
@@ -36,11 +38,12 @@ export async function renderBriefPdf(
 
   const html = await htmlRes.text();
 
-  // Step 2: Launch headless browser and render
+  // Step 2: Launch headless browser with @sparticuz/chromium for serverless
   const browser = await puppeteer.launch({
-    headless: true,
-    dumpio: false, // Suppress all browser stdout/stderr (prevents JSON corruption)
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
   });
 
   try {
