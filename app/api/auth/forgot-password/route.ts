@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { sendEmail } from "@/lib/delivery";
 
 export async function POST(request: Request) {
+  try {
   const { email } = await request.json();
 
   if (!email) {
@@ -93,4 +94,11 @@ export async function POST(request: Request) {
   }
 
   return successResponse;
+  } catch (err) {
+    console.error("[forgot-password] Unhandled error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }

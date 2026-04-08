@@ -2,8 +2,13 @@ import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const secretKey = process.env.SESSION_SECRET!;
-const encodedKey = new TextEncoder().encode(secretKey);
+const secretKey = process.env.SESSION_SECRET;
+if (!secretKey) {
+  console.error(
+    "[session] FATAL: SESSION_SECRET env var is not set — auth will fail"
+  );
+}
+const encodedKey = new TextEncoder().encode(secretKey ?? "");
 const SESSION_COOKIE = "iqsea_session";
 
 export interface SessionPayload {
@@ -13,6 +18,9 @@ export interface SessionPayload {
 }
 
 export async function encrypt(payload: SessionPayload) {
+  if (!secretKey) {
+    throw new Error("Cannot create session: SESSION_SECRET is not configured");
+  }
   return new SignJWT({ ...payload, expiresAt: payload.expiresAt.toISOString() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

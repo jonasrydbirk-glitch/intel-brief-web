@@ -3,6 +3,7 @@ import { hashPassword } from "@/app/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
+  try {
   const body = await request.json();
   const token = (body.token || "").trim();
   const password = (body.password || "").trim();
@@ -71,4 +72,11 @@ export async function POST(request: Request) {
     .eq("id", resetRecord.id);
 
   return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[reset-password] Unhandled error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }
