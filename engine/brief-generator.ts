@@ -465,21 +465,17 @@ Produce the intelligence brief as a JSON object with this exact shape:
   const data = await response.json();
   const raw: string = data.choices?.[0]?.message?.content ?? "{}";
 
-  // Extract JSON from potential markdown fences or raw response
-  let jsonStr = raw.trim();
-
-  // Strategy 1: Markdown code fence (``` or ```json)
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1].trim();
-  } else {
-    // Strategy 2: Find outermost { ... } braces
-    const firstBrace = raw.indexOf("{");
-    const lastBrace = raw.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      jsonStr = raw.substring(firstBrace, lastBrace + 1);
-    }
+  // Extract JSON — strip markdown backticks first, then find outermost braces.
+  // Models sometimes wrap JSON in ```json ... ``` or stray backticks that break
+  // JSON.parse. We nuke ALL backticks before brace extraction so the parser
+  // never sees them.
+  const stripped = raw.replace(/`/g, "");
+  const firstBrace = stripped.indexOf("{");
+  const lastBrace = stripped.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error("Architect response contained no valid JSON object");
   }
+  const jsonStr = stripped.substring(firstBrace, lastBrace + 1);
 
   return JSON.parse(jsonStr) as BriefPayload;
 }

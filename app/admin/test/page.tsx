@@ -93,26 +93,29 @@ export default function AdminTestPage() {
       .catch(() => setError("Failed to open PDF preview"));
   }
 
-  async function runAndEmail(subscriberId: string) {
+  async function emailBrief(subscriberId: string) {
+    if (!briefResult) {
+      setError("Generate a brief first before emailing.");
+      return;
+    }
     setSending(subscriberId);
     setEmailStatus(null);
     setError(null);
 
     try {
-      const res = await fetch("/api/admin/send-brief", {
+      const res = await fetch("/api/admin/email-brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriberId }),
+        body: JSON.stringify({ subscriberId, brief: briefResult }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Send brief failed");
+        setError(data.error ?? "Email send failed");
         return;
       }
 
-      setBriefResult(data.brief);
       setEmailStatus(data.message);
     } catch {
       setError("Network error — could not reach the server");
@@ -226,18 +229,19 @@ export default function AdminTestPage() {
                         >
                           {generating === sub.id
                             ? "Generating..."
-                            : "Run Test Brief"}
+                            : "Generate Brief"}
                         </button>
                         <button
-                          onClick={() => runAndEmail(sub.id)}
-                          disabled={generating !== null || sending !== null}
+                          onClick={() => emailBrief(sub.id)}
+                          disabled={generating !== null || sending !== null || !briefResult}
                           className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors
                             bg-blue-600 text-white hover:bg-blue-500
                             disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={!briefResult ? "Generate a brief first" : "Email the generated brief"}
                         >
                           {sending === sub.id
-                            ? "Sending..."
-                            : "Run & Email"}
+                            ? "Emailing..."
+                            : "Email this Brief"}
                         </button>
                       </td>
                     </tr>
