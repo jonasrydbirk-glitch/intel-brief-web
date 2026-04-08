@@ -18,7 +18,16 @@ function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  _client = createClient(supabaseUrl, supabaseKey);
+  // Strip any accidental double-protocol prefix
+  const cleanUrl = supabaseUrl.replace(/^https?:\/\/(https?:\/\/)/, "$1");
+
+  _client = createClient(cleanUrl, supabaseKey, {
+    global: {
+      fetch: (...args) => globalThis.fetch(...args),
+    },
+    db: { schema: "public" },
+    auth: { persistSession: false },
+  });
   return _client;
 }
 
