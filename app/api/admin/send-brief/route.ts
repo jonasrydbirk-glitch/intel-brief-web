@@ -5,6 +5,9 @@ import { renderBriefPdf } from "@/lib/render-pdf";
 import { sendEmail } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
 
+// Allow up to 60 s for this long-running route (Vercel Pro/Enterprise)
+export const maxDuration = 60;
+
 /**
  * POST /api/admin/send-brief
  *
@@ -123,6 +126,11 @@ export async function POST(request: Request) {
     const error = status === 403
       ? "Azure Permissions Required: The M365 app registration is missing Mail.Send permission. Grant it in Azure AD > App registrations > API permissions."
       : message;
-    return NextResponse.json({ error }, { status });
+    // Return a plain JSON response with explicit content-type to prevent
+    // any stray output from corrupting the response stream.
+    return new Response(JSON.stringify({ error }), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

@@ -181,7 +181,8 @@ async function dispatchBrief(subscriber: {
   const brief = await generateBrief(subscriber.id);
 
   // Stage 2: Render to PDF
-  const pdfBuffer = await renderBriefPdf(brief);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const pdfBuffer = await renderBriefPdf(brief, baseUrl);
   const pdfBase64 = pdfBuffer.toString("base64");
 
   // Stage 3: Email

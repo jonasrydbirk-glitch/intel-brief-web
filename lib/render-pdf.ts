@@ -22,7 +22,7 @@ import type { BriefPayload } from "@/engine/brief-generator";
  */
 export async function renderBriefPdf(
   brief: BriefPayload,
-  baseUrl = "http://localhost:3000"
+  baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ): Promise<Buffer> {
   // Step 1: Get the styled HTML from the print endpoint
   const htmlRes = await fetch(`${baseUrl}/api/print/generate-sample`, {
@@ -40,10 +40,11 @@ export async function renderBriefPdf(
 
   // Step 2: Launch headless browser with @sparticuz/chromium for serverless
   const browser = await puppeteer.launch({
-    args: chromium.args,
+    args: [...chromium.args, "--disable-logging", "--log-level=3"],
     defaultViewport: chromium.defaultViewport,
     executablePath: await chromium.executablePath(),
     headless: chromium.headless,
+    dumpio: false,
   });
 
   try {

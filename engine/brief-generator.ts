@@ -259,7 +259,17 @@ Return a JSON object with a single key "queries" containing an array of query st
     data.choices?.[0]?.message?.content ?? "{}";
 
   try {
-    const parsed = JSON.parse(content);
+    // Strip markdown fences if present, then try brace extraction
+    let jsonStr = content.trim();
+    const fence = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) {
+      jsonStr = fence[1].trim();
+    } else {
+      const first = jsonStr.indexOf("{");
+      const last = jsonStr.lastIndexOf("}");
+      if (first !== -1 && last > first) jsonStr = jsonStr.substring(first, last + 1);
+    }
+    const parsed = JSON.parse(jsonStr);
     return { queries: parsed.queries ?? [], rawFindings: [] };
   } catch {
     // If model didn't return clean JSON, extract lines as queries
@@ -455,9 +465,21 @@ Produce the intelligence brief as a JSON object with this exact shape:
   const data = await response.json();
   const raw: string = data.choices?.[0]?.message?.content ?? "{}";
 
-  // Extract JSON from potential markdown fences
-  const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = jsonMatch ? jsonMatch[1].trim() : raw.trim();
+  // Extract JSON from potential markdown fences or raw response
+  let jsonStr = raw.trim();
+
+  // Strategy 1: Markdown code fence (``` or ```json)
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1].trim();
+  } else {
+    // Strategy 2: Find outermost { ... } braces
+    const firstBrace = raw.indexOf("{");
+    const lastBrace = raw.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = raw.substring(firstBrace, lastBrace + 1);
+    }
+  }
 
   return JSON.parse(jsonStr) as BriefPayload;
 }
