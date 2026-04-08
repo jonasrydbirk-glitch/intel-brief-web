@@ -100,6 +100,7 @@ export default function AdminTestPage() {
   const [sending, setSending] = useState<string | null>(null);
   const [briefResult, setBriefResult] = useState<BriefPayload | null>(null);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function AdminTestPage() {
     setGenerating(subscriberId);
     setBriefResult(null);
     setError(null);
+    setJobStatus("pending");
 
     try {
       // 1. Start background job — returns 202 immediately
@@ -152,19 +154,23 @@ export default function AdminTestPage() {
           return;
         }
 
+        setJobStatus(job.status);
+
         if (job.status === "complete") {
           setBriefResult(job.result);
           setGenerating(null);
+          setJobStatus(null);
           return;
         }
 
         if (job.status === "error") {
           setError(job.error ?? "Brief generation failed");
           setGenerating(null);
+          setJobStatus(null);
           return;
         }
 
-        // Still pending or running — poll again
+        // Still pending or processing — poll again
         await new Promise((r) => setTimeout(r, 3000));
         return poll();
       };
@@ -292,7 +298,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08e
+                Build 2026-04-08f
               </div>
             </div>
           </div>
@@ -420,7 +426,7 @@ export default function AdminTestPage() {
                             disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {generating === sub.id
-                            ? "Generating..."
+                            ? `${jobStatus === "pending" ? "Queued..." : jobStatus === "processing" ? "Processing..." : "Generating..."}`
                             : "Generate Brief"}
                         </button>
                         <button

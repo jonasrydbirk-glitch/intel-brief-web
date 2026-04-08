@@ -244,7 +244,75 @@ async function dispatchBrief(subscriber: {
 }
 
 // ---------------------------------------------------------------------------
-// Main scan
+// Remote Worker — poll brief_jobs for pending requests from the website
+// ---------------------------------------------------------------------------
+
+const JOB_POLL_INTERVAL_MS = 10_000; // 10 seconds
+
+/**
+ * Scan the brief_jobs table for rows with status "pending".
+ * For each one, claim it (set status → "processing"), run the
+ * generation pipeline, and update the row with the result or error.
+ *
+ * This replaces the old Vercel after() pattern which was killed
+ * by the serverless runtime before the pipeline could finish.
+ */
+async function processJobQueue(): Promise<void> {
+  const { data: pendingJobs, error: fetchErr } = await supabase
+    .from("brief_jobs")
+    .select("id, subscriber_id")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+
+  if (fetchErr) {
+    log("WARN", `Job queue fetch failed: ${fetchErr.message}`);
+    return;
+  }
+
+  if (!pendingJobs || pendingJobs.length === 0) return;
+
+  log("INFO", `Found ${pendingJobs.length} pending job(s) in brief_jobs queue.`);
+
+  for (const job of pendingJobs) {
+    try {
+      // Claim the job — set to "processing" so no other worker picks it up
+      await supabase
+        .from("brief_jobs")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("id", job.id);
+
+      log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}`);
+
+      const brief = await generateBrief(job.subscriber_id);
+
+      await supabase
+        .from("brief_jobs")
+        .update({
+          status: "complete",
+          result: brief,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      log("INFO", `Job ${job.id} complete.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log("ERROR", `Job ${job.id} failed: ${message}`);
+
+      await supabase
+        .from("brief_jobs")
+        .update({
+          status: "error",
+          error: message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main scan (scheduled subscriber dispatches)
 // ---------------------------------------------------------------------------
 
 async function scan(): Promise<void> {
@@ -327,12 +395,13 @@ async function main(): Promise<void> {
   if (loopIdx !== -1) {
     const intervalMin = parseInt(args[loopIdx + 1] || "5", 10);
     const intervalMs = intervalMin * 60_000;
-    log("INFO", `Warden starting in loop mode — scanning every ${intervalMin} minute(s).`);
+    log("INFO", `Warden starting in loop mode — scanning every ${intervalMin} minute(s), job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
 
-    // Initial scan
+    // Initial scan + job queue check
     await scan();
+    await processJobQueue();
 
-    // Repeat on interval
+    // Scheduled subscriber dispatch on the slow interval
     setInterval(async () => {
       try {
         await scan();
@@ -341,9 +410,20 @@ async function main(): Promise<void> {
         log("ERROR", `Unhandled error during scan: ${msg}`);
       }
     }, intervalMs);
+
+    // Job queue polling on the fast interval (10s)
+    setInterval(async () => {
+      try {
+        await processJobQueue();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during job queue poll: ${msg}`);
+      }
+    }, JOB_POLL_INTERVAL_MS);
   } else {
-    // One-shot mode
+    // One-shot mode — run both
     await scan();
+    await processJobQueue();
   }
 }
 

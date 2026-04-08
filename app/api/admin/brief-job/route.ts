@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { after } from "next/server";
-import { generateBrief } from "@/engine/brief-generator";
 import { supabase } from "@/lib/supabase";
-
-// Allow the after() callback up to 300 s (Vercel Pro / Enterprise).
-// On Hobby plans the ceiling is lower — the job will still run but may
-// be cut short if generation exceeds the plan limit.
-export const maxDuration = 300;
 
 /**
  * POST /api/admin/brief-job
  *
- * Starts a background brief-generation job and returns immediately
- * with a 202 Accepted + jobId.  The heavy work runs in an after()
- * callback so the HTTP response is instant.
+ * Inserts a "pending" row into brief_jobs and returns immediately
+ * with a 202 Accepted + jobId.  The Warden engine on the Beelink
+ * polls for pending rows and executes the heavy generation work.
+ *
+ * This avoids the "Serverless Kill" problem where Vercel terminates
+ * the function before the pipeline completes.
  *
  * Body: { subscriberId: string }
  * Response: { jobId: string }
@@ -46,8 +42,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create the job row (status: pending)
-    // Let Supabase generate the UUID primary key automatically.
+    // Create the job row (status: pending).
+    // The Warden on the Beelink will pick this up within ~10 seconds.
     let jobId: string;
     try {
       const { data: insertData, error: insertErr } = await supabase
@@ -80,31 +76,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Schedule the heavy work to run after the response is sent.
-    // The function invocation stays alive (up to maxDuration) while
-    // this callback executes.
-    after(async () => {
-      try {
-        await supabase
-          .from("brief_jobs")
-          .update({ status: "running" })
-          .eq("id", jobId);
-
-        const brief = await generateBrief(subscriberId);
-
-        await supabase
-          .from("brief_jobs")
-          .update({ status: "complete", result: brief })
-          .eq("id", jobId);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        await supabase
-          .from("brief_jobs")
-          .update({ status: "error", error: message })
-          .eq("id", jobId);
-      }
-    });
-
     return NextResponse.json({ jobId }, { status: 202 });
   } catch (outerErr) {
     return NextResponse.json(
@@ -118,10 +89,10 @@ export async function POST(request: Request) {
  * GET /api/admin/brief-job?jobId=xxx
  *
  * Poll for job status.  Returns the current state of the job:
- *   - pending  → generation has not started yet
- *   - running  → Scout / Architect / Scribe pipeline in progress
- *   - complete → brief is in the `result` field
- *   - error    → see the `error` field
+ *   - pending    → waiting for the Warden to pick up the job
+ *   - processing → Scout / Architect / Scribe pipeline in progress
+ *   - complete   → brief is in the `result` field
+ *   - error      → see the `error` field
  */
 export async function GET(request: Request) {
   try {
