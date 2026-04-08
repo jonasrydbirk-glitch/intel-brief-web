@@ -2,48 +2,47 @@
  * IQsea PDF Renderer
  *
  * Uses puppeteer-core + @sparticuz/chromium for Vercel serverless compatibility.
- * Converts the brief HTML (from /api/print/generate-sample) into a PDF buffer
- * suitable for email attachment.
+ * Renders the brief HTML locally via lib/brief-html.ts — NO network fetch needed.
+ *
+ * Build 2026-04-08-JET-PDF-FIX: Eliminated the localhost fetch loop that broke
+ * Direct Dispatch mode on the Beelink. HTML is now generated in-process.
  */
 
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import type { BriefPayload } from "@/engine/brief-generator";
+import { renderBriefHtml } from "@/lib/brief-html";
 
 /**
  * Render a BriefPayload to a PDF buffer.
  *
- * 1. POSTs the brief JSON to /api/print/generate-sample to get styled HTML.
+ * 1. Generates styled HTML locally (no network call).
  * 2. Opens the HTML in a headless browser.
  * 3. Prints to PDF and returns the buffer.
- *
- * @param brief  The complete BriefPayload from the engine.
- * @param baseUrl  The origin of the running Next.js server (default: http://localhost:3000).
  */
-export async function renderBriefPdf(
-  brief: BriefPayload,
-  baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-): Promise<Buffer> {
-  // Step 1: Get the styled HTML from the print endpoint
-  const htmlRes = await fetch(`${baseUrl}/api/print/generate-sample`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(brief),
-  });
+export async function renderBriefPdf(brief: BriefPayload): Promise<Buffer> {
+  // Step 1: Generate HTML in-process — no fetch required
+  const html = renderBriefHtml(brief);
 
-  if (!htmlRes.ok) {
-    const text = await htmlRes.text();
-    throw new Error(`Print endpoint returned ${htmlRes.status}: ${text}`);
-  }
+  // Step 2: Launch headless browser
+  // On the Beelink (Windows/local), use the Puppeteer-managed Chrome install.
+  // On Vercel (serverless), fall back to @sparticuz/chromium.
+  const isLocal = !process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const executablePath = isLocal
+    ? "C:/Users/Atlas/.cache/puppeteer/chrome/win64-146.0.7680.153/chrome-win64/chrome.exe"
+    : await chromium.executablePath();
 
-  const html = await htmlRes.text();
-
-  // Step 2: Launch headless browser with @sparticuz/chromium for serverless
   const browser = await puppeteer.launch({
-    args: [...chromium.args, "--disable-logging", "--log-level=3"],
+    args: [
+      ...(isLocal ? [] : chromium.args),
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-logging",
+      "--log-level=3",
+    ],
     defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath(),
-    headless: chromium.headless,
+    executablePath,
+    headless: isLocal ? true : chromium.headless,
     dumpio: false,
   });
 
