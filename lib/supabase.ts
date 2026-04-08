@@ -10,20 +10,32 @@ function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  return globalThis
-    .fetch(input, { ...init, signal: controller.signal })
-    .finally(() => clearTimeout(timer));
+  return fetch(input, {
+    ...init,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
 }
 
-const MAX_INIT_RETRIES = 3;
+export function getSupabaseUrl(): string {
+  const raw =
+    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  // Strip any accidental double-protocol prefix (https://https://…)
+  return raw.replace(/^https?:\/\/(https?:\/\/)/, "$1");
+}
+
+export function getSupabaseKey(): string {
+  return (
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    ""
+  );
+}
 
 function getSupabaseClient(): SupabaseClient {
   if (_client) return _client;
 
-  const supabaseUrl =
-    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabaseKey();
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
@@ -33,27 +45,15 @@ function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  // Strip any accidental double-protocol prefix
-  const cleanUrl = supabaseUrl.replace(/^https?:\/\/(https?:\/\/)/, "$1");
-
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_INIT_RETRIES; attempt++) {
-    try {
-      _client = createClient(cleanUrl, supabaseKey, {
-        global: {
-          fetch: fetchWithTimeout,
-          headers: { "x-my-custom-header": "iqsea-vercel" },
-        },
-        db: { schema: "public" },
-        auth: { persistSession: false },
-      });
-      return _client;
-    } catch (err) {
-      lastError = err;
-      _client = null;
-    }
-  }
-  throw lastError;
+  _client = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      fetch: fetchWithTimeout,
+      headers: { "x-my-custom-header": "iqsea-vercel" },
+    },
+    db: { schema: "public" },
+    auth: { persistSession: false },
+  });
+  return _client;
 }
 
 export const supabase = new Proxy({} as SupabaseClient, {

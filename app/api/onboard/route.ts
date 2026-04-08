@@ -95,8 +95,9 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("subscribers").insert(profile);
 
   if (error) {
+    console.error("[onboard] Supabase insert error:", JSON.stringify(error));
     return NextResponse.json(
-      { error: "Failed to create subscriber" },
+      { error: "Failed to create subscriber", detail: error.message },
       { status: 500 }
     );
   }
