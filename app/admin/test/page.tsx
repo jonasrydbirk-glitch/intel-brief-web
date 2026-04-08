@@ -200,7 +200,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08-JET
+                Build 2026-04-08-DISPATCH
               </div>
             </div>
           </div>
@@ -307,15 +307,19 @@ export default function AdminTestPage() {
                           <button
                             onClick={() => dispatchBrief(sub.id)}
                             disabled={dispatching !== null}
-                            className="px-5 py-2.5 rounded-md text-sm font-bold tracking-wide transition-all
-                              bg-gradient-to-r from-amber-500 to-orange-500 text-black
-                              hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-amber-500/25
-                              active:scale-95
-                              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-medium tracking-wide transition-all
+                              bg-transparent text-white/90 border border-[#DBAC32]/50
+                              hover:bg-[#DBAC32]/10 hover:border-[#DBAC32] hover:shadow-[0_0_12px_rgba(219,172,50,0.15)]
+                              active:scale-[0.97]
+                              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:bg-transparent"
                           >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5">
+                              <path d="M22 2L11 13" />
+                              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                            </svg>
                             {dispatching === sub.id
-                              ? "Dispatching..."
-                              : "DISPATCH FULL INTEL BRIEF"}
+                              ? "Dispatching\u2026"
+                              : "Dispatch Brief"}
                           </button>
                         )}
                       </td>
