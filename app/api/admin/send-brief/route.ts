@@ -3,16 +3,7 @@ import { cookies } from "next/headers";
 import { generateBrief } from "@/engine/brief-generator";
 import { renderBriefPdf } from "@/lib/render-pdf";
 import { sendEmail } from "@/lib/delivery";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ??
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  "";
-const SUPABASE_KEY =
-  process.env.SUPABASE_ANON_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "";
+import { supabase } from "@/lib/supabase";
 
 /**
  * POST /api/admin/send-brief
@@ -42,7 +33,6 @@ export async function POST(request: Request) {
     }
 
     // Look up subscriber email
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data: subscriber, error: subErr } = await supabase
       .from("subscribers")
       .select("email, fullName")

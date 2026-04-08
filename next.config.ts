@@ -5,15 +5,18 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
   },
   async headers() {
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://iqsea.io";
+
     return [
       {
-        // Allow CORS on all API routes so the Vercel-deployed frontend
-        // can reach them without "network error" on any origin.
+        // CORS on all API routes — also handles OPTIONS preflight so the
+        // browser never blocks a legitimate same-origin request.
         source: "/api/:path*",
         headers: [
           {
             key: "Access-Control-Allow-Origin",
-            value: process.env.NEXT_PUBLIC_SITE_URL ?? "https://iqsea.io",
+            value: origin,
           },
           {
             key: "Access-Control-Allow-Methods",
@@ -21,11 +24,21 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Access-Control-Allow-Headers",
-            value: "Content-Type, Authorization",
+            value:
+              "Content-Type, Authorization, X-Requested-With, Accept, Cache-Control",
           },
           {
             key: "Access-Control-Allow-Credentials",
             value: "true",
+          },
+          {
+            // Cache preflight for 10 min so browsers don't re-issue OPTIONS
+            key: "Access-Control-Max-Age",
+            value: "600",
+          },
+          {
+            key: "Vary",
+            value: "Origin",
           },
         ],
       },

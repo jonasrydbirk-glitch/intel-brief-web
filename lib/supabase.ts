@@ -17,6 +17,10 @@ function fetchWithTimeout(
 }
 
 export function getSupabaseUrl(): string {
+  // Server-only env vars first — NEXT_PUBLIC_ vars are inlined into the
+  // client bundle by Next.js, which can cause the browser to attempt direct
+  // connections to the Supabase host.  Keep them as a last-resort fallback
+  // so server-side code still works if only the public vars are set.
   const raw =
     process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   // Strip any accidental double-protocol prefix (https://https://…)

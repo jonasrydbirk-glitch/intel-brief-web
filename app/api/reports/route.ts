@@ -1,15 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "@/app/lib/session";
-import { createClient } from "@supabase/supabase-js";
-
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ??
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  "";
-const SUPABASE_KEY =
-  process.env.SUPABASE_ANON_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  "";
+import { supabase } from "@/lib/supabase";
 
 /**
  * GET /api/reports
@@ -22,8 +13,6 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const { data, error } = await supabase
     .from("reports")
