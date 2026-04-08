@@ -131,7 +131,10 @@ export default function AdminTestPage() {
       const startData = await startRes.json();
 
       if (!startRes.ok) {
-        setError(startData.error ?? "Failed to start brief job");
+        const msg = startData.details
+          ? `${startData.error}: ${startData.details}`
+          : (startData.error ?? "Failed to start brief job");
+        setError(msg);
         setGenerating(null);
         return;
       }
@@ -288,8 +291,8 @@ export default function AdminTestPage() {
               <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
                 IQsea v1.0
               </div>
-              <div className="text-[8px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-30 mt-1">
-                Build 2026-04-08b
+              <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
+                Build 2026-04-08c
               </div>
             </div>
           </div>

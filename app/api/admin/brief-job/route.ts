@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { after } from "next/server";
-import { nanoid } from "nanoid";
+import { randomUUID } from "crypto";
 import { generateBrief } from "@/engine/brief-generator";
 import { supabase } from "@/lib/supabase";
 
@@ -36,24 +36,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const jobId = nanoid(12);
+  const jobId = randomUUID();
 
   // Create the job row (status: pending)
-  const { error: insertErr } = await supabase.from("brief_jobs").insert({
-    id: jobId,
-    subscriber_id: subscriberId,
-    status: "pending",
-  });
+  // Wrapped in try/catch for resilience against schema mismatches
+  try {
+    const { error: insertErr } = await supabase.from("brief_jobs").insert({
+      id: jobId,
+      subscriber_id: subscriberId,
+      status: "pending",
+    });
 
-  if (insertErr) {
-    if (insertErr.message.includes("relation") || insertErr.message.includes("does not exist") || insertErr.code === "42P01") {
+    if (insertErr) {
+      if (insertErr.message.includes("relation") || insertErr.message.includes("does not exist") || insertErr.code === "42P01") {
+        return NextResponse.json(
+          { error: "Database Setup Required: the 'brief_jobs' table does not exist. Run the migration in migrations/001_brief_jobs.sql via the Supabase SQL Editor." },
+          { status: 503 }
+        );
+      }
       return NextResponse.json(
-        { error: "Database Setup Required: the 'brief_jobs' table does not exist. Run the migration in migrations/001_brief_jobs.sql via the Supabase SQL Editor." },
-        { status: 503 }
+        { error: "Database handshake failed", details: "Check brief_jobs table schema", raw: insertErr.message },
+        { status: 500 }
       );
     }
+  } catch (err) {
     return NextResponse.json(
-      { error: `Failed to create job: ${insertErr.message}` },
+      { error: "Database handshake failed", details: "Check brief_jobs table schema", raw: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
     );
   }

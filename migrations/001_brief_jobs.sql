@@ -2,7 +2,7 @@
 -- Run this once against your Supabase project (SQL Editor).
 
 CREATE TABLE IF NOT EXISTS brief_jobs (
-  id           TEXT PRIMARY KEY,
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   subscriber_id TEXT NOT NULL,
   status       TEXT NOT NULL DEFAULT 'pending',   -- pending | running | complete | error
   result       JSONB,                             -- BriefPayload on success
