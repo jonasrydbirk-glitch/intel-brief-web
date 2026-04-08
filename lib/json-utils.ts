@@ -1,0 +1,124 @@
+/**
+ * Shared JSON cleaning & parsing utilities.
+ *
+ * These are used by both the engine (brief-generator) and API routes
+ * to ensure consistent handling of LLM-produced JSON.
+ */
+
+// ---------------------------------------------------------------------------
+// JSON Repair — aggressive fix-up for common LLM JSON failures
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to repair broken JSON from LLM output. Handles:
+ * - Trailing commas before } or ]
+ * - Truncated responses (missing closing braces/brackets)
+ * - Unescaped control characters inside strings
+ */
+export function repairJSON(raw: string): string {
+  let s = raw;
+
+  // 1. Strip trailing commas before } or ] (with optional whitespace)
+  s = s.replace(/,\s*([\]}])/g, "$1");
+
+  // 2. Escape unescaped control characters inside string values
+  s = s.replace(/[\x00-\x1F]/g, (ch) => {
+    if (ch === "\n") return "\\n";
+    if (ch === "\r") return "\\r";
+    if (ch === "\t") return "\\t";
+    return "";
+  });
+
+  // 3. Fix truncated JSON — count unmatched braces/brackets and close them
+  let braces = 0;
+  let brackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") braces++;
+    else if (ch === "}") braces--;
+    else if (ch === "[") brackets++;
+    else if (ch === "]") brackets--;
+  }
+
+  // If we ended inside a string, close it
+  if (inString) s += '"';
+
+  // Append missing closing brackets/braces
+  while (brackets > 0) { s += "]"; brackets--; }
+  while (braces > 0) { s += "}"; braces--; }
+
+  // 4. One more pass to strip trailing commas that may have appeared before new closers
+  s = s.replace(/,\s*([\]}])/g, "$1");
+
+  return s;
+}
+
+// ---------------------------------------------------------------------------
+// Emoji / Unicode stripping
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip emojis and decorative Unicode symbols from a string.
+ * Covers Emoji_Presentation, Emoji_Modifier, Dingbats, Symbols, etc.
+ * Leaves standard punctuation, currency symbols, and Latin/Greek/Cyrillic intact.
+ */
+export function stripEmojis(str: string): string {
+  return str
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, "")   // Emoticons
+    .replace(/[\u{1F300}-\u{1F5FF}]/gu, "")   // Misc Symbols & Pictographs
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, "")   // Transport & Map
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, "")   // Flags
+    .replace(/[\u{2600}-\u{26FF}]/gu, "")      // Misc Symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, "")      // Dingbats
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, "")      // Variation Selectors
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, "")   // Supplemental Symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, "")   // Chess Symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, "")   // Symbols Extended-A
+    .replace(/[\u{200D}]/gu, "")               // Zero Width Joiner
+    .replace(/[\u{20E3}]/gu, "")               // Combining Enclosing Keycap
+    .replace(/\s{2,}/g, " ")                    // Collapse double spaces from removals
+    .trim();
+}
+
+// ---------------------------------------------------------------------------
+// IntelItem sanitisation
+// ---------------------------------------------------------------------------
+
+export interface IntelItem {
+  headline: string;
+  summary: string;
+  relevance: string;
+  source: string;
+}
+
+/** Sanitise an IntelItem — strip emojis from all text fields. */
+export function sanitiseItem(item: IntelItem): IntelItem {
+  return {
+    headline: stripEmojis(item.headline ?? ""),
+    summary: stripEmojis(item.summary ?? ""),
+    relevance: stripEmojis(item.relevance ?? ""),
+    source: stripEmojis(item.source ?? ""),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Safe JSON parse with repair fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a JSON string, attempting repair if the first parse fails.
+ * Returns the parsed object or throws if repair also fails.
+ */
+export function safeParseJSON<T = unknown>(raw: string): T {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    const repaired = repairJSON(raw);
+    return JSON.parse(repaired) as T;
+  }
+}

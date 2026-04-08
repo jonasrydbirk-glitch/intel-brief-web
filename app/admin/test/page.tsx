@@ -121,23 +121,54 @@ export default function AdminTestPage() {
     setError(null);
 
     try {
-      const res = await fetch("/api/admin/test-brief", {
+      // 1. Start background job — returns 202 immediately
+      const startRes = await fetch("/api/admin/brief-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subscriberId }),
       });
 
-      const data = await res.json();
+      const startData = await startRes.json();
 
-      if (!res.ok) {
-        setError(data.error ?? "Brief generation failed");
+      if (!startRes.ok) {
+        setError(startData.error ?? "Failed to start brief job");
+        setGenerating(null);
         return;
       }
 
-      setBriefResult(data.brief);
+      const { jobId } = startData as { jobId: string };
+
+      // 2. Poll for completion every 3 seconds
+      const poll = async (): Promise<void> => {
+        const pollRes = await fetch(`/api/admin/brief-job?jobId=${jobId}`);
+        const job = await pollRes.json();
+
+        if (!pollRes.ok) {
+          setError(job.error ?? "Failed to poll job status");
+          setGenerating(null);
+          return;
+        }
+
+        if (job.status === "complete") {
+          setBriefResult(job.result);
+          setGenerating(null);
+          return;
+        }
+
+        if (job.status === "error") {
+          setError(job.error ?? "Brief generation failed");
+          setGenerating(null);
+          return;
+        }
+
+        // Still pending or running — poll again
+        await new Promise((r) => setTimeout(r, 3000));
+        return poll();
+      };
+
+      await poll();
     } catch {
       setError("Network error — could not reach the server");
-    } finally {
       setGenerating(null);
     }
   }
@@ -258,7 +289,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[8px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-30 mt-1">
-                Build 2026-04-08a
+                Build 2026-04-08b
               </div>
             </div>
           </div>
@@ -349,6 +380,7 @@ export default function AdminTestPage() {
                 <thead>
                   <tr className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
                     <th className="text-left px-4 py-3">Name</th>
+                    <th className="text-left px-4 py-3">Email</th>
                     <th className="text-left px-4 py-3">Company</th>
                     <th className="text-left px-4 py-3">ID</th>
                     <th className="text-left px-4 py-3">Depth</th>
@@ -363,6 +395,9 @@ export default function AdminTestPage() {
                     >
                       <td className="px-4 py-3 font-medium">
                         {sub.fullName || sub.email}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {sub.email || "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {sub.companyName || "—"}

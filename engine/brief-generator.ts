@@ -9,6 +9,7 @@
 
 // dotenv is loaded conditionally in CLI mode only — Next.js handles env natively
 import { createClient } from "@supabase/supabase-js";
+import { repairJSON, stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
 
 // ---------------------------------------------------------------------------
 // Config (reads from env — provide via .env or shell)
@@ -282,64 +283,6 @@ Return a JSON object with a single key "queries" containing an array of query st
 }
 
 // ---------------------------------------------------------------------------
-// JSON Repair — aggressive fix-up for common LLM JSON failures
-// ---------------------------------------------------------------------------
-
-/**
- * Attempt to repair broken JSON from LLM output. Handles:
- * - Trailing commas before } or ]
- * - Truncated responses (missing closing braces/brackets)
- * - Unescaped control characters inside strings
- * - Single-quoted strings converted to double-quoted
- */
-function repairJSON(raw: string): string {
-  let s = raw;
-
-  // 1. Strip trailing commas before } or ] (with optional whitespace)
-  s = s.replace(/,\s*([\]}])/g, "$1");
-
-  // 2. Replace single-quoted strings with double-quoted (naive but effective for LLM output)
-  //    Only outside of already double-quoted strings — skip if content already has double quotes
-  //    This is intentionally conservative.
-
-  // 3. Escape unescaped control characters inside string values (newlines, tabs)
-  s = s.replace(/[\x00-\x1F]/g, (ch) => {
-    if (ch === "\n") return "\\n";
-    if (ch === "\r") return "\\r";
-    if (ch === "\t") return "\\t";
-    return "";
-  });
-
-  // 4. Fix truncated JSON — count unmatched braces/brackets and close them
-  let braces = 0;
-  let brackets = 0;
-  let inString = false;
-  let escaped = false;
-  for (const ch of s) {
-    if (escaped) { escaped = false; continue; }
-    if (ch === "\\") { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") braces++;
-    else if (ch === "}") braces--;
-    else if (ch === "[") brackets++;
-    else if (ch === "]") brackets--;
-  }
-
-  // If we ended inside a string, close it
-  if (inString) s += '"';
-
-  // Append missing closing brackets/braces
-  while (brackets > 0) { s += "]"; brackets--; }
-  while (braces > 0) { s += "}"; braces--; }
-
-  // 5. One more pass to strip trailing commas that may have appeared before new closers
-  s = s.replace(/,\s*([\]}])/g, "$1");
-
-  return s;
-}
-
-// ---------------------------------------------------------------------------
 // Stage 2 — Architect (Claude Sonnet 4.6): synthesise raw data through
 //           the "Marine Engineer" analytical lens
 // ---------------------------------------------------------------------------
@@ -541,50 +484,12 @@ Produce the intelligence brief as a JSON object with this exact shape:
   const jsonStr = stripped.substring(firstBrace, lastBrace > firstBrace ? lastBrace + 1 : undefined);
 
   // Try strict parse first, then fall back to aggressive repair
-  try {
-    return JSON.parse(jsonStr) as BriefPayload;
-  } catch {
-    const repaired = repairJSON(jsonStr);
-    return JSON.parse(repaired) as BriefPayload;
-  }
+  return safeParseJSON<BriefPayload>(jsonStr);
 }
 
 // ---------------------------------------------------------------------------
 // Stage 3 — Scribe: format the BriefPayload for the Next.js PDF template
 // ---------------------------------------------------------------------------
-
-/**
- * Strip emojis and decorative Unicode symbols from a string.
- * Covers Emoji_Presentation, Emoji_Modifier, Dingbats, Symbols, etc.
- * Leaves standard punctuation, currency symbols, and Latin/Greek/Cyrillic intact.
- */
-function stripEmojis(str: string): string {
-  return str
-    .replace(/[\u{1F600}-\u{1F64F}]/gu, "")   // Emoticons
-    .replace(/[\u{1F300}-\u{1F5FF}]/gu, "")   // Misc Symbols & Pictographs
-    .replace(/[\u{1F680}-\u{1F6FF}]/gu, "")   // Transport & Map
-    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, "")   // Flags
-    .replace(/[\u{2600}-\u{26FF}]/gu, "")      // Misc Symbols
-    .replace(/[\u{2700}-\u{27BF}]/gu, "")      // Dingbats
-    .replace(/[\u{FE00}-\u{FE0F}]/gu, "")      // Variation Selectors
-    .replace(/[\u{1F900}-\u{1F9FF}]/gu, "")   // Supplemental Symbols
-    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, "")   // Chess Symbols
-    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, "")   // Symbols Extended-A
-    .replace(/[\u{200D}]/gu, "")               // Zero Width Joiner
-    .replace(/[\u{20E3}]/gu, "")               // Combining Enclosing Keycap
-    .replace(/\s{2,}/g, " ")                    // Collapse double spaces from removals
-    .trim();
-}
-
-/** Sanitise an IntelItem — strip emojis from all text fields. */
-function sanitiseItem(item: IntelItem): IntelItem {
-  return {
-    headline: stripEmojis(item.headline ?? ""),
-    summary: stripEmojis(item.summary ?? ""),
-    relevance: stripEmojis(item.relevance ?? ""),
-    source: stripEmojis(item.source ?? ""),
-  };
-}
 
 export function scribeStage(brief: BriefPayload): BriefPayload {
   // Normalise, clean up, and strip rogue emojis from professional sections
