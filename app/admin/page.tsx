@@ -647,6 +647,9 @@ export default function AdminDashboard() {
               <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
                 IQsea v1.0
               </div>
+              <div className="text-[8px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-30 mt-1">
+                Build 2026-04-08a
+              </div>
             </div>
           </div>
         </aside>

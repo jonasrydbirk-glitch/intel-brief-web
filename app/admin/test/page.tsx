@@ -16,6 +16,83 @@ interface Subscriber {
   created: string;
 }
 
+type NavSection = "overview" | "users" | "tenders" | "outreach" | "logs";
+
+const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
+  {
+    key: "overview",
+    label: "Overview",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+  },
+  {
+    key: "users",
+    label: "Users",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    key: "tenders",
+    label: "Tenders",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    key: "outreach",
+    label: "Outreach",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <path d="M22 2L11 13" />
+        <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+      </svg>
+    ),
+  },
+  {
+    key: "logs",
+    label: "System Logs",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
+      </svg>
+    ),
+  },
+];
+
+function StatusDot({ status }: { status: "online" | "idle" | "alert" }) {
+  const colors = {
+    online: "bg-emerald-400",
+    idle: "bg-[var(--gold-500)]",
+    alert: "bg-red-400",
+  };
+  return (
+    <span className="relative flex h-2 w-2">
+      {status === "online" && (
+        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${colors[status]} opacity-75`} />
+      )}
+      <span className={`relative inline-flex rounded-full h-2 w-2 ${colors[status]}`} />
+    </span>
+  );
+}
+
 export default function AdminTestPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,29 +202,106 @@ export default function AdminTestPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <IQseaLogoSmall />
-          <span className="text-sm font-medium text-muted-foreground">
-            Admin / Test Trigger
-          </span>
+    <div className="min-h-screen flex flex-col bg-[var(--background)]">
+      {/* Top bar — matches Mission Control */}
+      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--navy-950)]/95 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center">
+              <IQseaLogoSmall className="h-6" />
+            </Link>
+            <span className="text-[var(--border)]">|</span>
+            <span className="text-[10px] tracking-[0.2em] text-[var(--gold-400)] font-[family-name:var(--font-geist-mono)] font-semibold">
+              MISSION CONTROL
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+            <StatusDot status="online" />
+            <span>ADMIN</span>
+          </div>
         </div>
-        <Link
-          href="/admin"
-          className="text-xs text-accent hover:underline"
-        >
-          Back to Mission Control
-        </Link>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
-        <h1 className="text-2xl font-bold mb-1">Brief Test Trigger</h1>
-        <p className="text-sm text-muted-foreground mb-8">
-          Select a subscriber and run the Scout / Architect / Scribe pipeline.
-          Results appear below.
-        </p>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — matches Mission Control */}
+        <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:block">
+          <nav className="space-y-0.5 px-2">
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.key}
+                href="/admin"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Test Center link — active state */}
+          <div className="px-2 mt-4">
+            <Link
+              href="/admin/test"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors bg-[var(--gold-500)]/10 text-[var(--gold-300)] font-semibold font-[family-name:var(--font-geist-mono)]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+              </svg>
+              Test Center
+            </Link>
+          </div>
+
+          {/* Sidebar footer */}
+          <div className="mt-auto px-4 pt-6">
+            <div className="border-t border-[var(--border)] pt-4">
+              <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
+                IQsea v1.0
+              </div>
+              <div className="text-[8px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-30 mt-1">
+                Build 2026-04-08a
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile nav */}
+        <div className="md:hidden border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.key}
+              href="/admin"
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]"
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href="/admin/test"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-[var(--gold-500)]/10 text-[var(--gold-300)] font-semibold font-[family-name:var(--font-geist-mono)]"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            Test Center
+          </Link>
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-5xl mx-auto">
+            {/* Page title */}
+            <div className="mb-6">
+              <h1 className="text-lg font-bold font-[family-name:var(--font-geist-mono)] tracking-tight">
+                Brief Test Trigger
+              </h1>
+              <div className="h-px bg-gradient-to-r from-[var(--teal-500)]/50 via-[var(--gold-500)]/30 to-transparent mt-2" />
+            </div>
+
+            <p className="text-sm text-[var(--muted-foreground)] mb-8">
+              Select a subscriber and run the Scout / Architect / Scribe pipeline.
+              Results appear below.
+            </p>
 
         {/* Error banner */}
         {error && (
@@ -410,7 +564,10 @@ export default function AdminTestPage() {
             </details>
           </section>
         )}
-      </main>
+
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

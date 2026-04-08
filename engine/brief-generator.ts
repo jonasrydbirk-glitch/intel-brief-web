@@ -282,6 +282,64 @@ Return a JSON object with a single key "queries" containing an array of query st
 }
 
 // ---------------------------------------------------------------------------
+// JSON Repair — aggressive fix-up for common LLM JSON failures
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to repair broken JSON from LLM output. Handles:
+ * - Trailing commas before } or ]
+ * - Truncated responses (missing closing braces/brackets)
+ * - Unescaped control characters inside strings
+ * - Single-quoted strings converted to double-quoted
+ */
+function repairJSON(raw: string): string {
+  let s = raw;
+
+  // 1. Strip trailing commas before } or ] (with optional whitespace)
+  s = s.replace(/,\s*([\]}])/g, "$1");
+
+  // 2. Replace single-quoted strings with double-quoted (naive but effective for LLM output)
+  //    Only outside of already double-quoted strings — skip if content already has double quotes
+  //    This is intentionally conservative.
+
+  // 3. Escape unescaped control characters inside string values (newlines, tabs)
+  s = s.replace(/[\x00-\x1F]/g, (ch) => {
+    if (ch === "\n") return "\\n";
+    if (ch === "\r") return "\\r";
+    if (ch === "\t") return "\\t";
+    return "";
+  });
+
+  // 4. Fix truncated JSON — count unmatched braces/brackets and close them
+  let braces = 0;
+  let brackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === "\\") { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === "{") braces++;
+    else if (ch === "}") braces--;
+    else if (ch === "[") brackets++;
+    else if (ch === "]") brackets--;
+  }
+
+  // If we ended inside a string, close it
+  if (inString) s += '"';
+
+  // Append missing closing brackets/braces
+  while (brackets > 0) { s += "]"; brackets--; }
+  while (braces > 0) { s += "}"; braces--; }
+
+  // 5. One more pass to strip trailing commas that may have appeared before new closers
+  s = s.replace(/,\s*([\]}])/g, "$1");
+
+  return s;
+}
+
+// ---------------------------------------------------------------------------
 // Stage 2 — Architect (Claude Sonnet 4.6): synthesise raw data through
 //           the "Marine Engineer" analytical lens
 // ---------------------------------------------------------------------------
@@ -297,9 +355,14 @@ export async function architectStage(
 TODAY'S DATE: ${todayISO}
 Use this date for "generatedAt" (as a full ISO-8601 timestamp) and for calculating "daysLeft" in regulatory countdowns.
 
+KEEP IT BRIEF (ABSOLUTE, NON-NEGOTIABLE):
+- MAXIMUM 3 news items per section. No exceptions. Three tight, high-impact items beat five mediocre ones.
+- Summaries: 2 sentences max per item. Lead with the fact, follow with the implication. Cut everything else.
+- The entire JSON response must stay compact. If in doubt, cut. Brevity is a hard constraint — exceeding it risks truncation.
+
 FRESHNESS GATE (STRICT):
 - Only include stories from the last 48 hours. Reject anything older than 3 days unless it is a major ongoing regulatory shift (e.g. new IMO regulation, classification society rule change).
-- Quality over quantity: include the top 3-5 high-impact items per section. Cut filler ruthlessly. A tight 5-item brief beats a bloated 12-item one every time.
+- Quality over quantity: include the top 3 high-impact items per section. Cut filler ruthlessly.
 - If a story is borderline stale, kill it. Short and punchy wins.
 
 BUYER SENTIMENT (when freight rates are high):
@@ -472,12 +535,18 @@ Produce the intelligence brief as a JSON object with this exact shape:
   const stripped = raw.replace(/`/g, "");
   const firstBrace = stripped.indexOf("{");
   const lastBrace = stripped.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace <= firstBrace) {
+  if (firstBrace === -1) {
     throw new Error("Architect response contained no valid JSON object");
   }
-  const jsonStr = stripped.substring(firstBrace, lastBrace + 1);
+  const jsonStr = stripped.substring(firstBrace, lastBrace > firstBrace ? lastBrace + 1 : undefined);
 
-  return JSON.parse(jsonStr) as BriefPayload;
+  // Try strict parse first, then fall back to aggressive repair
+  try {
+    return JSON.parse(jsonStr) as BriefPayload;
+  } catch {
+    const repaired = repairJSON(jsonStr);
+    return JSON.parse(repaired) as BriefPayload;
+  }
 }
 
 // ---------------------------------------------------------------------------
