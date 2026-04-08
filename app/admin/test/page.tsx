@@ -200,7 +200,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08-DISPATCH
+                Build 2026-04-08-JET-REFINED
               </div>
             </div>
           </div>
@@ -300,8 +300,11 @@ export default function AdminTestPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {dispatched.has(sub.id) ? (
-                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold text-emerald-300 bg-emerald-900/30 border border-emerald-500/40">
-                            Dispatch Sent — PDF arriving ~2 min
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] tracking-wide text-[var(--teal-400)] bg-white/[0.03] border border-white/[0.06]">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 opacity-70">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Intel brief dispatch command accepted. Processing on Beelink…
                           </span>
                         ) : (
                           <button
