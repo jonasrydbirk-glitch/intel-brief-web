@@ -35,7 +35,8 @@ const SUPABASE_KEY =
   "";
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  throw new Error("Missing Supabase credentials.");
+  console.error("[Warden] Missing Supabase credentials — check env vars.");
+  process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -49,6 +50,7 @@ const LOG_PATH = path.join(__dirname, "warden.log");
 function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
   const ts = new Date().toISOString();
   const line = `[${ts}] [${level}] ${message}`;
+  console.log(line);
   try {
     fs.appendFileSync(LOG_PATH, line + "\n", "utf-8");
   } catch {
@@ -167,7 +169,7 @@ async function alreadySentToday(
 }
 
 // ---------------------------------------------------------------------------
-// Dispatch pipeline (mirrors /api/admin/send-brief)
+// Dispatch pipeline (Engine → PDF → Email → Report record)
 // ---------------------------------------------------------------------------
 
 async function dispatchBrief(subscriber: {
@@ -388,46 +390,61 @@ async function scan(): Promise<void> {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function main(): Promise<void> {
+  console.log("Warden starting...");
+
   const args = process.argv.slice(2);
   const loopIdx = args.indexOf("--loop");
 
   if (loopIdx !== -1) {
     const intervalMin = parseInt(args[loopIdx + 1] || "5", 10);
-    const intervalMs = intervalMin * 60_000;
-    log("INFO", `Warden starting in loop mode — scanning every ${intervalMin} minute(s), job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
+    const scanIntervalMs = intervalMin * 60_000;
+    log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
 
-    // Initial scan + job queue check
-    await scan();
-    await processJobQueue();
+    let lastScanTime = 0;
 
-    // Scheduled subscriber dispatch on the slow interval
-    setInterval(async () => {
-      try {
-        await scan();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log("ERROR", `Unhandled error during scan: ${msg}`);
-      }
-    }, intervalMs);
+    // Keep the process alive with an explicit while(true) loop
+    while (true) {
+      const now = Date.now();
 
-    // Job queue polling on the fast interval (10s)
-    setInterval(async () => {
+      // Job queue poll every iteration (fast interval)
       try {
         await processJobQueue();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during job queue poll: ${msg}`);
       }
-    }, JOB_POLL_INTERVAL_MS);
+
+      // Subscriber scan on the slow interval
+      if (now - lastScanTime >= scanIntervalMs) {
+        try {
+          await scan();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log("ERROR", `Unhandled error during scan: ${msg}`);
+        }
+        lastScanTime = Date.now();
+      }
+
+      await sleep(JOB_POLL_INTERVAL_MS);
+    }
   } else {
-    // One-shot mode — run both
-    await scan();
-    await processJobQueue();
+    // One-shot mode — run both, then exit
+    try {
+      await scan();
+      await processJobQueue();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log("ERROR", `One-shot error: ${msg}`);
+    }
   }
 }
 
 main().catch((err) => {
-  log("ERROR", `Fatal: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(`[Warden] Fatal: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });
