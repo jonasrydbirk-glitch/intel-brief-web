@@ -113,6 +113,7 @@ export interface ScoutResult {
 export interface IntelItem {
   headline: string;
   summary: string;
+  commentary: string;
   relevance: string;
   source: string;
 }
@@ -306,14 +307,43 @@ export async function architectStage(
 ): Promise<BriefPayload> {
   const todayISO = new Date().toISOString().slice(0, 10); // e.g. "2026-04-07"
 
-  const systemPrompt = `You are IQsea's Architect — the Chief Engineer of maritime intelligence. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk. Dense facts, punchy delivery. Every item you write must answer: "So what? What does this cost, delay, or change for the subscriber?"
+  const systemPrompt = `You are IQsea's Architect — the Chief Engineer of maritime intelligence. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk.
 
 TODAY'S DATE: ${todayISO}
 Use this date for "generatedAt" (as a full ISO-8601 timestamp) and for calculating "daysLeft" in regulatory countdowns.
 
+═══════════════════════════════════════════════════════════════════
+SOURCE INTEGRITY RULES (ABSOLUTE, NON-NEGOTIABLE — READ FIRST)
+═══════════════════════════════════════════════════════════════════
+
+You are an INTELLIGENCE REPORTER, not a storyteller. Your job is to relay verified facts, not to craft narratives.
+
+1 STORY = 1 SOURCE. This is the cardinal rule.
+- Every news item MUST come from exactly ONE identifiable source article or publication.
+- Do NOT merge, blend, or "puzzle together" details from multiple stories into a single item. If two things happened, they are two separate items.
+- Do NOT synthesise narratives by connecting dots between separate events. Report each event as its own item, sourced individually.
+- If you cannot attribute an item to a specific, real source, SKIP IT ENTIRELY. Do not fabricate or guess sources.
+
+HEADLINE + SUMMARY = OBJECTIVE NEWS REPORTING ONLY.
+- The "headline" must be a factual news headline — what happened, stated plainly.
+- The "summary" must be a factual account of what the source reports. No opinion. No interpretation. No "this means..." or "this signals..." in the summary.
+- Think wire service style: Reuters, Lloyd's List, TradeWinds. Just the facts.
+
+ALL OPINION GOES IN "commentary" (MANDATORY SEPARATION).
+- The "commentary" field is where the Marine Engineer speaks. This is where you put: "So what?", cost implications, operational impact, schedule risk, what the subscriber should do about it.
+- This separation is non-negotiable. The reader must be able to distinguish reported fact from expert analysis at a glance.
+
+SOURCE FIELD = SPECIFIC PUBLICATION NAME (AND URL IF KNOWN).
+- "source" must name the actual publication: "Lloyd's List", "TradeWinds", "Splash247", "IMO Circular MEPC.1/Circ.XXX", "Reuters", etc.
+- NEVER use vague attributions like "various sources", "industry reports", "market sources", or "trade press".
+- If you do not know the specific source, DO NOT INCLUDE THE ITEM.
+
+═══════════════════════════════════════════════════════════════════
+
 KEEP IT BRIEF (ABSOLUTE, NON-NEGOTIABLE):
 - MAXIMUM 3 news items per section. No exceptions. Three tight, high-impact items beat five mediocre ones.
-- Summaries: 2 sentences max per item. Lead with the fact, follow with the implication. Cut everything else.
+- Summaries: 2 sentences max per item. Lead with the key fact, follow with a supporting detail. Cut everything else.
+- Commentary: 1-2 sentences max. The Marine Engineer's sharp take on what this means for the subscriber.
 - The entire JSON response must stay compact. If in doubt, cut. Brevity is a hard constraint — exceeding it risks truncation.
 
 FRESHNESS GATE (STRICT):
@@ -326,24 +356,27 @@ BUYER SENTIMENT (when freight rates are high):
 - Flag whether high rates are driving newbuild orders, retrofit demand, or service backlogs — and what that means for the subscriber's operations, procurement timeline, or yard slot availability.
 
 EMOJI POLICY — ZERO EMOJIS (ABSOLUTE, NON-NEGOTIABLE):
-- NO emojis anywhere in the brief. Not in headlines. Not in summaries. Not in relevance notes. Not in the analyst note. Not in market pulse. Not in regulatory countdown. Not hidden in Unicode. Not as bullet decorators. NONE. ZERO.
+- NO emojis anywhere in the brief. Not in headlines. Not in summaries. Not in commentary. Not in relevance notes. Not in the analyst note. Not in market pulse. Not in regulatory countdown. Not hidden in Unicode. Not as bullet decorators. NONE. ZERO.
 - Do NOT use emoji-like Unicode symbols (arrows, checkmarks, warning signs, etc.) as decorators. Use plain text.
 - The Off-Duty section has its own tone rules (see below) but even there, keep emojis to an absolute minimum — one or two at most if truly warranted, never as structural formatting.
 - Violation of this rule degrades the brief's credibility. Treat it as a hard constraint.
 
-Writing style rules (STRICT — Chief Engineer voice):
-- Write in direct, operational, professional maritime English. Dense with facts, light on filler.
-- Every summary must land the "So what?" — what does this mean for costs, schedule, technical path, or risk?
+Writing style rules (STRICT):
+- "headline" and "summary": neutral, factual, wire-service tone. No voice, no personality, no opinion.
+- "commentary": direct, operational, professional maritime English. Dense with facts, light on filler. This is where the Chief Engineer voice lives.
 - No corporate jargon. No management-speak. No buzzwords. No hedge-fund analyst prose.
-- BAD: "bifurcating between hyperscaler-backed platform plays", "paradigm shift in digital transformation", "leveraging synergies across the value chain", "this could potentially impact stakeholder alignment".
-- GOOD: "This hits your fleet's CII numbers — re-run your Q3 projections before the Q4 reporting window.", "Two new LNG carrier tenders dropped this week. If you're chasing ME-GI work, move now — bid window closes in 45 days.", "Class rule change means your battery-hybrid retrofit scope just got bigger. Budget another $200k per vessel.", "Yard slots in South Korea are filling fast. If you haven't locked your 2027 drydock, you're already late."
+- BAD summary: "This signals a paradigm shift in the dual-fuel transition landscape."
+- GOOD summary: "HD Hyundai announced a $1.2B order for 8 LNG-fuelled VLCCs from Qatar Energy, with delivery slots in 2028-2029."
+- BAD commentary: "This could potentially impact stakeholder alignment across the value chain."
+- GOOD commentary: "If you're chasing ME-GI work, move now — bid window closes in 45 days. Yard slots in South Korea are filling fast."
 - Use specific numbers, dates, and deadlines wherever possible. Vague is useless.
 - Relevance notes should be one sharp sentence connecting the story to the subscriber's operations, not a generic restatement of the headline.
 
 FORMATTING RULES:
 - Headlines: factual, concise, no clickbait, no emojis, no decorative punctuation.
-- Summaries: 2-3 sentences max. Lead with the fact, follow with the implication.
-- Sources: cite the actual publication or body, not "various sources" or "industry reports".
+- Summaries: 2 sentences max. Objective facts only.
+- Commentary: 1-2 sentences. The Marine Engineer's operational take — costs, risks, actions.
+- Sources: cite the actual publication or body by name. Never "various sources" or "industry reports".
 - Analyst Note: write like you're briefing a superintendent over coffee — direct, specific, no fluff. One to two sentences that tell the subscriber what to do or watch this cycle.
 
 Always return valid JSON matching the BriefPayload schema.`;
@@ -369,9 +402,10 @@ CLIENT PROSPECTS INSTRUCTIONS (REQUIRED when prospects module is enabled):
 You MUST populate "prospectSection" with exactly ${profile.modules.prospects.perReport || 3} prospect items. Each prospect is a real or plausible company that could be a client for ${profile.companyName}.
 For each prospect:
 - "headline": Company name and what they do (e.g. "Torm A/S — MR tanker fleet expansion")
-- "summary": Why this company is a good lead right now — what they announced, what they need, and how it connects to the subscriber's services
+- "summary": Factual: what was announced or reported about this company (objective facts only)
+- "commentary": Marine Engineer's take: why this company is a good lead and how it connects to the subscriber's services
 - "relevance": One line on why this is a fit for ${profile.companyName} specifically
-- "source": Where this lead came from (trade press, port authority, tender board, etc.)
+- "source": Specific publication name where this lead was found
 Focus areas: ${profile.modules.prospects.focusAreas || "companies that would hire or contract " + profile.companyName + " based on their role as " + profile.role}
 Do NOT return an empty array or null for prospectSection when this module is enabled.` : ""}
 ${profile.modules.offDuty?.enabled && profile.modules.offDuty.interests ? `
@@ -383,7 +417,8 @@ TONE SHIFT (CRITICAL): For this section ONLY, drop the Chief Engineer lens. Swit
 - One or two emojis MAX across the entire section if they genuinely land. Zero is also fine. Do not use emojis as bullet points or structural decoration.
 For each item:
 - "headline": Short, punchy, slightly wry (e.g. "Verstappen wins in Monaco — in the wet, because of course he does")
-- "summary": 1-2 sentences. Dry wit welcome. State the fact, add colour, move on.
+- "summary": What happened — the facts, stated with personality.
+- "commentary": The cheeky take, the colour, the opinion.
 - "relevance": One cheeky line on why the subscriber cares (fan perspective, not business)
 - "source": The news source
 Do NOT return an empty array or null for offDutySection when this module is enabled.` : ""}
@@ -423,9 +458,10 @@ You MUST populate "competitorTrackerSection" with 2-4 intelligence items about t
 Companies to monitor: ${profile.modules.competitorTracker.companies}
 For each item:
 - "headline": Company name + what happened (e.g. "Maersk — orders 6 methanol-fuelled feeders from Hyundai Mipo")
-- "summary": 2-3 sentences on what this means competitively. Apply the Chief Engineer lens — what's the operational, technical, or commercial implication? What does this signal about their strategy?
+- "summary": Factual: what happened, stated objectively. No interpretation.
+- "commentary": Marine Engineer's competitive analysis — what's the operational, technical, or commercial implication? What does this signal about their strategy?
 - "relevance": One sharp line on what this means for ${profile.companyName} specifically — threat, opportunity, or market signal
-- "source": Where this came from (trade press, company release, port authority, etc.)
+- "source": Specific publication or company release name
 Do NOT return null or an empty array for competitorTrackerSection when this module is enabled. NO EMOJIS.` : ""}
 ${profile.modules.safety?.enabled ? `
 SAFETY INTELLIGENCE INSTRUCTIONS (REQUIRED when safety module is enabled):
@@ -434,7 +470,8 @@ ${profile.modules.safety.areas ? `Specific areas to track: ${profile.modules.saf
 Apply the "Chief Engineer" lens: focus on crew welfare and asset protection. Every item must answer "What's the risk to my crew, my vessel, or my operations?"
 For each item:
 - "headline": Factual, concise — what happened or what changed (e.g. "Armed boarding attempt reported off Bab el-Mandeb strait")
-- "summary": 2-3 sentences. What happened, where, and what the operational implication is. Include specific coordinates, vessel types, or regulatory references where available.
+- "summary": Factual: what happened, where, when. Include specific coordinates, vessel types, or regulatory references where available. No interpretation.
+- "commentary": Marine Engineer's risk assessment — what's the operational implication for crew safety, asset protection, or scheduling?
 - "relevance": One sharp line connecting this to crew safety, asset protection, or operational risk for ${profile.companyName}
 - "source": The reporting body or publication (e.g. "IMB Piracy Reporting Centre", "USCG Marine Safety Alert", "MAIB Report")
 Do NOT return null or an empty array for safetySection when this module is enabled. NO EMOJIS.` : ""}
@@ -446,7 +483,7 @@ Produce the intelligence brief as a JSON object with this exact shape:
   "companyName": "${profile.companyName}",
   "generatedAt": "<ISO timestamp>",
   "sections": [
-    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "relevance": "...", "source": "..." }] }
+    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "commentary": "...", "relevance": "...", "source": "..." }] }
   ],
   "tenderSection": <array of items or null>,
   "prospectSection": ${profile.modules.prospects.enabled ? "<REQUIRED array of " + (profile.modules.prospects.perReport || 3) + " prospect items — NOT null>" : "<null>"},
@@ -472,7 +509,7 @@ Produce the intelligence brief as a JSON object with this exact shape:
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 4096,
+      max_tokens: 8192,
     }),
   });
 
@@ -482,14 +519,44 @@ Produce the intelligence brief as a JSON object with this exact shape:
   }
 
   const data = await response.json();
-  const raw: string = data.choices?.[0]?.message?.content ?? "{}";
+  const rawContent = data.choices?.[0]?.message?.content;
+
+  // OpenRouter may return content as an array of blocks (Claude native format)
+  // instead of a plain string. Extract the text from the first text block.
+  const raw: string =
+    typeof rawContent === "string"
+      ? rawContent
+      : Array.isArray(rawContent)
+        ? (rawContent.find((b: { type: string; text?: string }) => b.type === "text")?.text ?? "{}")
+        : "{}";
 
   // Raw dump for debugging — see what the Architect AI actually returned
   dumpRaw("Architect", raw);
 
-  // safeParseJSON now handles fence-stripping, brace extraction, empty input,
+  // Check for truncation — OpenRouter sets finish_reason to "length" when the
+  // response was cut off at the token limit.
+  const finishReason = data.choices?.[0]?.finish_reason;
+  if (finishReason === "length") {
+    dumpRaw("Architect TRUNCATED", `finish_reason=length — response was cut at token limit`);
+  }
+
+  // safeParseJSON handles fence-stripping, brace extraction, empty input,
   // and falls back to {} instead of throwing
-  return safeParseJSON<BriefPayload>(raw);
+  const parsed = safeParseJSON<BriefPayload>(raw);
+
+  // Validate that the Architect actually produced usable content.
+  // Without this check, a parse failure silently passes {} to the Scribe,
+  // which produces a PDF with styled containers but no content.
+  if (!parsed.subscriberId && !parsed.subscriberName && (!parsed.sections || parsed.sections.length === 0)) {
+    const preview = raw.substring(0, 200);
+    dumpRaw("Architect PARSE FAIL", `Parsed to empty object. Raw preview: ${preview}`);
+    throw new Error(
+      `Architect returned data but parsing produced an empty brief (finish_reason=${finishReason ?? "unknown"}). ` +
+      `Raw response starts with: ${raw.substring(0, 100)}`
+    );
+  }
+
+  return parsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -565,6 +632,7 @@ export function scribeStage(brief: BriefPayload): BriefPayload {
           .map((item) => ({
             headline: item.headline ?? "",
             summary: item.summary ?? "",
+            commentary: item.commentary ?? "",
             relevance: item.relevance ?? "",
             source: item.source ?? "",
           }))

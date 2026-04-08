@@ -92,6 +92,7 @@ export function stripEmojis(str: string): string {
 export interface IntelItem {
   headline: string;
   summary: string;
+  commentary: string;
   relevance: string;
   source: string;
 }
@@ -101,6 +102,7 @@ export function sanitiseItem(item: IntelItem): IntelItem {
   return {
     headline: stripEmojis(item.headline ?? ""),
     summary: stripEmojis(item.summary ?? ""),
+    commentary: stripEmojis(item.commentary ?? ""),
     relevance: stripEmojis(item.relevance ?? ""),
     source: stripEmojis(item.source ?? ""),
   };
@@ -128,10 +130,19 @@ export function safeParseJSON<T = unknown>(raw: string): T {
 
   let s = raw.trim();
 
-  // Strip markdown fences that models love to add
-  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  // Strip markdown fences that models love to add.
+  // Use a GREEDY match so that if the response has both opening and closing
+  // fences, we capture the entire content between them (not just up to the
+  // first triple-backtick inside the JSON, which shouldn't exist but
+  // defensiveness costs nothing here).
+  const fence = s.match(/```(?:json)?\s*([\s\S]*)```\s*$/);
   if (fence) {
     s = fence[1].trim();
+  } else if (s.startsWith("```")) {
+    // Truncated response: opening fence present but no closing fence.
+    // Strip the opening fence and any language tag, then rely on brace
+    // extraction + repairJSON to recover what we can.
+    s = s.replace(/^```(?:json)?\s*/, "").trim();
   }
 
   // Strip any remaining backticks (stray decorators)

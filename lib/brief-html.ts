@@ -6,31 +6,39 @@
  *   - The print API route (app/api/print/generate-sample)
  *   - The local PDF renderer (lib/render-pdf.ts) — no network fetch needed
  *
- * Build 2026-04-08-VICTORY — null-safe field handling for all brief fields
+ * Build 2026-04-08-FACTUAL — source integrity: 1 story = 1 source, fact/opinion separation
  */
 
 import type { BriefPayload, IntelItem, MarketPulseEntry, RegulatoryCountdownEntry } from "@/engine/brief-generator";
 
 function renderItem(item: IntelItem): string {
+  const commentaryHtml = item.commentary
+    ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;margin-bottom:6px;padding:6px 10px;background:#eff6ff;border-radius:4px;font-style:italic;"><strong>Engineer's Take:</strong> ${esc(item.commentary)}</div>`
+    : "";
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:6px;">
-      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:4px;">${esc(item.headline)}</div>
+      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
+      <div style="font-size:11px;color:#0ea5e9;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
-      <div style="display:flex;gap:16px;font-size:11px;color:#64748b;">
+      ${commentaryHtml}
+      <div style="font-size:11px;color:#64748b;">
         <span><strong>Relevance:</strong> ${esc(item.relevance)}</span>
-        <span><strong>Source:</strong> ${esc(item.source)}</span>
       </div>
     </div>`;
 }
 
 function renderOffDutyItem(item: IntelItem): string {
+  const commentaryHtml = item.commentary
+    ? `<div style="font-size:12px;color:#7c3aed;line-height:1.5;margin-bottom:6px;padding:6px 10px;background:#f5f3ff;border-radius:4px;font-style:italic;">${esc(item.commentary)}</div>`
+    : "";
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#fdf4ff;border-left:3px solid #a855f7;border-radius:6px;">
-      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:4px;">${esc(item.headline)}</div>
+      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
+      <div style="font-size:11px;color:#a855f7;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
-      <div style="display:flex;gap:16px;font-size:11px;color:#64748b;">
+      ${commentaryHtml}
+      <div style="font-size:11px;color:#64748b;">
         <span><strong>Why you care:</strong> ${esc(item.relevance)}</span>
-        <span><strong>Source:</strong> ${esc(item.source)}</span>
       </div>
     </div>`;
 }
@@ -111,13 +119,17 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
 }
 
 function renderSafetyItem(item: IntelItem): string {
+  const commentaryHtml = item.commentary
+    ? `<div style="font-size:12px;color:#92400e;line-height:1.5;margin-bottom:6px;padding:6px 10px;background:#fef3c7;border-radius:4px;font-style:italic;"><strong>Risk Assessment:</strong> ${esc(item.commentary)}</div>`
+    : "";
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#fffbeb;border-left:3px solid #d97706;border-radius:6px;">
-      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:4px;">${esc(item.headline)}</div>
+      <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
+      <div style="font-size:11px;color:#d97706;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
-      <div style="display:flex;gap:16px;font-size:11px;color:#64748b;">
+      ${commentaryHtml}
+      <div style="font-size:11px;color:#64748b;">
         <span><strong>Risk:</strong> ${esc(item.relevance)}</span>
-        <span><strong>Source:</strong> ${esc(item.source)}</span>
       </div>
     </div>`;
 }
