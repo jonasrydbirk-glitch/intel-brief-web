@@ -292,7 +292,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08c
+                Build 2026-04-08d
               </div>
             </div>
           </div>

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { after } from "next/server";
-import { randomUUID } from "crypto";
 import { generateBrief } from "@/engine/brief-generator";
 import { supabase } from "@/lib/supabase";
 
@@ -36,16 +35,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const jobId = randomUUID();
-
   // Create the job row (status: pending)
-  // Wrapped in try/catch for resilience against schema mismatches
+  // Let Supabase generate the UUID primary key automatically.
+  // Wrapped in try/catch for resilience against schema mismatches.
+  let jobId: string;
   try {
-    const { error: insertErr } = await supabase.from("brief_jobs").insert({
-      id: jobId,
-      subscriber_id: subscriberId,
-      status: "pending",
-    });
+    const { data: insertData, error: insertErr } = await supabase
+      .from("brief_jobs")
+      .insert({
+        subscriber_id: subscriberId,
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (insertErr) {
       if (insertErr.message.includes("relation") || insertErr.message.includes("does not exist") || insertErr.code === "42P01") {
@@ -55,13 +57,15 @@ export async function POST(request: Request) {
         );
       }
       return NextResponse.json(
-        { error: "Database handshake failed", details: "Check brief_jobs table schema", raw: insertErr.message },
+        { error: "Database insert failed", details: insertErr.message },
         { status: 500 }
       );
     }
+
+    jobId = insertData.id;
   } catch (err) {
     return NextResponse.json(
-      { error: "Database handshake failed", details: "Check brief_jobs table schema", raw: err instanceof Error ? err.message : "Unknown error" },
+      { error: "Database insert failed", details: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
     );
   }

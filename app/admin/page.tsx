@@ -648,7 +648,7 @@ export default function AdminDashboard() {
                 IQsea v1.0
               </div>
               <div className="inline-block mt-1.5 px-2 py-0.5 rounded bg-[#DBAC32]/10 text-[8px] font-bold tracking-[0.1em] text-[#DBAC32] font-[family-name:var(--font-geist-mono)]">
-                Build 2026-04-08b
+                Build 2026-04-08d
               </div>
             </div>
           </div>
