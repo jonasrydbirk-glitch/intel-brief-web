@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -18,8 +17,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set("admin_session", "authenticated", {
+  // Set cookie directly on the response object so the Set-Cookie header
+  // is guaranteed to be included (cookies() from next/headers can silently
+  // drop the header when a new NextResponse is returned).
+  const response = NextResponse.json({ success: true });
+  response.cookies.set("admin_session", "authenticated", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -27,5 +29,5 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 8, // 8 hours
   });
 
-  return NextResponse.json({ success: true });
+  return response;
 }
