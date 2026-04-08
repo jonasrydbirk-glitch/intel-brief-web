@@ -9,7 +9,26 @@
 
 // dotenv is loaded conditionally in CLI mode only — Next.js handles env natively
 import { createClient } from "@supabase/supabase-js";
-import { repairJSON, stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
+import * as fs from "fs";
+import * as path from "path";
+import { stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
+
+// ---------------------------------------------------------------------------
+// Raw-dump logger — writes first 500 chars of AI response to warden.log
+// ---------------------------------------------------------------------------
+
+const ENGINE_LOG_PATH = path.join(__dirname, "warden.log");
+
+function dumpRaw(stage: string, raw: string): void {
+  const ts = new Date().toISOString();
+  const preview = (raw ?? "(null/undefined)").substring(0, 500).replace(/\n/g, "\\n");
+  const line = `[${ts}] [DEBUG] ${stage} raw response (first 500 chars): ${preview}\n`;
+  try {
+    fs.appendFileSync(ENGINE_LOG_PATH, line, "utf-8");
+  } catch {
+    // best-effort
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Config (reads from env — provide via .env or shell)
@@ -259,27 +278,21 @@ Return a JSON object with a single key "queries" containing an array of query st
   const content: string =
     data.choices?.[0]?.message?.content ?? "{}";
 
-  try {
-    // Strip markdown fences if present, then try brace extraction
-    let jsonStr = content.trim();
-    const fence = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fence) {
-      jsonStr = fence[1].trim();
-    } else {
-      const first = jsonStr.indexOf("{");
-      const last = jsonStr.lastIndexOf("}");
-      if (first !== -1 && last > first) jsonStr = jsonStr.substring(first, last + 1);
-    }
-    const parsed = JSON.parse(jsonStr);
-    return { queries: parsed.queries ?? [], rawFindings: [] };
-  } catch {
-    // If model didn't return clean JSON, extract lines as queries
-    const lines = content
-      .split("\n")
-      .map((l: string) => l.replace(/^\d+[\.\)]\s*/, "").trim())
-      .filter((l: string) => l.length > 10);
-    return { queries: lines, rawFindings: [] };
+  // Raw dump for debugging — see what the Scout AI actually returned
+  dumpRaw("Scout", content);
+
+  // safeParseJSON now handles fence-stripping, brace extraction, and empty input
+  const parsed = safeParseJSON<{ queries?: string[] }>(content);
+  if (parsed.queries && parsed.queries.length > 0) {
+    return { queries: parsed.queries, rawFindings: [] };
   }
+
+  // Fallback: if JSON parse returned no queries, extract lines as queries
+  const lines = content
+    .split("\n")
+    .map((l: string) => l.replace(/^\d+[\.\)]\s*/, "").trim())
+    .filter((l: string) => l.length > 10);
+  return { queries: lines, rawFindings: [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -471,20 +484,12 @@ Produce the intelligence brief as a JSON object with this exact shape:
   const data = await response.json();
   const raw: string = data.choices?.[0]?.message?.content ?? "{}";
 
-  // Extract JSON — strip markdown backticks first, then find outermost braces.
-  // Models sometimes wrap JSON in ```json ... ``` or stray backticks that break
-  // JSON.parse. We nuke ALL backticks before brace extraction so the parser
-  // never sees them.
-  const stripped = raw.replace(/`/g, "");
-  const firstBrace = stripped.indexOf("{");
-  const lastBrace = stripped.lastIndexOf("}");
-  if (firstBrace === -1) {
-    throw new Error("Architect response contained no valid JSON object");
-  }
-  const jsonStr = stripped.substring(firstBrace, lastBrace > firstBrace ? lastBrace + 1 : undefined);
+  // Raw dump for debugging — see what the Architect AI actually returned
+  dumpRaw("Architect", raw);
 
-  // Try strict parse first, then fall back to aggressive repair
-  return safeParseJSON<BriefPayload>(jsonStr);
+  // safeParseJSON now handles fence-stripping, brace extraction, empty input,
+  // and falls back to {} instead of throwing
+  return safeParseJSON<BriefPayload>(raw);
 }
 
 // ---------------------------------------------------------------------------

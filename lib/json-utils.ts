@@ -112,13 +112,54 @@ export function sanitiseItem(item: IntelItem): IntelItem {
 
 /**
  * Parse a JSON string, attempting repair if the first parse fails.
- * Returns the parsed object or throws if repair also fails.
+ *
+ * Defences:
+ *  1. Empty / null / undefined / whitespace-only → returns {} as T
+ *  2. Markdown fence stripping (```json ... ```)
+ *  3. Brace extraction (find outermost { … })
+ *  4. repairJSON() for trailing-comma / truncation / control-char issues
+ *  5. Final fallback → returns {} as T instead of throwing
  */
 export function safeParseJSON<T = unknown>(raw: string): T {
+  // Guard: empty, null, undefined, or whitespace-only input
+  if (!raw || !raw.trim()) {
+    return {} as T;
+  }
+
+  let s = raw.trim();
+
+  // Strip markdown fences that models love to add
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) {
+    s = fence[1].trim();
+  }
+
+  // Strip any remaining backticks (stray decorators)
+  s = s.replace(/`/g, "");
+
+  // Extract outermost JSON object if surrounded by prose
+  const firstBrace = s.indexOf("{");
+  const lastBrace = s.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    s = s.substring(firstBrace, lastBrace + 1);
+  }
+
+  // If we still have nothing parseable, bail early
+  if (!s || s === "{" || s === "}") {
+    return {} as T;
+  }
+
+  // Attempt 1: strict parse
   try {
-    return JSON.parse(raw) as T;
+    return JSON.parse(s) as T;
   } catch {
-    const repaired = repairJSON(raw);
-    return JSON.parse(repaired) as T;
+    // Attempt 2: aggressive repair, then parse
+    try {
+      const repaired = repairJSON(s);
+      return JSON.parse(repaired) as T;
+    } catch {
+      // Final fallback: return empty object rather than crashing the pipeline
+      return {} as T;
+    }
   }
 }
