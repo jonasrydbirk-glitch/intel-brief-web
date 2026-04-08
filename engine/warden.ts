@@ -6,8 +6,9 @@
  * triggers the full pipeline (Engine → PDF → Email → Report record).
  *
  * Usage:
- *   npx tsx engine/warden.ts            # one-shot scan
- *   npx tsx engine/warden.ts --loop 5   # scan every 5 minutes
+ *   npx tsx engine/warden.ts            # infinite loop (default) — polls jobs every 10s, scans subscribers every 5m
+ *   npx tsx engine/warden.ts --loop 10  # infinite loop with custom scan interval (10 minutes)
+ *   npx tsx engine/warden.ts --once     # one-shot scan, then exit
  *
  * Env:
  *   ENABLE_AUTO_DISPATCH=true   (master switch — skips all dispatches when false)
@@ -390,50 +391,15 @@ async function scan(): Promise<void> {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function main(): Promise<void> {
   console.log("Warden starting...");
 
   const args = process.argv.slice(2);
-  const loopIdx = args.indexOf("--loop");
+  const oneShot = args.includes("--once");
 
-  if (loopIdx !== -1) {
-    const intervalMin = parseInt(args[loopIdx + 1] || "5", 10);
-    const scanIntervalMs = intervalMin * 60_000;
-    log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
-
-    let lastScanTime = 0;
-
-    // Keep the process alive with an explicit while(true) loop
-    while (true) {
-      const now = Date.now();
-
-      // Job queue poll every iteration (fast interval)
-      try {
-        await processJobQueue();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        log("ERROR", `Unhandled error during job queue poll: ${msg}`);
-      }
-
-      // Subscriber scan on the slow interval
-      if (now - lastScanTime >= scanIntervalMs) {
-        try {
-          await scan();
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          log("ERROR", `Unhandled error during scan: ${msg}`);
-        }
-        lastScanTime = Date.now();
-      }
-
-      await sleep(JOB_POLL_INTERVAL_MS);
-    }
-  } else {
+  if (oneShot) {
     // One-shot mode — run both, then exit
+    log("INFO", "Warden one-shot mode (--once).");
     try {
       await scan();
       await processJobQueue();
@@ -441,6 +407,44 @@ async function main(): Promise<void> {
       const msg = err instanceof Error ? err.message : String(err);
       log("ERROR", `One-shot error: ${msg}`);
     }
+    return;
+  }
+
+  // Default: infinite loop mode
+  const loopIdx = args.indexOf("--loop");
+  const intervalMin = loopIdx !== -1
+    ? parseInt(args[loopIdx + 1] || "5", 10)
+    : 5;
+  const scanIntervalMs = intervalMin * 60_000;
+
+  log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
+
+  let lastScanTime = 0;
+
+  while (true) {
+    const now = Date.now();
+
+    // Job queue poll every iteration (fast interval)
+    try {
+      await processJobQueue();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log("ERROR", `Unhandled error during job queue poll: ${msg}`);
+    }
+
+    // Subscriber scan on the slow interval
+    if (now - lastScanTime >= scanIntervalMs) {
+      try {
+        await scan();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during scan: ${msg}`);
+      }
+      lastScanTime = Date.now();
+    }
+
+    console.log(`[Warden] Loop tick complete — sleeping ${JOB_POLL_INTERVAL_MS / 1000}s...`);
+    await new Promise(resolve => setTimeout(resolve, JOB_POLL_INTERVAL_MS));
   }
 }
 
