@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let body: { subscriberId?: string };
+    let body: { subscriberId?: string; dispatch_now?: boolean };
     try {
       body = await request.json();
     } catch {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { subscriberId } = body;
+    const { subscriberId, dispatch_now } = body;
     if (!subscriberId) {
       return NextResponse.json(
         { error: "subscriberId is required" },
@@ -51,6 +51,7 @@ export async function POST(request: Request) {
         .insert({
           subscriber_id: subscriberId,
           status: "pending",
+          ...(dispatch_now ? { dispatch_now: true } : {}),
         })
         .select("id")
         .single();

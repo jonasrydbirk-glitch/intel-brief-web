@@ -263,7 +263,7 @@ const JOB_POLL_INTERVAL_MS = 10_000; // 10 seconds
 async function processJobQueue(): Promise<void> {
   const { data: pendingJobs, error: fetchErr } = await supabase
     .from("brief_jobs")
-    .select("id, subscriber_id")
+    .select("id, subscriber_id, dispatch_now")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -284,20 +284,108 @@ async function processJobQueue(): Promise<void> {
         .update({ status: "processing", updated_at: new Date().toISOString() })
         .eq("id", job.id);
 
-      log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}`);
+      log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}`);
 
       const brief = await generateBrief(job.subscriber_id);
 
-      await supabase
-        .from("brief_jobs")
-        .update({
-          status: "complete",
-          result: brief,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", job.id);
+      if (job.dispatch_now) {
+        // JET mode: full pipeline — generate + PDF + email delivery
+        log("INFO", `Job ${job.id} — rendering PDF...`);
 
-      log("INFO", `Job ${job.id} complete.`);
+        // Look up subscriber email + name for delivery
+        const { data: sub, error: subErr } = await supabase
+          .from("subscribers")
+          .select("email, fullName")
+          .eq("id", job.subscriber_id)
+          .single();
+
+        if (subErr || !sub) {
+          throw new Error(`Subscriber lookup failed: ${subErr?.message ?? "not found"}`);
+        }
+
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+        const pdfBuffer = await renderBriefPdf(brief, baseUrl);
+        const pdfBase64 = pdfBuffer.toString("base64");
+
+        const dateStr = new Date().toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+        const subject = `Your IQsea Intel Brief - ${dateStr}`;
+        const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
+
+        const htmlBody = `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+            <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
+              <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
+              <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
+            </div>
+            <div style="padding:24px 0;">
+              <p style="font-size:15px;line-height:1.6;">Hi ${sub.fullName || "there"},</p>
+              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+                Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
+                and covers the latest developments relevant to your profile.
+              </p>
+              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+                Open the attached PDF for the full analysis.
+              </p>
+            </div>
+            <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+              IQsea Intel Engine &middot; Confidential
+            </div>
+          </div>
+        `;
+
+        log("INFO", `Job ${job.id} — sending email to ${sub.email}...`);
+
+        await sendEmail({
+          to: sub.email,
+          from: "brief@iqsea.io",
+          subject,
+          htmlBody,
+          attachments: [
+            {
+              filename: pdfFilename,
+              contentBytes: pdfBase64,
+              contentType: "application/pdf",
+            },
+          ],
+        });
+
+        // Record delivery in reports table
+        await supabase.from("reports").insert({
+          user_id: job.subscriber_id,
+          type: "daily",
+          status: "delivered",
+          subject,
+          generated_at: new Date().toISOString(),
+          pdf_url: null,
+        });
+
+        await supabase
+          .from("brief_jobs")
+          .update({
+            status: "delivered",
+            result: brief,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+
+        log("INFO", `Job ${job.id} DELIVERED to ${sub.email}.`);
+      } else {
+        // Legacy mode: just generate and store result
+        await supabase
+          .from("brief_jobs")
+          .update({
+            status: "complete",
+            result: brief,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+
+        log("INFO", `Job ${job.id} complete.`);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       log("ERROR", `Job ${job.id} failed: ${message}`);

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IQseaLogoSmall } from "../../components/iqsea-logo";
-import type { BriefPayload } from "@/engine/brief-generator";
 
 interface Subscriber {
   id: string;
@@ -96,11 +95,8 @@ function StatusDot({ status }: { status: "online" | "idle" | "alert" }) {
 export default function AdminTestPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [sending, setSending] = useState<string | null>(null);
-  const [briefResult, setBriefResult] = useState<BriefPayload | null>(null);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
-  const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState<string | null>(null);
+  const [dispatched, setDispatched] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,128 +112,34 @@ export default function AdminTestPage() {
       });
   }, []);
 
-  async function runBrief(subscriberId: string) {
-    setGenerating(subscriberId);
-    setBriefResult(null);
-    setError(null);
-    setJobStatus("pending");
-
-    try {
-      // 1. Start background job — returns 202 immediately
-      const startRes = await fetch("/api/admin/brief-job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriberId }),
-      });
-
-      const startData = await startRes.json();
-
-      if (!startRes.ok) {
-        const msg = startData.details
-          ? `${startData.error}: ${startData.details}`
-          : (startData.error ?? "Failed to start brief job");
-        setError(msg);
-        setGenerating(null);
-        return;
-      }
-
-      const { jobId } = startData as { jobId: string };
-
-      // 2. Poll for completion every 3 seconds
-      const poll = async (): Promise<void> => {
-        const pollRes = await fetch(`/api/admin/brief-job?jobId=${jobId}`);
-        const job = await pollRes.json();
-
-        if (!pollRes.ok) {
-          setError(job.error ?? "Failed to poll job status");
-          setGenerating(null);
-          return;
-        }
-
-        setJobStatus(job.status);
-
-        if (job.status === "complete") {
-          setBriefResult(job.result);
-          setGenerating(null);
-          setJobStatus(null);
-          return;
-        }
-
-        if (job.status === "error") {
-          setError(job.error ?? "Brief generation failed");
-          setGenerating(null);
-          setJobStatus(null);
-          return;
-        }
-
-        // Still pending or processing — poll again
-        await new Promise((r) => setTimeout(r, 3000));
-        return poll();
-      };
-
-      await poll();
-    } catch {
-      setError("Network error — could not reach the server");
-      setGenerating(null);
-    }
-  }
-
-  function openPdfPreview() {
-    if (!briefResult) return;
-
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/print/generate-sample";
-    form.target = "_blank";
-
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "json";
-    input.value = JSON.stringify(briefResult);
-    form.appendChild(input);
-
-    // The print endpoint expects JSON body, so use fetch + blob instead
-    fetch("/api/print/generate-sample", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(briefResult),
-    })
-      .then((r) => r.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-      })
-      .catch(() => setError("Failed to open PDF preview"));
-  }
-
-  async function emailBrief(subscriberId: string) {
-    if (!briefResult) {
-      setError("Generate a brief first before emailing.");
-      return;
-    }
-    setSending(subscriberId);
-    setEmailStatus(null);
+  async function dispatchBrief(subscriberId: string) {
+    setDispatching(subscriberId);
     setError(null);
 
     try {
-      const res = await fetch("/api/admin/email-brief", {
+      const res = await fetch("/api/admin/brief-job", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriberId, brief: briefResult }),
+        body: JSON.stringify({ subscriberId, dispatch_now: true }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error ?? "Email send failed");
+        const msg = data.details
+          ? `${data.error}: ${data.details}`
+          : (data.error ?? "Failed to dispatch brief");
+        setError(msg);
+        setDispatching(null);
         return;
       }
 
-      setEmailStatus(data.message);
+      // Success — mark as dispatched
+      setDispatched((prev) => new Set(prev).add(subscriberId));
     } catch {
       setError("Network error — could not reach the server");
     } finally {
-      setSending(null);
+      setDispatching(null);
     }
   }
 
@@ -298,7 +200,7 @@ export default function AdminTestPage() {
                 IQsea v1.0
               </div>
               <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08f
+                Build 2026-04-08-JET
               </div>
             </div>
           </div>
@@ -333,14 +235,14 @@ export default function AdminTestPage() {
             {/* Page title */}
             <div className="mb-6">
               <h1 className="text-lg font-bold font-[family-name:var(--font-geist-mono)] tracking-tight">
-                Brief Test Trigger
+                One-Button Dispatch
               </h1>
               <div className="h-px bg-gradient-to-r from-[var(--teal-500)]/50 via-[var(--gold-500)]/30 to-transparent mt-2" />
             </div>
 
             <p className="text-sm text-[var(--muted-foreground)] mb-8">
-              Select a subscriber and run the Scout / Architect / Scribe pipeline.
-              Results appear below.
+              Click dispatch to run the full pipeline on the Beelink: Scout &rarr; Architect &rarr; Scribe (PDF) &rarr; Email.
+              The PDF will arrive in your inbox.
             </p>
 
         {/* Error banner */}
@@ -350,19 +252,6 @@ export default function AdminTestPage() {
             <button
               onClick={() => setError(null)}
               className="ml-3 underline text-red-400 hover:text-red-200"
-            >
-              dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Email success banner */}
-        {emailStatus && (
-          <div className="mb-6 px-4 py-3 rounded-lg bg-green-900/30 border border-green-500/40 text-green-300 text-sm">
-            {emailStatus}
-            <button
-              onClick={() => setEmailStatus(null)}
-              className="ml-3 underline text-green-400 hover:text-green-200"
             >
               dismiss
             </button>
@@ -391,8 +280,6 @@ export default function AdminTestPage() {
                     <th className="text-left px-4 py-3">Name</th>
                     <th className="text-left px-4 py-3">Email</th>
                     <th className="text-left px-4 py-3">Company</th>
-                    <th className="text-left px-4 py-3">ID</th>
-                    <th className="text-left px-4 py-3">Depth</th>
                     <th className="text-right px-4 py-3">Action</th>
                   </tr>
                 </thead>
@@ -406,41 +293,31 @@ export default function AdminTestPage() {
                         {sub.fullName || sub.email}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
-                        {sub.email || "—"}
+                        {sub.email || "\u2014"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {sub.companyName || "—"}
+                        {sub.companyName || "\u2014"}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {sub.id}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {sub.depth}
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2">
-                        <button
-                          onClick={() => runBrief(sub.id)}
-                          disabled={generating !== null || sending !== null}
-                          className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors
-                            bg-accent text-accent-foreground hover:bg-teal-400
-                            disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {generating === sub.id
-                            ? `${jobStatus === "pending" ? "Queued..." : jobStatus === "processing" ? "Processing..." : "Generating..."}`
-                            : "Generate Brief"}
-                        </button>
-                        <button
-                          onClick={() => emailBrief(sub.id)}
-                          disabled={generating !== null || sending !== null || !briefResult}
-                          className="px-3 py-1.5 rounded-md text-xs font-semibold transition-colors
-                            bg-blue-600 text-white hover:bg-blue-500
-                            disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={!briefResult ? "Generate a brief first" : "Email the generated brief"}
-                        >
-                          {sending === sub.id
-                            ? "Emailing..."
-                            : "Email this Brief"}
-                        </button>
+                      <td className="px-4 py-3 text-right">
+                        {dispatched.has(sub.id) ? (
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold text-emerald-300 bg-emerald-900/30 border border-emerald-500/40">
+                            Dispatch Sent — PDF arriving ~2 min
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => dispatchBrief(sub.id)}
+                            disabled={dispatching !== null}
+                            className="px-5 py-2.5 rounded-md text-sm font-bold tracking-wide transition-all
+                              bg-gradient-to-r from-amber-500 to-orange-500 text-black
+                              hover:from-amber-400 hover:to-orange-400 hover:shadow-lg hover:shadow-amber-500/25
+                              active:scale-95
+                              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                          >
+                            {dispatching === sub.id
+                              ? "Dispatching..."
+                              : "DISPATCH FULL INTEL BRIEF"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -449,165 +326,6 @@ export default function AdminTestPage() {
             </div>
           )}
         </section>
-
-        {/* Brief output */}
-        {briefResult && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Intel JSON Output
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setBriefResult(null);
-                    setEmailStatus(null);
-                    setError(null);
-                  }}
-                  className="px-4 py-2 rounded-md text-xs font-semibold bg-muted text-muted-foreground hover:bg-muted/80 border border-border transition-colors"
-                >
-                  Clear Results
-                </button>
-                <button
-                  onClick={openPdfPreview}
-                  className="px-4 py-2 rounded-md text-xs font-semibold bg-highlight text-highlight-foreground hover:bg-gold-400 transition-colors"
-                >
-                  View PDF
-                </button>
-              </div>
-            </div>
-
-            {/* Meta bar */}
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-4 px-4 py-2 rounded-md bg-card border border-border">
-              <span>
-                <strong className="text-foreground">Subscriber:</strong>{" "}
-                {briefResult.subscriberName}
-              </span>
-              <span>
-                <strong className="text-foreground">Company:</strong>{" "}
-                {briefResult.companyName}
-              </span>
-              <span>
-                <strong className="text-foreground">Generated:</strong>{" "}
-                {new Date(briefResult.generatedAt).toLocaleString()}
-              </span>
-            </div>
-
-            {/* Sections */}
-            {briefResult.sections.map((section, si) => (
-              <div key={si} className="mb-6">
-                <h3 className="text-sm font-bold text-accent border-b border-accent/30 pb-1 mb-3">
-                  {section.title}
-                </h3>
-                {section.items.map((item, ii) => (
-                  <div
-                    key={ii}
-                    className="mb-3 p-3 rounded-md bg-card border-l-2 border-accent/60"
-                  >
-                    <div className="font-semibold text-sm mb-1">
-                      {item.headline}
-                    </div>
-                    <div className="text-xs text-muted-foreground leading-relaxed mb-2">
-                      {item.summary}
-                    </div>
-                    <div className="flex gap-4 text-[11px] text-muted-foreground">
-                      <span>
-                        <strong>Relevance:</strong> {item.relevance}
-                      </span>
-                      <span>
-                        <strong>Source:</strong> {item.source}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-
-            {/* Tender section */}
-            {briefResult.tenderSection &&
-              briefResult.tenderSection.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-bold text-highlight border-b border-highlight/30 pb-1 mb-3">
-                    Tender Watch
-                  </h3>
-                  {briefResult.tenderSection.map((item, i) => (
-                    <div
-                      key={i}
-                      className="mb-3 p-3 rounded-md bg-card border-l-2 border-highlight/60"
-                    >
-                      <div className="font-semibold text-sm mb-1">
-                        {item.headline}
-                      </div>
-                      <div className="text-xs text-muted-foreground leading-relaxed mb-2">
-                        {item.summary}
-                      </div>
-                      <div className="flex gap-4 text-[11px] text-muted-foreground">
-                        <span>
-                          <strong>Relevance:</strong> {item.relevance}
-                        </span>
-                        <span>
-                          <strong>Source:</strong> {item.source}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-            {/* Prospect section */}
-            {briefResult.prospectSection &&
-              briefResult.prospectSection.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-bold text-blue-400 border-b border-blue-400/30 pb-1 mb-3">
-                    Client Prospects
-                  </h3>
-                  {briefResult.prospectSection.map((item, i) => (
-                    <div
-                      key={i}
-                      className="mb-3 p-3 rounded-md bg-card border-l-2 border-blue-400/60"
-                    >
-                      <div className="font-semibold text-sm mb-1">
-                        {item.headline}
-                      </div>
-                      <div className="text-xs text-muted-foreground leading-relaxed mb-2">
-                        {item.summary}
-                      </div>
-                      <div className="flex gap-4 text-[11px] text-muted-foreground">
-                        <span>
-                          <strong>Relevance:</strong> {item.relevance}
-                        </span>
-                        <span>
-                          <strong>Source:</strong> {item.source}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-            {/* Analyst note */}
-            {briefResult.analystNote && (
-              <div className="mb-6 p-4 rounded-md bg-yellow-900/20 border-l-2 border-highlight">
-                <div className="text-[11px] font-bold text-highlight uppercase tracking-wider mb-1">
-                  Analyst Note
-                </div>
-                <div className="text-sm text-muted-foreground leading-relaxed">
-                  {briefResult.analystNote}
-                </div>
-              </div>
-            )}
-
-            {/* Raw JSON toggle */}
-            <details className="mt-4">
-              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-accent">
-                Show raw JSON
-              </summary>
-              <pre className="mt-2 p-4 rounded-lg bg-card border border-border text-xs text-muted-foreground overflow-x-auto max-h-96 overflow-y-auto">
-                {JSON.stringify(briefResult, null, 2)}
-              </pre>
-            </details>
-          </section>
-        )}
 
           </div>
         </main>
