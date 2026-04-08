@@ -49,7 +49,6 @@ const LOG_PATH = path.join(__dirname, "warden.log");
 function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
   const ts = new Date().toISOString();
   const line = `[${ts}] [${level}] ${message}`;
-  console.log(line);
   try {
     fs.appendFileSync(LOG_PATH, line + "\n", "utf-8");
   } catch {

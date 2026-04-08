@@ -24,7 +24,6 @@ export async function POST(request: Request) {
   const overrideMatch = overridePassword && inputSanitized === overridePassword;
 
   if (!adminPassword && !overridePassword) {
-    console.error("[CRITICAL] Neither ADMIN_PASSWORD nor ADMIN_OVERRIDE is set");
     return NextResponse.json(
       { error: "Admin credentials are not configured" },
       { status: 500 }
@@ -32,11 +31,6 @@ export async function POST(request: Request) {
   }
 
   if (!primaryMatch && !overrideMatch) {
-    console.error(
-      `[admin/login] password mismatch — input length=${inputSanitized.length}, ` +
-      `primary env length=${adminPassword.length} (raw ${rawEnv.length}), ` +
-      `override set=${!!overridePassword}`
-    );
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
