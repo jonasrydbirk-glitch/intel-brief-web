@@ -46,6 +46,12 @@ export async function POST(request: Request) {
   });
 
   if (insertErr) {
+    if (insertErr.message.includes("relation") || insertErr.message.includes("does not exist") || insertErr.code === "42P01") {
+      return NextResponse.json(
+        { error: "Database Setup Required: the 'brief_jobs' table does not exist. Run the migration in migrations/001_brief_jobs.sql via the Supabase SQL Editor." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: `Failed to create job: ${insertErr.message}` },
       { status: 500 }
@@ -112,7 +118,20 @@ export async function GET(request: Request) {
     .eq("id", jobId)
     .single();
 
-  if (fetchErr || !data) {
+  if (fetchErr) {
+    if (fetchErr.message.includes("relation") || fetchErr.message.includes("does not exist") || fetchErr.code === "42P01") {
+      return NextResponse.json(
+        { error: "Database Setup Required: the 'brief_jobs' table does not exist. Run the migration in migrations/001_brief_jobs.sql via the Supabase SQL Editor." },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Job not found" },
+      { status: 404 }
+    );
+  }
+
+  if (!data) {
     return NextResponse.json(
       { error: "Job not found" },
       { status: 404 }

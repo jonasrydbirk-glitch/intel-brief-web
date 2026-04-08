@@ -642,12 +642,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* Sidebar footer */}
-          <div className="mt-auto px-4 pt-6">
+          <div className="mt-auto px-4 pt-6 pb-4">
             <div className="border-t border-[var(--border)] pt-4">
               <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
                 IQsea v1.0
               </div>
-              <div className="text-[8px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-30 mt-1">
+              <div className="inline-block mt-1.5 px-2 py-0.5 rounded bg-[#DBAC32]/10 text-[8px] font-bold tracking-[0.1em] text-[#DBAC32] font-[family-name:var(--font-geist-mono)]">
                 Build 2026-04-08b
               </div>
             </div>
