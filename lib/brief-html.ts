@@ -6,10 +6,17 @@
  *   - The print API route (app/api/print/generate-sample)
  *   - The local PDF renderer (lib/render-pdf.ts) — no network fetch needed
  *
- * Build 2026-04-08-FACTUAL — source integrity: 1 story = 1 source, fact/opinion separation
+ * Build 2026-04-08-VERIFIED — source integrity: clickable source URLs, fabrication guard
  */
 
 import type { BriefPayload, IntelItem, MarketPulseEntry, RegulatoryCountdownEntry } from "@/engine/brief-generator";
+
+function renderSourceLink(source: string): string {
+  if (source.startsWith("http://") || source.startsWith("https://")) {
+    return `<div style="font-size:11px;margin-bottom:6px;"><span style="font-weight:500;color:#64748b;">Source:</span> <a href="${esc(source)}" target="_blank" rel="noopener noreferrer" style="color:#0ea5e9;text-decoration:underline;word-break:break-all;">${esc(source)}</a></div>`;
+  }
+  return `<div style="font-size:11px;color:#0ea5e9;font-weight:500;margin-bottom:6px;">${esc(source)}</div>`;
+}
 
 function renderItem(item: IntelItem): string {
   const commentaryHtml = item.commentary
@@ -18,8 +25,8 @@ function renderItem(item: IntelItem): string {
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:6px;">
       <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
-      <div style="font-size:11px;color:#0ea5e9;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
+      ${renderSourceLink(item.source)}
       ${commentaryHtml}
       <div style="font-size:11px;color:#64748b;">
         <span><strong>Relevance:</strong> ${esc(item.relevance)}</span>
@@ -34,8 +41,8 @@ function renderOffDutyItem(item: IntelItem): string {
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#fdf4ff;border-left:3px solid #a855f7;border-radius:6px;">
       <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
-      <div style="font-size:11px;color:#a855f7;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
+      ${renderSourceLink(item.source)}
       ${commentaryHtml}
       <div style="font-size:11px;color:#64748b;">
         <span><strong>Why you care:</strong> ${esc(item.relevance)}</span>
@@ -125,8 +132,8 @@ function renderSafetyItem(item: IntelItem): string {
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#fffbeb;border-left:3px solid #d97706;border-radius:6px;">
       <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
-      <div style="font-size:11px;color:#d97706;font-weight:500;margin-bottom:6px;">${esc(item.source)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
+      ${renderSourceLink(item.source)}
       ${commentaryHtml}
       <div style="font-size:11px;color:#64748b;">
         <span><strong>Risk:</strong> ${esc(item.relevance)}</span>
