@@ -20,7 +20,7 @@ import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
 import { generateBrief } from "./brief-generator";
 import { renderBriefPdf } from "../lib/render-pdf";
-import { sendEmail } from "../lib/delivery";
+import { sendViaGraph } from "../lib/postman";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -183,9 +183,8 @@ async function dispatchBrief(subscriber: {
   // Stage 1: Engine (Scout → Architect → Scribe)
   const brief = await generateBrief(subscriber.id);
 
-  // Stage 2: Render to PDF
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const pdfBuffer = await renderBriefPdf(brief, baseUrl);
+  // Stage 2: Render to PDF (local — no network fetch)
+  const pdfBuffer = await renderBriefPdf(brief);
   const pdfBase64 = pdfBuffer.toString("base64");
 
   // Stage 3: Email
@@ -219,19 +218,24 @@ async function dispatchBrief(subscriber: {
     </div>
   `;
 
-  await sendEmail({
-    to: subscriber.email,
-    from: "brief@iqsea.io",
-    subject,
-    htmlBody,
-    attachments: [
-      {
-        filename: pdfFilename,
-        contentBytes: pdfBase64,
-        contentType: "application/pdf",
-      },
-    ],
-  });
+  try {
+    await sendViaGraph({
+      to: subscriber.email,
+      subject,
+      htmlBody,
+      attachments: [
+        {
+          filename: pdfFilename,
+          contentBytes: pdfBase64,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+  } catch (mailErr) {
+    const detail = mailErr instanceof Error ? mailErr.message : String(mailErr);
+    log("ERROR", `Postman failed for ${subscriber.email}: ${detail}`);
+    throw mailErr;
+  }
 
   // Stage 4: Record delivery
   await supabase.from("reports").insert({
@@ -243,7 +247,7 @@ async function dispatchBrief(subscriber: {
     pdf_url: null,
   });
 
-  log("INFO", `Brief delivered to ${subscriber.email}`);
+  log("INFO", `Brief delivered to ${subscriber.email} via Graph API`);
 }
 
 // ---------------------------------------------------------------------------
@@ -303,8 +307,7 @@ async function processJobQueue(): Promise<void> {
           throw new Error(`Subscriber lookup failed: ${subErr?.message ?? "not found"}`);
         }
 
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-        const pdfBuffer = await renderBriefPdf(brief, baseUrl);
+        const pdfBuffer = await renderBriefPdf(brief);
         const pdfBase64 = pdfBuffer.toString("base64");
 
         const dateStr = new Date().toLocaleDateString("en-GB", {
@@ -337,21 +340,26 @@ async function processJobQueue(): Promise<void> {
           </div>
         `;
 
-        log("INFO", `Job ${job.id} — sending email to ${sub.email}...`);
+        log("INFO", `Job ${job.id} — Postman delivering to ${sub.email}...`);
 
-        await sendEmail({
-          to: sub.email,
-          from: "brief@iqsea.io",
-          subject,
-          htmlBody,
-          attachments: [
-            {
-              filename: pdfFilename,
-              contentBytes: pdfBase64,
-              contentType: "application/pdf",
-            },
-          ],
-        });
+        try {
+          await sendViaGraph({
+            to: sub.email,
+            subject,
+            htmlBody,
+            attachments: [
+              {
+                filename: pdfFilename,
+                contentBytes: pdfBase64,
+                contentType: "application/pdf",
+              },
+            ],
+          });
+        } catch (mailErr) {
+          const detail = mailErr instanceof Error ? mailErr.message : String(mailErr);
+          log("ERROR", `Postman failed for ${sub.email}: ${detail}`);
+          throw mailErr;
+        }
 
         // Record delivery in reports table
         await supabase.from("reports").insert({
