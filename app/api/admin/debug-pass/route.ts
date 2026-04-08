@@ -38,6 +38,17 @@ export async function GET() {
     .filter((ch) => /[\u200B-\u200D\uFEFF\u00A0\u0000-\u001F\u007F\s]/.test(ch) && ch !== " ")
     .map((ch) => `U+${ch.charCodeAt(0).toString(16).padStart(4, "0")}`);
 
+  // Hex dump of every char so we can see exactly what's stored
+  const charDump = raw.split("").map((ch, i) => ({
+    index: i,
+    char: ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) < 127 ? ch : "?",
+    code: `U+${ch.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  }));
+
+  // Also check ADMIN_OVERRIDE
+  const overrideRaw = process.env.ADMIN_OVERRIDE;
+  const overrideDefined = overrideRaw !== undefined;
+
   return NextResponse.json({
     defined: true,
     raw_length: raw.length,
@@ -45,9 +56,12 @@ export async function GET() {
     sanitized_length: sanitized.length,
     has_invisible_chars: invisibles.length > 0,
     invisible_char_codes: invisibles,
+    char_dump: charDump,
     raw_sha256: rawHash,
     sanitized_sha256: sanitizedHash,
     hashes_match: rawHash === sanitizedHash,
+    override_defined: overrideDefined,
+    override_length: overrideDefined ? overrideRaw!.length : null,
     hint: "Compare sanitized_sha256 against: echo -n 'yourpassword' | sha256sum",
   });
 }

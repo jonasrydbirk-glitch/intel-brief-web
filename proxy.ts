@@ -22,8 +22,13 @@ async function verifySessionCookie(
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login routes through
-  if (pathname === "/admin/login" || pathname === "/api/admin/login") {
+  // Allow login and debug-pass routes through (debug-pass: temporary emergency access)
+  const clean = pathname.replace(/\/+$/, "");
+  if (
+    clean === "/admin/login" ||
+    clean === "/api/admin/login" ||
+    clean === "/api/admin/debug-pass"
+  ) {
     return NextResponse.next();
   }
 
