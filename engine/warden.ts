@@ -18,7 +18,7 @@ import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
-import { generateBrief } from "./brief-generator";
+import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendViaGraph } from "../lib/postman";
 
@@ -57,6 +57,89 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
   } catch {
     // Best-effort file logging; don't crash on write failure
   }
+}
+
+// ---------------------------------------------------------------------------
+// URL Validation — strip homepage / shallow URLs before PDF rendering
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if a URL looks like a direct article link rather than a homepage.
+ * Checks:
+ *  - Must start with https://
+ *  - Must have path depth >= 2 (e.g. domain.com/section/article)
+ *    OR contain article-like path segments (/article/, /news/, /story/, /post/, /press/)
+ *  - Rejects bare homepages like "https://gcaptain.com/" or "https://lloydslist.com"
+ */
+function isDirectArticleUrl(url: string): boolean {
+  if (!url || !url.startsWith("https://")) return false;
+
+  try {
+    const parsed = new URL(url);
+    const pathSegments = parsed.pathname
+      .split("/")
+      .filter((seg) => seg.length > 0);
+
+    // Must have at least 2 path segments (e.g. /news/article-slug)
+    if (pathSegments.length >= 2) return true;
+
+    // Or contain article-like path segments even at depth 1
+    const articlePatterns = [
+      "article",
+      "news",
+      "story",
+      "post",
+      "press",
+      "report",
+      "update",
+      "blog",
+    ];
+    if (
+      pathSegments.length >= 1 &&
+      articlePatterns.some((p) => parsed.pathname.toLowerCase().includes(p))
+    ) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate all URLs in a BriefPayload. Strips items with homepage-only or
+ * shallow URLs. Logs every rejection.
+ */
+function validateBriefUrls(brief: BriefPayload): BriefPayload {
+  function filterItems(items: IntelItem[] | null, sectionName: string): IntelItem[] | null {
+    if (!items) return null;
+    const filtered = items.filter((item) => {
+      if (isDirectArticleUrl(item.source)) return true;
+      log("WARN", `URL rejected (${sectionName}): "${item.source}" — not a direct article URL. Headline: "${item.headline}"`);
+      return false;
+    });
+    return filtered.length > 0 ? filtered : null;
+  }
+
+  return {
+    ...brief,
+    sections: brief.sections
+      .map((s) => ({
+        ...s,
+        items: s.items.filter((item) => {
+          if (isDirectArticleUrl(item.source)) return true;
+          log("WARN", `URL rejected (${s.title}): "${item.source}" — not a direct article URL. Headline: "${item.headline}"`);
+          return false;
+        }),
+      }))
+      .filter((s) => s.items.length > 0),
+    tenderSection: filterItems(brief.tenderSection, "Tenders"),
+    prospectSection: filterItems(brief.prospectSection, "Prospects"),
+    offDutySection: filterItems(brief.offDutySection, "Off-Duty"),
+    competitorTrackerSection: filterItems(brief.competitorTrackerSection, "Competitors"),
+    safetySection: filterItems(brief.safetySection, "Safety"),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,8 +263,11 @@ async function dispatchBrief(subscriber: {
 }): Promise<void> {
   log("INFO", `Generating brief for ${subscriber.fullName} (${subscriber.id})`);
 
-  // Stage 1: Engine (Scout → Architect → Scribe)
-  const brief = await generateBrief(subscriber.id);
+  // Stage 1: Engine (Scout → Sonar → Architect → Scribe)
+  const rawBrief = await generateBrief(subscriber.id);
+
+  // Stage 1.5: URL validation — strip homepage/shallow URLs
+  const brief = validateBriefUrls(rawBrief);
 
   // Stage 2: Render to PDF (local — no network fetch)
   const pdfBuffer = await renderBriefPdf(brief);
@@ -290,7 +376,8 @@ async function processJobQueue(): Promise<void> {
 
       log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}`);
 
-      const brief = await generateBrief(job.subscriber_id);
+      const rawBrief = await generateBrief(job.subscriber_id);
+      const brief = validateBriefUrls(rawBrief);
 
       if (job.dispatch_now) {
         // JET mode: full pipeline — generate + PDF + email delivery

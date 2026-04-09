@@ -105,9 +105,16 @@ export interface SubscriberProfile {
   depth: string;
 }
 
+export interface SearchHit {
+  title: string;
+  snippet: string;
+  url: string;
+}
+
 export interface ScoutResult {
   queries: string[];
   rawFindings: string[];
+  searchHits: SearchHit[];
 }
 
 export interface IntelItem {
@@ -285,7 +292,7 @@ Return a JSON object with a single key "queries" containing an array of query st
   // safeParseJSON now handles fence-stripping, brace extraction, and empty input
   const parsed = safeParseJSON<{ queries?: string[] }>(content);
   if (parsed.queries && parsed.queries.length > 0) {
-    return { queries: parsed.queries, rawFindings: [] };
+    return { queries: parsed.queries, rawFindings: [], searchHits: [] };
   }
 
   // Fallback: if JSON parse returned no queries, extract lines as queries
@@ -293,7 +300,99 @@ Return a JSON object with a single key "queries" containing an array of query st
     .split("\n")
     .map((l: string) => l.replace(/^\d+[\.\)]\s*/, "").trim())
     .filter((l: string) => l.length > 10);
-  return { queries: lines, rawFindings: [] };
+  return { queries: lines, rawFindings: [], searchHits: [] };
+}
+
+// ---------------------------------------------------------------------------
+// Stage 1.5 — Sonar Search: execute Scout queries via Perplexity Sonar
+//              to get real search results with verifiable URLs
+// ---------------------------------------------------------------------------
+
+export async function sonarSearch(queries: string[]): Promise<SearchHit[]> {
+  const combined = queries.map((q, i) => `${i + 1}. ${q}`).join("\n");
+
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "perplexity/sonar-pro",
+      messages: [
+        {
+          role: "system",
+          content: `You are a maritime news search engine. For each query, return the most relevant recent news articles you find. For EVERY result, you MUST include:
+1. The exact article title
+2. A 1-2 sentence snippet of the article content
+3. The full, direct URL to the specific article (NOT a homepage)
+
+Format each result as:
+TITLE: <exact article title>
+SNIPPET: <1-2 sentence summary of article content>
+URL: <full direct URL to the article>
+---
+
+Return up to 3 results per query. Only include results with real, direct article URLs.`,
+        },
+        {
+          role: "user",
+          content: `Find the latest news articles for these queries:\n${combined}`,
+        },
+      ],
+      max_tokens: 4096,
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    dumpRaw("Sonar ERROR", `${response.status} — ${text}`);
+    // Non-fatal: return empty hits, Architect will produce empty sections
+    return [];
+  }
+
+  const data = await response.json();
+  const rawContent = data.choices?.[0]?.message?.content ?? "";
+
+  // OpenRouter returns Perplexity citations as a top-level array
+  const citations: string[] = data.citations ?? [];
+
+  dumpRaw("Sonar", rawContent);
+  dumpRaw("Sonar citations", JSON.stringify(citations));
+
+  const hits: SearchHit[] = [];
+
+  // Parse structured TITLE/SNIPPET/URL blocks from response content
+  const blocks = rawContent.split(/---+/).filter((b: string) => b.trim());
+  for (const block of blocks) {
+    const titleMatch = block.match(/TITLE:\s*(.+)/i);
+    const snippetMatch = block.match(/SNIPPET:\s*(.+)/i);
+    const urlMatch = block.match(/URL:\s*(https?:\/\/\S+)/i);
+
+    if (titleMatch && urlMatch) {
+      hits.push({
+        title: titleMatch[1].trim(),
+        snippet: snippetMatch ? snippetMatch[1].trim() : "",
+        url: urlMatch[1].trim(),
+      });
+    }
+  }
+
+  // Also incorporate any citations from the Perplexity API that weren't
+  // captured in the structured blocks
+  for (const citationUrl of citations) {
+    if (!hits.some((h) => h.url === citationUrl)) {
+      hits.push({
+        title: "",
+        snippet: "",
+        url: citationUrl,
+      });
+    }
+  }
+
+  dumpRaw("Sonar parsed", `${hits.length} search hits extracted`);
+  return hits;
 }
 
 // ---------------------------------------------------------------------------
@@ -307,56 +406,78 @@ export async function architectStage(
 ): Promise<BriefPayload> {
   const todayISO = new Date().toISOString().slice(0, 10); // e.g. "2026-04-07"
 
-  const systemPrompt = `You are a Senior Maritime Intelligence Officer (Elite Discipline) — IQsea's Architect and Chief Engineer of maritime intelligence. Quality > Quantity. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk.
+  const systemPrompt = `You are a Forensic Intelligence Auditor — IQsea's Architect and Chief Engineer of maritime intelligence. Quality > Quantity. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk.
+
+You are now provided with a list of search result SNIPPETS and their EXACT URLs from the Scout (Sonar). Your ONLY job is to select the most relevant results, summarise them, and COPY the exact URL provided. You are NOT a search engine. You are an auditor of pre-fetched metadata.
 
 ELITE DISCIPLINE (ABSOLUTE, NON-NEGOTIABLE):
-- If you cannot find high-relevance maritime news with a verifiable URL for a specific section, LEAVE THAT SECTION EMPTY (return an empty array []). The system will auto-hide empty sections from the PDF.
+- If the provided search results do not contain high-relevance maritime news for a specific section, LEAVE THAT SECTION EMPTY (return an empty array []). The system will auto-hide empty sections from the PDF.
 - Do NOT pad sections with low-relevance or stale filler. An empty section is better than a weak one.
-- Only report news that is fresh (last 7 days) and directly relevant to the subscriber's profile.
+- Only report news that appears in the provided search metadata and is directly relevant to the subscriber's profile.
 - Every item must earn its place. If it doesn't make the reader act or think differently, cut it.
 
 TODAY'S DATE: ${todayISO}
 Use this date for "generatedAt" (as a full ISO-8601 timestamp) and for calculating "daysLeft" in regulatory countdowns.
 
 ═══════════════════════════════════════════════════════════════════
-SOURCE INTEGRITY RULES (ABSOLUTE, NON-NEGOTIABLE — READ FIRST)
+MANDATORY METADATA FIDELITY (READ THIS FIRST — ABSOLUTE, NON-NEGOTIABLE)
 ═══════════════════════════════════════════════════════════════════
 
-You are an INTELLIGENCE REPORTER, not a storyteller. Your job is to relay verified facts, not to craft narratives.
+You are strictly FORBIDDEN from constructing, guessing, or using generic URLs. You must COPY and PASTE the exact article URL provided in the search metadata for every story you report.
+
+The search results below contain:
+- TITLE: The article headline from the source
+- SNIPPET: A brief extract from the article
+- URL: The exact, direct URL to the article
+
+Your "source" field MUST be an exact copy of a URL from the provided search hits. Do NOT:
+- Construct URLs from domain names (e.g. do NOT write "https://lloydslist.com/some-article")
+- Use homepage URLs (e.g. do NOT write "https://gcaptain.com/")
+- Guess article URL patterns
+- Use ANY URL that does not appear verbatim in the search metadata provided to you
+
+VERIFICATION STEP: If you cannot find a direct article URL in the provided search results that matches the news headline you want to report, you MUST DELETE that headline. No exceptions. No fallbacks. No guessing.
+
+═══════════════════════════════════════════════════════════════════
+SOURCE INTEGRITY RULES (ABSOLUTE, NON-NEGOTIABLE)
+═══════════════════════════════════════════════════════════════════
+
+You are an INTELLIGENCE REPORTER, not a storyteller. Your job is to relay verified facts from the provided search metadata, not to craft narratives.
 
 1 STORY = 1 SOURCE. This is the cardinal rule.
-- Every news item MUST come from exactly ONE identifiable source article or publication.
+- Every news item MUST come from exactly ONE search result in the provided metadata.
 - Do NOT merge, blend, or "puzzle together" details from multiple stories into a single item. If two things happened, they are two separate items.
 - Do NOT synthesise narratives by connecting dots between separate events. Report each event as its own item, sourced individually.
-- If you cannot attribute an item to a specific, real source, SKIP IT ENTIRELY. Do not fabricate or guess sources.
+- If a search result does not have a URL, SKIP IT ENTIRELY.
 
 HEADLINE + SUMMARY = OBJECTIVE NEWS REPORTING ONLY.
 - The "headline" must be a factual news headline — what happened, stated plainly.
-- The "summary" must be a factual account of what the source reports. No opinion. No interpretation. No "this means..." or "this signals..." in the summary.
+- The "summary" must be a factual account of what the search result reports. No opinion. No interpretation. No "this means..." or "this signals..." in the summary.
 - Think wire service style: Reuters, Lloyd's List, TradeWinds. Just the facts.
 
 ALL OPINION GOES IN "commentary" (MANDATORY SEPARATION).
 - The "commentary" field is where the Marine Engineer speaks. This is where you put: "So what?", cost implications, operational impact, schedule risk, what the subscriber should do about it.
 - This separation is non-negotiable. The reader must be able to distinguish reported fact from expert analysis at a glance.
 
-SOURCE FIELD = FULLY QUALIFIED HTTPS URL (MANDATORY).
-- "source" MUST contain a fully qualified HTTPS URL pointing to the specific article or report (e.g. "https://lloydslist.com/LL1149234/...").
+SOURCE FIELD = EXACT URL FROM SEARCH METADATA (MANDATORY).
+- "source" MUST be copied verbatim from the URL field of one of the provided search hits.
 - NEVER use vague attributions like "various sources", "industry reports", "market sources", or "trade press".
-- If you do not know the specific source, DO NOT INCLUDE THE ITEM.
+- NEVER construct or guess a URL. Only use URLs that appear in the search metadata.
+- If no search hit URL matches your story, DO NOT INCLUDE THE ITEM.
 
 ═══════════════════════════════════════════════════════════════════
 PROGRAMMATIC FABRICATION BLOCK (ABSOLUTE, NON-NEGOTIABLE)
 ═══════════════════════════════════════════════════════════════════
 
-You are strictly forbidden from fabricating sources. If you do not have a specific, verifiable URL for a story, you MUST NOT include that story. General industry knowledge is not news.
+You are strictly forbidden from fabricating sources or URLs. Every "source" field must be an EXACT COPY of a URL from the provided search metadata. If you write a URL that does not appear in the search hits, the downstream validation engine will detect it and reject the entire item.
 
-The source field must contain a fully qualified HTTPS URL. If the source is text only (e.g., industry contacts), the local engine will reject the entire brief.
+The local engine runs a post-processing URL validator. Any URL that was not in the original search metadata will be stripped. Do not waste tokens on items you cannot source from the provided data.
 
 ═══════════════════════════════════════════════════════════════════
 PROGRAMMATIC SELF-CORRECTION (MANDATORY PRE-FLIGHT CHECK)
 ═══════════════════════════════════════════════════════════════════
 
-Before finalizing your JSON, you must verify that every single item contains a fully qualified HTTPS URL. If you cannot find a primary source link for a story, you are legally and programmatically REQUIRED to omit it. Do not use generic sites like "linkedin.com", "google.com", "wikipedia.org", or any URL you have constructed or guessed. The URL must point to the specific article you are citing. Walk through each item in your response and ask: "Can I click this URL and land on the exact article I am referencing?" If the answer is no, DELETE that item from the JSON before returning.
+Before finalizing your JSON, walk through EVERY item and verify: "Is this source URL an EXACT copy from the search metadata I was given?" If the answer is no, DELETE that item. Do not use generic sites like "linkedin.com", "google.com", "wikipedia.org", or any URL you have constructed or guessed. The URL must appear verbatim in the search hits above.
 
 ═══════════════════════════════════════════════════════════════════
 
@@ -422,8 +543,13 @@ Always return valid JSON matching the BriefPayload schema.`;
 Scout queries generated:
 ${scout.queries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
-Raw findings (if any):
-${scout.rawFindings.length > 0 ? scout.rawFindings.join("\n---\n") : "(No raw data yet — generate plausible intel items based on the queries and current maritime landscape.)"}
+═══════════════════════════════════════════════════════════════════
+SEARCH METADATA FROM SCOUT (SONAR) — YOUR ONLY SOURCE OF TRUTH
+═══════════════════════════════════════════════════════════════════
+${scout.searchHits.length > 0 ? scout.searchHits.map((hit, i) => `[HIT ${i + 1}]\nTITLE: ${hit.title}\nSNIPPET: ${hit.snippet}\nURL: ${hit.url}`).join("\n---\n") : "(No search results returned. All sections MUST be empty arrays []. Do NOT fabricate any items.)"}
+═══════════════════════════════════════════════════════════════════
+
+IMPORTANT: You may ONLY use URLs that appear in the SEARCH METADATA above. If no search results were returned, return empty arrays for all sections.
 
 Tender module enabled: ${profile.modules.tender.enabled}${profile.modules.tender.enabled ? ` — Region: ${profile.modules.tender.region}, Type: ${profile.modules.tender.type}` : ""}
 Prospects module enabled: ${profile.modules.prospects.enabled}${profile.modules.prospects.enabled ? ` — Focus: ${profile.modules.prospects.focusAreas || "companies relevant to subscriber role"}, Generate exactly: ${profile.modules.prospects.perReport || 3} prospects` : ""}
@@ -710,8 +836,20 @@ export async function generateBrief(
   subscriberId: string
 ): Promise<BriefPayload> {
   const profile = await fetchSubscriberProfile(subscriberId);
+
+  // Stage 1: Scout generates targeted search queries
   const scoutResult = await scoutStage(profile);
+
+  // Stage 1.5: Sonar executes queries and returns real search results with URLs
+  const searchHits = await sonarSearch(scoutResult.queries);
+  scoutResult.searchHits = searchHits;
+
+  dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, Sonar returned ${searchHits.length} search hits`);
+
+  // Stage 2: Architect synthesises brief from search metadata ONLY
   const rawBrief = await architectStage(profile, scoutResult);
+
+  // Stage 3: Scribe normalises and cleans
   const brief = scribeStage(rawBrief);
   return brief;
 }
