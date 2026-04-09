@@ -73,7 +73,7 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
  *    OR contain year indicators (2024/2025/2026) suggesting a dated article
  *  - Rejects bare homepages like "https://gcaptain.com/" or "https://lloydslist.com"
  */
-function isDirectArticleUrl(url: string): boolean {
+function isDirectArticleUrl(url: string, sectionName?: string): boolean {
   if (!url || !url.startsWith("https://")) return false;
 
   try {
@@ -84,6 +84,9 @@ function isDirectArticleUrl(url: string): boolean {
     const pathSegments = parsed.pathname
       .split("/")
       .filter((seg) => seg.length > 0);
+
+    // Competitor Monitoring exception: allow root-level domains
+    if (sectionName && /competitor/i.test(sectionName)) return true;
 
     // Block bare homepages (no meaningful path)
     if (pathSegments.length === 0) return false;
@@ -137,7 +140,7 @@ function validateBriefUrls(brief: BriefPayload): BriefPayload {
   function filterItems(items: IntelItem[] | null, sectionName: string): IntelItem[] | null {
     if (!items) return null;
     const filtered = items.filter((item) => {
-      if (isDirectArticleUrl(item.source)) return true;
+      if (isDirectArticleUrl(item.source, sectionName)) return true;
       log("WARN", `URL rejected (${sectionName}): "${item.source}" — not a direct article URL. Headline: "${item.headline}"`);
       return false;
     });
@@ -150,7 +153,7 @@ function validateBriefUrls(brief: BriefPayload): BriefPayload {
       .map((s) => ({
         ...s,
         items: s.items.filter((item) => {
-          if (isDirectArticleUrl(item.source)) return true;
+          if (isDirectArticleUrl(item.source, s.title)) return true;
           log("WARN", `URL rejected (${s.title}): "${item.source}" — not a direct article URL. Headline: "${item.headline}"`);
           return false;
         }),
@@ -159,7 +162,7 @@ function validateBriefUrls(brief: BriefPayload): BriefPayload {
     tenderSection: filterItems(brief.tenderSection, "Tenders"),
     prospectSection: filterItems(brief.prospectSection, "Prospects"),
     offDutySection: filterItems(brief.offDutySection, "Off-Duty"),
-    competitorTrackerSection: filterItems(brief.competitorTrackerSection, "Competitors"),
+    competitorTrackerSection: filterItems(brief.competitorTrackerSection, "Competitor Monitoring"),
     safetySection: filterItems(brief.safetySection, "Safety"),
   };
 }
