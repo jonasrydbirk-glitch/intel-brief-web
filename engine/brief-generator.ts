@@ -169,12 +169,12 @@ export async function scoutStage(
       case "weekly":
         return { hours: "168", label: "the last 7 days" };
       case "3x":
-        return { hours: "72", label: "the last 48-72 hours" };
+        return { hours: "168", label: "the last 7 days" };
       case "business":
-        return { hours: "48", label: "the last 24-48 hours" };
+        return { hours: "168", label: "the last 7 days" };
       case "daily":
       default:
-        return { hours: "24", label: "the last 24 hours" };
+        return { hours: "168", label: "the last 7 days" };
     }
   })();
 
@@ -312,7 +312,7 @@ export async function architectStage(
 ELITE DISCIPLINE (ABSOLUTE, NON-NEGOTIABLE):
 - If you cannot find high-relevance maritime news with a verifiable URL for a specific section, LEAVE THAT SECTION EMPTY (return an empty array []). The system will auto-hide empty sections from the PDF.
 - Do NOT pad sections with low-relevance or stale filler. An empty section is better than a weak one.
-- Only report news that is fresh (last 24-48 hours) and directly relevant to the subscriber's profile.
+- Only report news that is fresh (last 7 days) and directly relevant to the subscriber's profile.
 - Every item must earn its place. If it doesn't make the reader act or think differently, cut it.
 
 TODAY'S DATE: ${todayISO}
@@ -367,9 +367,19 @@ KEEP IT BRIEF (ABSOLUTE, NON-NEGOTIABLE):
 - The entire JSON response must stay compact. If in doubt, cut. Brevity is a hard constraint — exceeding it risks truncation.
 
 FRESHNESS GATE (STRICT):
-- Only include stories from the last 48 hours. Reject anything older than 3 days unless it is a major ongoing regulatory shift (e.g. new IMO regulation, classification society rule change).
+- Include stories from the last 7 days. Reject anything older than 7 days unless it is a major ongoing regulatory shift (e.g. new IMO regulation, classification society rule change).
 - Quality over quantity: include the top 3 high-impact items per section. Cut filler ruthlessly.
 - If a story is borderline stale, kill it. Short and punchy wins.
+
+DIRECT URL REQUIREMENT (ABSOLUTE, NON-NEGOTIABLE):
+- You MUST provide the direct URL to the specific news article. DO NOT provide the homepage of the news site (e.g. https://gcaptain.com/, https://lloydslist.com/, https://tradewindsnews.com/).
+- If you only have the homepage URL and cannot link to the specific article, OMIT the story entirely.
+- The URL must point to the exact article page, not a category page, search results page, or site root.
+
+EMPTY SECTIONS (ABSOLUTE, NON-NEGOTIABLE):
+- If no news exists for a section (including Competitors), strictly return an empty array [] for that section's items.
+- Do NOT output placeholder items, filler content, or generic commentary when there is no real news.
+- An empty section is always better than a fabricated one.
 
 BUYER SENTIMENT (when freight rates are high):
 - If any freight rate or charter rate data suggests elevated or rising markets, include a "Buyer Sentiment" note within relevant sections analysing how OEMs (shipbuilders, engine makers) and service providers (yards, class societies, equipment suppliers) are likely responding.
@@ -637,10 +647,12 @@ export function scribeStage(brief: BriefPayload): BriefPayload {
     subscriberName: brief.subscriberName,
     companyName: brief.companyName,
     generatedAt: new Date().toISOString(), // Always use system clock, never trust model output
-    sections: (brief.sections ?? []).map((s) => ({
-      title: stripEmojis(s.title),
-      items: (s.items ?? []).map(sanitiseItem),
-    })),
+    sections: (brief.sections ?? [])
+      .map((s) => ({
+        title: stripEmojis(s.title),
+        items: (s.items ?? []).map(sanitiseItem),
+      }))
+      .filter((s) => s.items.length > 0),
     tenderSection: brief.tenderSection
       ? brief.tenderSection.map(sanitiseItem)
       : null,
