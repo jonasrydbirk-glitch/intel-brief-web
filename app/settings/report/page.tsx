@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IQseaLogoSmall } from "../../components/iqsea-logo";
 import { LogoutButton } from "../../components/logout-button";
+import { HelpTooltip } from "../../components/help-tooltip";
 
 /* ────── types ────── */
 
@@ -200,22 +201,6 @@ function OptionCard({
         </div>
       )}
     </button>
-  );
-}
-
-function HelpTooltip({ examples }: { examples: string[] }) {
-  return (
-    <span className="relative group inline-flex ml-1.5">
-      <span className="w-4.5 h-4.5 rounded-full border border-[var(--muted-foreground)]/40 flex items-center justify-center text-[10px] font-bold text-[var(--muted-foreground)] cursor-help hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors">
-        ?
-      </span>
-      <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-72 rounded-lg bg-[var(--navy-700)] border border-[var(--border)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--slate-100)] opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-        <span className="font-semibold text-[var(--accent)] block mb-1">Examples:</span>
-        <ul className="space-y-0.5 list-disc list-inside marker:text-[var(--accent)]">
-          {examples.map((ex, i) => <li key={i}>{ex}</li>)}
-        </ul>
-      </span>
-    </span>
   );
 }
 
@@ -781,17 +766,6 @@ export default function ReportSettingsPage() {
                   technical safety updates — crew welfare, asset protection,
                   and operational risk intelligence.
                 </p>
-                <details className="text-xs text-[var(--muted-foreground)]">
-                  <summary className="cursor-pointer inline-flex items-center gap-1 text-[var(--accent)] hover:underline">
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-[var(--accent)] text-[10px] font-bold">?</span>
-                    Examples
-                  </summary>
-                  <ul className="mt-2 ml-5 list-disc space-y-1">
-                    <li>Piracy alerts in Red Sea and Gulf of Aden</li>
-                    <li>Hazardous cargo handling incidents and bulletins</li>
-                    <li>Shipyard safety protocols and SOLAS compliance updates</li>
-                  </ul>
-                </details>
                 {form.safetyEnabled && (
                   <div className="space-y-4 pt-1 border-t border-[var(--border)]">
                     <div className="pt-3">

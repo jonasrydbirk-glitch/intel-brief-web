@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { HelpTooltip } from "../components/help-tooltip";
 
 /* ────── types ────── */
 
@@ -23,6 +24,7 @@ interface FormData {
   marketPulseEnabled: boolean;
   marketPulseDataToTrack: string;
   regulatoryTimelineEnabled: boolean;
+  regulatoryTimelineRegulations: string;
   competitorTrackerEnabled: boolean;
   competitorTrackerCompanies: string;
   vesselArrivalsEnabled: boolean;
@@ -58,6 +60,7 @@ const INITIAL: FormData = {
   marketPulseEnabled: false,
   marketPulseDataToTrack: "",
   regulatoryTimelineEnabled: false,
+  regulatoryTimelineRegulations: "",
   competitorTrackerEnabled: false,
   competitorTrackerCompanies: "",
   vesselArrivalsEnabled: false,
@@ -126,7 +129,7 @@ function TextInput({
   onChange,
   examples,
 }: {
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   value: string;
   onChange: (v: string) => void;
@@ -134,7 +137,7 @@ function TextInput({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-2">{label}</label>
+      <label className="flex items-center gap-1.5 text-sm font-medium mb-2">{label}</label>
       <input
         type="text"
         value={value}
@@ -168,7 +171,7 @@ function TextArea({
   examples,
   rows = 3,
 }: {
-  label: string;
+  label: ReactNode;
   placeholder?: string;
   value: string;
   onChange: (v: string) => void;
@@ -177,7 +180,7 @@ function TextArea({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-2">{label}</label>
+      <label className="flex items-center gap-1.5 text-sm font-medium mb-2">{label}</label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -246,7 +249,7 @@ function Step1({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-1">Professional Identity</h2>
+        <h2 className="text-xl font-bold mb-1 inline-flex items-center">Professional Identity <HelpTooltip examples={["Chartering Manager at a mid-size tanker company", "Technical Superintendent — bulk carriers", "Sales Director at a marine engine OEM"]} /></h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Tell us about your role so we can tailor the voice and focus of your
           brief.
@@ -291,7 +294,7 @@ function Step2({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-1">Asset & Market Focus</h2>
+        <h2 className="text-xl font-bold mb-1 inline-flex items-center">Asset & Market Focus <HelpTooltip examples={["MR Tankers on one line, Handysize Bulkers on the next", "LPG and LNG Carriers — spot and term markets", "Ballast Water Treatment Systems — retrofit market"]} /></h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           What physical assets or markets do you need to track? List as many as
           you like.
@@ -330,7 +333,7 @@ function Step3({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-1">Core Intelligence Subjects</h2>
+        <h2 className="text-xl font-bold mb-1 inline-flex items-center">Core Intelligence Subjects <HelpTooltip examples={["Daily Suezmax spot rates — AG to Med", "Port congestion at Singapore and Tanjung Pelepas", "Class society approval trends for scrubber retrofits"]} /></h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           List at least 3 &ldquo;must-have&rdquo; subjects. We&apos;ll use AI
           to fill in the blanks based on your profession.
@@ -428,7 +431,7 @@ function StepAdvancedModules({
         {data.tenderEnabled && (
           <div className="pt-2 space-y-4">
             <TextInput
-              label="Focus Region"
+              label={<>Focus Region <HelpTooltip examples={["South East Asia, Middle East", "West Africa, North Sea", "Global — offshore wind installation tenders"]} /></>}
               placeholder="e.g. South East Asia, Middle East, West Africa"
               value={data.tenderRegion}
               onChange={(v) => update({ tenderRegion: v })}
@@ -440,7 +443,7 @@ function StepAdvancedModules({
               ]}
             />
             <TextInput
-              label="Tender Type"
+              label={<>Tender Type <HelpTooltip examples={["Public procurement, time charter", "Offshore wind, FPSO conversion", "Equipment supply — propulsion systems"]} /></>}
               placeholder="e.g. Public procurement, Offshore wind, Port services"
               value={data.tenderType}
               onChange={(v) => update({ tenderType: v })}
@@ -492,7 +495,7 @@ function StepAdvancedModules({
               </div>
             </div>
             <TextInput
-              label="Focus Area / Regions"
+              label={<>Focus Area / Regions <HelpTooltip examples={["Tanker operators in the Gulf", "Dry bulk shipowners — Greece, Japan", "Shipyards and repair yards seeking OEM partnerships"]} /></>}
               placeholder="e.g. Tanker operators in the Gulf, European short-sea shipping"
               value={data.prospectsFocusAreas}
               onChange={(v) => update({ prospectsFocusAreas: v })}
@@ -522,7 +525,7 @@ function StepAdvancedModules({
         {data.marketPulseEnabled && (
           <div className="pt-2 space-y-4">
             <TextInput
-              label="Data to Track"
+              label={<>Data to Track <HelpTooltip examples={["Bunker Prices SG, Baltic Dry Index", "VLSFO Rotterdam, Capesize FFA Q3", "Marine coating market prices, newbuild order book"]} /></>}
               placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
               value={data.marketPulseDataToTrack}
               onChange={(v) => update({ marketPulseDataToTrack: v })}
@@ -551,6 +554,16 @@ function StepAdvancedModules({
           Countdown tracker for upcoming regulatory deadlines from IMO, USCG,
           EU, and DNV — so nothing catches you off guard.
         </p>
+        {data.regulatoryTimelineEnabled && (
+          <div className="pt-2 space-y-4">
+            <TextInput
+              label={<>Specific Regulations to Track <HelpTooltip examples={["IMO CII ratings, EU ETS maritime phase-in", "USCG ballast water management compliance deadlines", "DNV class renewal requirements, MARPOL Annex VI updates"]} /></>}
+              placeholder="e.g. IMO CII ratings, EU ETS shipping, USCG BWMS deadlines"
+              value={data.regulatoryTimelineRegulations}
+              onChange={(v) => update({ regulatoryTimelineRegulations: v })}
+            />
+          </div>
+        )}
       </div>
 
       {/* Off-Duty Module */}
@@ -570,7 +583,7 @@ function StepAdvancedModules({
         {data.offDutyEnabled && (
           <div className="pt-2 space-y-4">
             <TextInput
-              label="What do you follow outside of work?"
+              label={<>What do you follow outside of work? <HelpTooltip examples={["Formula 1, Premier League football", "Cycling, tech startups, wine regions", "Golf tournaments, yacht racing, aviation"]} /></>}
               placeholder="e.g. Formula 1, Premier League football, deep-sea fishing, vinyl records..."
               value={data.offDutyInterests}
               onChange={(v) => update({ offDutyInterests: v })}
@@ -602,7 +615,7 @@ function StepAdvancedModules({
         {data.competitorTrackerEnabled && (
           <div className="pt-2 space-y-4">
             <TextInput
-              label="Companies to track"
+              label={<>Companies to track <HelpTooltip examples={["Maersk, Hafnia, BW Group — fleet operator tracking competitor moves", "Wartsila, MAN Energy — tech provider monitoring rival product launches", "V.Group, Wilhelmsen — service company watching for contract wins and partnerships"]} /></>}
               placeholder="e.g. Maersk, Hapag-Lloyd, BW Group, Stena Bulk"
               value={data.competitorTrackerCompanies}
               onChange={(v) => update({ competitorTrackerCompanies: v })}
@@ -632,21 +645,10 @@ function StepAdvancedModules({
           safety updates — crew welfare, asset protection, and operational
           risk intelligence.
         </p>
-        <details className="text-xs text-[var(--muted-foreground)]">
-          <summary className="cursor-pointer inline-flex items-center gap-1 text-[var(--accent)] hover:underline">
-            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-[var(--accent)] text-[10px] font-bold">?</span>
-            Examples
-          </summary>
-          <ul className="mt-2 ml-5 list-disc space-y-1">
-            <li>Piracy alerts in Red Sea and Gulf of Aden</li>
-            <li>Hazardous cargo handling incidents and bulletins</li>
-            <li>Shipyard safety protocols and SOLAS compliance updates</li>
-          </ul>
-        </details>
         {data.safetyEnabled && (
           <div className="pt-2 space-y-4">
             <TextInput
-              label="Specific Safety/Security Areas to Track"
+              label={<>Specific Safety/Security Areas to Track <HelpTooltip examples={["Piracy alerts — Red Sea, Gulf of Guinea", "Hazardous cargo incidents & DG handling", "Shipyard safety protocols & near-miss reports"]} /></>}
               placeholder="e.g. Red Sea piracy alerts, SOLAS fire safety, H2S cargo handling"
               value={data.safetyAreas}
               onChange={(v) => update({ safetyAreas: v })}
@@ -738,7 +740,7 @@ function Step4({
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-xl font-bold mb-1">Frequency & Depth</h2>
+        <h2 className="text-xl font-bold mb-1 inline-flex items-center">Frequency & Depth <HelpTooltip examples={["Business Days + Executive Summary — concise brief every weekday", "Daily + Deep Dive — comprehensive coverage, no gaps", "3x Week + Data Only — pure numbers for OEM sales teams"]} /></h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           How often do you want your brief, and how deep should it go?
         </p>
@@ -771,7 +773,7 @@ function Step4({
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-3">Report Depth</label>
+        <label className="inline-flex items-center text-sm font-medium mb-3">Report Depth <HelpTooltip examples={["Executive Summary — 3-5 bullet points per topic, key headlines only. \"IMO approved CII tightening — your B-rated bulkers may slip to C by 2027.\"", "Deep Dive — full paragraphs with context, analysis, and source links. Covers background, implications, and recommended actions for each story.", "Data Only — pure tables and numbers: charter rates, bunker prices, index movements. No narrative, just the data you need for dashboards and models."]} /></label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <OptionCard
             selected={data.depth === "executive"}
@@ -843,7 +845,7 @@ function Step5({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold mb-1">Monthly Review & Delivery</h2>
+        <h2 className="text-xl font-bold mb-1 inline-flex items-center">Monthly Review & Delivery <HelpTooltip examples={["Updated sanctions list for Russia/Iran", "Global scrapping stats and newbuild order book", "Competitive landscape — new product launches from rival OEMs"]} /></h2>
         <p className="text-sm text-[var(--muted-foreground)]">
           Each month you&apos;ll receive an advanced strategic report. Tell us
           what to include, and where to send everything.
