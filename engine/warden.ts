@@ -600,9 +600,9 @@ async function main(): Promise<void> {
     : 5;
   const scanIntervalMs = intervalMin * 60_000;
 
-  log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s.`);
+  log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s. Waiting for first scan interval before subscriber dispatch.`);
 
-  let lastScanTime = 0;
+  let lastScanTime = Date.now(); // Start at now so scan() waits for the full interval — no immediate subscriber blast on boot
 
   while (true) {
     const now = Date.now();
