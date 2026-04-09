@@ -85,8 +85,8 @@ function isDirectArticleUrl(url: string, sectionName?: string): boolean {
       .split("/")
       .filter((seg) => seg.length > 0);
 
-    // Competitor Monitoring exception: allow root-level domains
-    if (sectionName && /competitor/i.test(sectionName)) return true;
+    // Prospect section exception: allow landing pages & LinkedIn profiles
+    if (sectionName && /prospect/i.test(sectionName)) return true;
 
     // Block bare homepages (no meaningful path)
     if (pathSegments.length === 0) return false;
