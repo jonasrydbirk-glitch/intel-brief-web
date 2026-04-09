@@ -250,7 +250,7 @@ export function renderBriefHtml(brief: BriefPayload): string {
   <!-- Analyst Note -->
   ${brief.analystNote ? `
   <div style="margin-top:28px;padding:16px;background:#fefce8;border-left:3px solid #eab308;border-radius:6px;">
-    <div style="font-size:12px;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Chief Engineer's Note</div>
+    <div style="font-size:12px;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">IQsea Intelligence Perspective</div>
     <div style="font-size:14px;color:#422006;line-height:1.5;">${esc(brief.analystNote)}</div>
   </div>` : ""}
 
