@@ -6,7 +6,7 @@
  *   - The print API route (app/api/print/generate-sample)
  *   - The local PDF renderer (lib/render-pdf.ts) — no network fetch needed
  *
- * Build 2026-04-08-VERIFIED — source integrity: clickable source URLs, fabrication guard
+ * Build 2026-04-08-ELITE — conditional sections: empty sections auto-hidden from PDF output
  */
 
 import type { BriefPayload, IntelItem, MarketPulseEntry, RegulatoryCountdownEntry } from "@/engine/brief-generator";

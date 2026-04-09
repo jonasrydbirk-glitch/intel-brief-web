@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IQseaLogoSmall } from "../../components/iqsea-logo";
+import { BUILD_VERSION } from "../../../lib/constants";
 
 interface Subscriber {
   id: string;
@@ -199,8 +200,8 @@ export default function AdminTestPage() {
               <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
                 IQsea v1.0
               </div>
-              <div className="text-[9px] font-[family-name:var(--font-geist-mono)] font-bold mt-1 px-1.5 py-0.5 rounded text-[#FFD700] bg-[rgba(0,0,0,0.85)]">
-                Build 2026-04-08-POSTMAN
+              <div className="inline-block mt-1.5 px-2 py-0.5 rounded bg-[#1a1400] border border-[#FFD700]/40 text-[8px] font-bold tracking-[0.1em] text-[#FFD700] font-[family-name:var(--font-geist-mono)]">
+                {BUILD_VERSION}
               </div>
             </div>
           </div>
