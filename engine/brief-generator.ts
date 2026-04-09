@@ -1,7 +1,7 @@
 /**
  * IQsea Intel Engine — Brief Generator (Phase 1 Local PoC)
  *
- * Pipeline:  Scout (Minimax M1) -> Architect (Claude Sonnet 4.6) -> Scribe (JSON formatter)
+ * Parallel Fleet:  Scout (Minimax M1) → Architect (Claude Sonnet 4.6) → Scribe (JSON formatter) → Postman (Graph API)
  *
  * Usage:
  *   npx tsx engine/brief-generator.ts <subscriber_id>
@@ -304,7 +304,7 @@ Return a JSON object with a single key "queries" containing an array of query st
 }
 
 // ---------------------------------------------------------------------------
-// Stage 1.5 — Sonar Search: execute Scout queries via Perplexity Sonar
+// Stage 1.5 — Scout Search: execute Scout queries via Serper/Google
 //              to get real search results with verifiable URLs
 // ---------------------------------------------------------------------------
 
@@ -347,7 +347,7 @@ Return up to 3 results per query. Only include results with real, direct article
 
   if (!response.ok) {
     const text = await response.text();
-    dumpRaw("Sonar ERROR", `${response.status} — ${text}`);
+    dumpRaw("Search ERROR", `${response.status} — ${text}`);
     // Non-fatal: return empty hits, Architect will produce empty sections
     return [];
   }
@@ -358,8 +358,8 @@ Return up to 3 results per query. Only include results with real, direct article
   // OpenRouter returns Perplexity citations as a top-level array
   const citations: string[] = data.citations ?? [];
 
-  dumpRaw("Sonar", rawContent);
-  dumpRaw("Sonar citations", JSON.stringify(citations));
+  dumpRaw("Search", rawContent);
+  dumpRaw("Search citations", JSON.stringify(citations));
 
   const hits: SearchHit[] = [];
 
@@ -391,7 +391,7 @@ Return up to 3 results per query. Only include results with real, direct article
     }
   }
 
-  dumpRaw("Sonar parsed", `${hits.length} search hits extracted`);
+  dumpRaw("Search parsed", `${hits.length} search hits extracted`);
   return hits;
 }
 
@@ -408,7 +408,7 @@ export async function architectStage(
 
   const systemPrompt = `You are a Forensic Intelligence Auditor — IQsea's Architect and Chief Engineer of maritime intelligence. Quality > Quantity. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk.
 
-You are now provided with a list of search result SNIPPETS and their EXACT URLs from the Scout (Sonar). Your ONLY job is to select the most relevant results, summarise them, and COPY the exact URL provided. You are NOT a search engine. You are an auditor of pre-fetched metadata.
+You are an Intelligence Auditor. You must ONLY use the exact URLs provided in the raw search results from the Scout. You are forbidden from modifying or abbreviating these URLs. If a story does not have a direct article-level URL in the search set, discard it. You are NOT a search engine. You are an auditor of pre-fetched metadata.
 
 ELITE DISCIPLINE (ABSOLUTE, NON-NEGOTIABLE):
 - If the provided search results do not contain high-relevance maritime news for a specific section, LEAVE THAT SECTION EMPTY (return an empty array []). The system will auto-hide empty sections from the PDF.
@@ -544,7 +544,7 @@ Scout queries generated:
 ${scout.queries.map((q, i) => `${i + 1}. ${q}`).join("\n")}
 
 ═══════════════════════════════════════════════════════════════════
-SEARCH METADATA FROM SCOUT (SONAR) — YOUR ONLY SOURCE OF TRUTH
+SEARCH METADATA FROM SCOUT — YOUR ONLY SOURCE OF TRUTH
 ═══════════════════════════════════════════════════════════════════
 ${scout.searchHits.length > 0 ? scout.searchHits.map((hit, i) => `[HIT ${i + 1}]\nTITLE: ${hit.title}\nSNIPPET: ${hit.snippet}\nURL: ${hit.url}`).join("\n---\n") : "(No search results returned. All sections MUST be empty arrays []. Do NOT fabricate any items.)"}
 ═══════════════════════════════════════════════════════════════════
@@ -840,11 +840,11 @@ export async function generateBrief(
   // Stage 1: Scout generates targeted search queries
   const scoutResult = await scoutStage(profile);
 
-  // Stage 1.5: Sonar executes queries and returns real search results with URLs
+  // Stage 1.5: Scout search executes queries and returns real search results with URLs
   const searchHits = await sonarSearch(scoutResult.queries);
   scoutResult.searchHits = searchHits;
 
-  dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, Sonar returned ${searchHits.length} search hits`);
+  dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, search returned ${searchHits.length} hits`);
 
   // Stage 2: Architect synthesises brief from search metadata ONLY
   const rawBrief = await architectStage(profile, scoutResult);

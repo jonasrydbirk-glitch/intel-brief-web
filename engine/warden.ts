@@ -263,7 +263,7 @@ async function dispatchBrief(subscriber: {
 }): Promise<void> {
   log("INFO", `Generating brief for ${subscriber.fullName} (${subscriber.id})`);
 
-  // Stage 1: Engine (Scout → Sonar → Architect → Scribe)
+  // Stage 1: Engine (Scout → Architect → Scribe)
   const rawBrief = await generateBrief(subscriber.id);
 
   // Stage 1.5: URL validation — strip homepage/shallow URLs
