@@ -69,6 +69,8 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
  *  - Must start with https://
  *  - Must have path depth >= 2 (e.g. domain.com/section/article)
  *    OR contain article-like path segments (/article/, /news/, /story/, /post/, /press/)
+ *    OR be a known video/social platform with content path (YouTube, Vimeo, LinkedIn posts)
+ *    OR contain year indicators (2024/2025/2026) suggesting a dated article
  *  - Rejects bare homepages like "https://gcaptain.com/" or "https://lloydslist.com"
  */
 function isDirectArticleUrl(url: string): boolean {
@@ -76,14 +78,30 @@ function isDirectArticleUrl(url: string): boolean {
 
   try {
     const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const pathLower = parsed.pathname.toLowerCase();
+    const fullLower = url.toLowerCase();
     const pathSegments = parsed.pathname
       .split("/")
       .filter((seg) => seg.length > 0);
 
+    // Block bare homepages (no meaningful path)
+    if (pathSegments.length === 0) return false;
+
+    // Video & social intel platforms — allow if they have a content path
+    if (
+      (host.includes("youtube.com") || host.includes("youtu.be")) &&
+      (pathLower.includes("/watch") || pathLower.includes("/shorts") || pathSegments.length >= 1)
+    ) {
+      return true;
+    }
+    if (host.includes("vimeo.com") && pathSegments.length >= 1) return true;
+    if (host.includes("linkedin.com") && fullLower.includes("/posts")) return true;
+
     // Must have at least 2 path segments (e.g. /news/article-slug)
     if (pathSegments.length >= 2) return true;
 
-    // Or contain article-like path segments even at depth 1
+    // Article-like path indicators even at depth 1
     const articlePatterns = [
       "article",
       "news",
@@ -93,13 +111,17 @@ function isDirectArticleUrl(url: string): boolean {
       "report",
       "update",
       "blog",
+      "view",
     ];
     if (
       pathSegments.length >= 1 &&
-      articlePatterns.some((p) => parsed.pathname.toLowerCase().includes(p))
+      articlePatterns.some((p) => pathLower.includes(p))
     ) {
       return true;
     }
+
+    // Year indicators in path suggest a dated article (e.g. /2026/04/story)
+    if (/\/(2024|2025|2026)\//.test(parsed.pathname)) return true;
 
     return false;
   } catch {

@@ -1,1 +1,1 @@
-export const BUILD_VERSION = 'Build 2026-04-09-TRUTH';
+export const BUILD_VERSION = 'Build 2026-04-09-SMART-LINKS';

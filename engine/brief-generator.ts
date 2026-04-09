@@ -496,6 +496,7 @@ DIRECT URL REQUIREMENT (ABSOLUTE, NON-NEGOTIABLE):
 - You MUST provide the direct URL to the specific news article. DO NOT provide the homepage of the news site (e.g. https://gcaptain.com/, https://lloydslist.com/, https://tradewindsnews.com/).
 - If you only have the homepage URL and cannot link to the specific article, OMIT the story entirely.
 - The URL must point to the exact article page, not a category page, search results page, or site root.
+- YouTube links and high-quality LinkedIn posts are acceptable as long as they provide specific, timely maritime intel. Prioritize direct news articles when available, but do not discard video or social intel that delivers genuine operational value.
 
 EMPTY SECTIONS (ABSOLUTE, NON-NEGOTIABLE):
 - If no news exists for a section (including Competitors), strictly return an empty array [] for that section's items.
