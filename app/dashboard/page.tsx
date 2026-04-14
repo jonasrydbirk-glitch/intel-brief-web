@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { unauthorized } from "next/navigation";
+import { unauthorized, redirect } from "next/navigation";
 import { IQseaLogoSmall } from "../components/iqsea-logo";
 import { verifySession } from "@/app/lib/session";
 import { getUserById } from "@/app/lib/auth";
@@ -18,6 +18,11 @@ export default async function DashboardPage() {
   }
 
   const user = await getUserById(session.userId);
+
+  // Redirect subscribers who haven't finished onboarding back to the questionnaire
+  if (user?.data?.onboarding_complete === false) {
+    redirect("/onboard");
+  }
   const fullName = (user?.data?.fullName as string) || "";
   const frequency = (user?.data?.frequency as string) || "—";
   const depth = (user?.data?.depth as string) || "—";

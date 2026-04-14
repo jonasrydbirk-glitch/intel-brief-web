@@ -19,6 +19,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
 import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
+import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendViaGraph } from "../lib/postman";
 
@@ -365,7 +366,7 @@ async function dispatchBrief(subscriber: {
 // Remote Worker — poll brief_jobs for pending requests from the website
 // ---------------------------------------------------------------------------
 
-const JOB_POLL_INTERVAL_MS = 10_000; // 10 seconds
+const JOB_POLL_INTERVAL_MS = 5_000; // 5 seconds
 
 /**
  * Scan the brief_jobs table for rows with status "pending".
@@ -378,7 +379,7 @@ const JOB_POLL_INTERVAL_MS = 10_000; // 10 seconds
 async function processJobQueue(): Promise<void> {
   const { data: pendingJobs, error: fetchErr } = await supabase
     .from("brief_jobs")
-    .select("id, subscriber_id, dispatch_now")
+    .select("id, subscriber_id, dispatch_now, job_type, preview_subject")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -399,7 +400,23 @@ async function processJobQueue(): Promise<void> {
         .update({ status: "processing", updated_at: new Date().toISOString() })
         .eq("id", job.id);
 
-      log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}`);
+      log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}${job.job_type === "preview" ? " [PREVIEW]" : ""}`);
+
+      // Preview jobs: single-story fast path — skip full brief pipeline
+      if (job.job_type === "preview") {
+        const subject = job.preview_subject ?? "maritime intelligence";
+        const story = await generatePreviewStory(subject);
+        await supabase
+          .from("brief_jobs")
+          .update({
+            status: "complete",
+            result: story,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+        log("INFO", `Preview job ${job.id} complete.`);
+        continue;
+      }
 
       const rawBrief = await generateBrief(job.subscriber_id);
       const brief = validateBriefUrls(rawBrief);
@@ -537,7 +554,8 @@ async function scan(): Promise<void> {
 
   const { data: subscribers, error } = await supabase
     .from("subscribers")
-    .select("id, email, fullName, frequency, timezone, deliveryTime");
+    .select("id, email, fullName, frequency, timezone, deliveryTime")
+    .eq("onboarding_complete", true);
 
   if (error || !subscribers) {
     log("ERROR", `Failed to fetch subscribers: ${error?.message ?? "no data"}`);
