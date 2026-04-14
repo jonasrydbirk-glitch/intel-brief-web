@@ -1103,9 +1103,9 @@ function SampleStage({
         <div
           className="rounded-lg px-4 py-3 text-sm leading-relaxed"
           style={{
-            background: "rgba(83, 177, 193, 0.15)",
-            border: "1px solid rgba(83, 177, 193, 0.30)",
-            color: "#132742",
+            background: "rgba(83, 177, 193, 0.22)",
+            border: "1px solid rgba(83, 177, 193, 0.40)",
+            color: "#f0f4f8",
           }}
         >
           We couldn&apos;t find news newer than 7 days on &lsquo;{subject}&rsquo;. Here&apos;s what we found from earlier. Your daily briefs will surface fresh articles as they publish.
