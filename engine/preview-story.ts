@@ -2,7 +2,10 @@
  * IQsea Preview Story Generator
  *
  * Generates a single IntelItem for the onboarding preview flow.
- * Skips Scout; runs one Sonar search query then synthesises via Architect.
+ * Skips Scout; uses a two-tier Sonar search (fresh first, fallback)
+ * then synthesises via a trimmed Architect call.
+ *
+ * Return shape: { item, isFresh, publishedDate? }
  */
 
 import { IntelItem, SearchHit } from "./brief-generator";
@@ -11,13 +14,10 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // ---------------------------------------------------------------------------
-// Single-query Sonar search
+// Single-query Sonar search (accepts a fully-formed query string)
 // ---------------------------------------------------------------------------
 
-async function previewSearch(subject: string): Promise<SearchHit[]> {
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const query = `${subject} latest news ${todayISO}`;
-
+async function previewSearch(query: string): Promise<SearchHit[]> {
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -45,7 +45,7 @@ Return up to 2 results. Only include results with real, direct article URLs.`,
         },
         {
           role: "user",
-          content: `Find the latest news articles for: ${query}`,
+          content: `Find news articles for: ${query}`,
         },
       ],
       max_tokens: 1024,
@@ -92,10 +92,10 @@ Return up to 2 results. Only include results with real, direct article URLs.`,
 
 async function synthesiseStory(
   subject: string,
-  hits: SearchHit[]
+  hits: SearchHit[],
+  fresh: boolean,
+  todayISO: string
 ): Promise<IntelItem | null> {
-  const todayISO = new Date().toISOString().slice(0, 10);
-
   if (hits.length === 0) {
     return null;
   }
@@ -107,6 +107,10 @@ async function synthesiseStory(
     )
     .join("\n\n");
 
+  const freshnessRule = fresh
+    ? `- REJECT any article not published within the last 7 days (today is ${todayISO}). If all results are older than 7 days, return null.`
+    : `- Use the most recent article available. Older articles are acceptable if that is all that exists, but real content is still required.`;
+
   const systemPrompt = `You are a Senior Maritime Intelligence Officer writing a single intelligence brief item.
 
 TODAY'S DATE: ${todayISO}
@@ -114,8 +118,9 @@ TODAY'S DATE: ${todayISO}
 RULES (non-negotiable):
 - Use ONLY URLs that appear verbatim in the search results provided. Do NOT construct, guess, or abbreviate URLs.
 - If no result has a direct article URL, return null.
-- headline: factual news headline — what happened, stated plainly.
-- summary: factual account of what the search result reports. No opinion. No "this means...".
+${freshnessRule}
+- headline: factual news headline — what happened, stated plainly. Must be substantive (not a generic placeholder).
+- summary: factual account of what the search result reports. No opinion. No "this means...". Must describe a real event or development.
 - commentary: 1-2 sentences of professional maritime analyst insight — why this matters operationally.
 - relevance: one sentence on why this is relevant to "${subject}".
 - source: exact URL copied from the search results.
@@ -169,25 +174,66 @@ If you cannot produce a valid item from the provided results, return exactly: nu
 }
 
 // ---------------------------------------------------------------------------
+// Validity check — returns the item if usable, null otherwise
+// ---------------------------------------------------------------------------
+
+function isUsable(item: IntelItem | null): item is IntelItem {
+  if (!item) return false;
+  if (!item.headline || item.headline.trim().length <= 10) return false;
+  if (!item.summary || item.summary.trim().length <= 30) return false;
+  if (!item.source || !/^https?:\/\/.+/.test(item.source.trim())) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Best-effort date extraction from Sonar snippets
+// ---------------------------------------------------------------------------
+
+function extractPublishedDate(hits: SearchHit[]): string | undefined {
+  // Matches ISO dates (2026-04-10) or common English formats (April 10, 2026)
+  const datePattern = /\b(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4})\b/i;
+  for (const hit of hits) {
+    const text = `${hit.title} ${hit.snippet}`;
+    const match = text.match(datePattern);
+    if (match) return match[1];
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 
 export async function generatePreviewStory(
   subject: string
-): Promise<IntelItem> {
-  const hits = await previewSearch(subject);
-  const item = await synthesiseStory(subject, hits);
+): Promise<{ item: IntelItem; isFresh: boolean; publishedDate?: string }> {
+  const todayISO = new Date().toISOString().slice(0, 10);
 
-  if (item) return item;
+  // --- Tier 1: FRESH — last 7 days only ---
+  const freshQuery = `${subject} — published in the last 7 days, today is ${todayISO}. Only return articles from the last 7 days.`;
+  const freshHits = await previewSearch(freshQuery);
+  const freshItem = await synthesiseStory(subject, freshHits, true, todayISO);
+  if (isUsable(freshItem)) {
+    return {
+      item: freshItem,
+      isFresh: true,
+      publishedDate: extractPublishedDate(freshHits),
+    };
+  }
 
-  // Fallback: return a placeholder so the UI always has something to render
-  return {
-    headline: `Intelligence preview for: ${subject}`,
-    summary:
-      "Live intelligence search completed. Sign up to receive your full personalised maritime brief with multiple stories, market data, and expert commentary.",
-    commentary:
-      "Your first full brief will be tailored to your fleet, role, and subjects — delivered on your schedule.",
-    relevance: `Directly relevant to your stated subject: ${subject}.`,
-    source: "",
-  };
+  // --- Tier 2: FALLBACK — most recent available, no date constraint ---
+  const fallbackQuery = `${subject} — most recent news available`;
+  const fallbackHits = await previewSearch(fallbackQuery);
+  const fallbackItem = await synthesiseStory(subject, fallbackHits, false, todayISO);
+  if (isUsable(fallbackItem)) {
+    return {
+      item: fallbackItem,
+      isFresh: false,
+      publishedDate: extractPublishedDate(fallbackHits),
+    };
+  }
+
+  // Both tiers exhausted — surface a recognisable error so Warden marks the
+  // job as 'error' and the frontend can show the "try a different topic" screen.
+  throw new Error("NO_RESULTS: no usable content found for subject");
 }
