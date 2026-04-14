@@ -1100,15 +1100,17 @@ function SampleStage({
   return (
     <div className="space-y-6">
       {!isFresh && (
-        <div
-          className="rounded-lg px-4 py-3 text-sm leading-relaxed"
-          style={{
-            background: "rgba(83, 177, 193, 0.22)",
-            border: "1px solid rgba(83, 177, 193, 0.40)",
-            color: "#f0f4f8",
-          }}
-        >
-          We couldn&apos;t find news newer than 7 days on &lsquo;{subject}&rsquo;. Here&apos;s what we found from earlier. Your daily briefs will surface fresh articles as they publish.
+        <div className="mb-4 flex gap-3 rounded-lg border border-[#53b1c1]/60 bg-[#53b1c1]/15 p-4 shadow-sm">
+          <div className="mt-0.5 flex-shrink-0">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <circle cx="10" cy="10" r="9" fill="#53b1c1" />
+              <rect x="9" y="9" width="2" height="5" rx="1" fill="#0b1424" />
+              <rect x="9" y="6" width="2" height="2" rx="1" fill="#0b1424" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-[#f0f4f8]">
+            We couldn&apos;t find news newer than 7 days on &lsquo;{subject}&rsquo;. Here&apos;s what we found from earlier. Your daily briefs will surface fresh articles as they publish.
+          </p>
         </div>
       )}
       <div>
