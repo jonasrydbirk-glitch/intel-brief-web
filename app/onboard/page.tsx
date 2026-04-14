@@ -1089,14 +1089,28 @@ function GeneratingStage({ subject }: { subject: string }) {
 function SampleStage({
   story,
   subject,
+  isFresh,
   onContinue,
 }: {
   story: IntelItem;
   subject: string;
+  isFresh: boolean;
   onContinue: () => void;
 }) {
   return (
     <div className="space-y-6">
+      {!isFresh && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm leading-relaxed"
+          style={{
+            background: "rgba(83, 177, 193, 0.15)",
+            border: "1px solid rgba(83, 177, 193, 0.30)",
+            color: "#132742",
+          }}
+        >
+          We couldn&apos;t find news newer than 7 days on &lsquo;{subject}&rsquo;. Here&apos;s what we found from earlier. Your daily briefs will surface fresh articles as they publish.
+        </div>
+      )}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/25">
@@ -1148,6 +1162,32 @@ function SampleStage({
         className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
       >
         Create My Account →
+      </button>
+    </div>
+  );
+}
+
+function NoResultsStage({
+  subject,
+  onRetry,
+}: {
+  subject: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="space-y-6 py-4 text-center">
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold">No results found</h3>
+        <p className="text-sm text-[var(--muted-foreground)]">
+          We couldn&apos;t find news on &lsquo;{subject}&rsquo;. Try a different topic?
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
+      >
+        Try another topic
       </button>
     </div>
   );
@@ -1306,6 +1346,8 @@ export default function OnboardPage() {
   const [subject, setSubject] = useState("");
   const [previewJobId, setPreviewJobId] = useState<string | null>(null);
   const [story, setStory] = useState<IntelItem | null>(null);
+  const [isFresh, setIsFresh] = useState<boolean | null>(null);
+  const [previewNoResults, setPreviewNoResults] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [qStep, setQStep] = useState(0);
   const [data, setData] = useState<FormData>(INITIAL);
@@ -1338,8 +1380,12 @@ export default function OnboardPage() {
         const res = await fetch(`/api/preview-story?jobId=${previewJobId}`);
         const result = await res.json();
 
-        if (result.status === "complete" && result.result) {
-          setStory(result.result as IntelItem);
+        if (result.status === "complete" && result.item) {
+          setStory(result.item as IntelItem);
+          setIsFresh(result.isFresh ?? true);
+          setStage("sample");
+        } else if (result.status === "no_results") {
+          setPreviewNoResults(true);
           setStage("sample");
         } else if (result.status === "error") {
           setPreviewError("Preview generation failed. Please try again.");
@@ -1363,6 +1409,9 @@ export default function OnboardPage() {
   async function handleStartPreview(subjectValue: string) {
     setSubject(subjectValue);
     setPreviewError("");
+    setPreviewNoResults(false);
+    setIsFresh(null);
+    setStory(null);
     // Pre-fill Subject 1 with what the user typed
     update({ subjects: [subjectValue, "", ""] });
 
@@ -1490,11 +1539,24 @@ export default function OnboardPage() {
                 </>
               )}
               {stage === "generating" && <GeneratingStage subject={subject} />}
-              {stage === "sample" && story && (
+              {stage === "sample" && !previewNoResults && story && (
                 <SampleStage
                   story={story}
                   subject={subject}
+                  isFresh={isFresh ?? true}
                   onContinue={() => setStage("signup")}
+                />
+              )}
+              {stage === "sample" && previewNoResults && (
+                <NoResultsStage
+                  subject={subject}
+                  onRetry={() => {
+                    setPreviewNoResults(false);
+                    setStory(null);
+                    setPreviewJobId(null);
+                    setIsFresh(null);
+                    setStage("entry");
+                  }}
                 />
               )}
               {stage === "signup" && <SignupStage onSuccess={handleSignupSuccess} />}

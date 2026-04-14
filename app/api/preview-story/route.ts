@@ -102,11 +102,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    return NextResponse.json({
-      status: job.status,
-      result: job.result ?? null,
-      error: job.error ?? null,
-    });
+    if (job.status === "complete" && job.result) {
+      // result shape: { item: IntelItem, isFresh: boolean, publishedDate?: string }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = job.result as any;
+      return NextResponse.json({
+        status: "complete",
+        item: res?.item ?? null,
+        isFresh: res?.isFresh ?? true,
+        publishedDate: res?.publishedDate ?? null,
+      });
+    }
+
+    if (job.status === "error") {
+      const errorMsg: string = job.error ?? "";
+      if (errorMsg.includes("NO_RESULTS")) {
+        return NextResponse.json({
+          status: "no_results",
+          message: "We couldn't find anything on that topic. Try a different one?",
+        });
+      }
+      return NextResponse.json({
+        status: "error",
+        message: errorMsg,
+      });
+    }
+
+    return NextResponse.json({ status: job.status });
   } catch (err) {
     console.error("[preview-story GET] Unhandled error:", err);
     return NextResponse.json(
