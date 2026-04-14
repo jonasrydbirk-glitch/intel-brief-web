@@ -84,9 +84,9 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/onboard"
-              className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground hover:brightness-110 transition"
+              className="rounded-lg bg-accent px-3 sm:px-5 py-2 text-sm font-semibold text-accent-foreground hover:brightness-110 transition whitespace-nowrap"
             >
-              See a sample brief
+              See a sample
             </Link>
           </div>
         </div>
