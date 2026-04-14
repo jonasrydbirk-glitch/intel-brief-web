@@ -41,6 +41,9 @@ interface FormData {
   vesselArrivalsPort: string;
   vesselArrivalsVesselType: string;
   vesselArrivalsTimeframe: string;
+  industryChatterEnabled: boolean;
+  earningsCallEnabled: boolean;
+  earningsCallCompanies: string;
   safetyEnabled: boolean;
   safetyAreas: string;
   frequency: string;
@@ -75,6 +78,9 @@ const INITIAL: FormData = {
   vesselArrivalsPort: "",
   vesselArrivalsVesselType: "",
   vesselArrivalsTimeframe: "",
+  industryChatterEnabled: false,
+  earningsCallEnabled: false,
+  earningsCallCompanies: "",
   safetyEnabled: false,
   safetyAreas: "",
   frequency: "",
@@ -787,6 +793,79 @@ function StepAdvancedModules({
                 <option value="96h">96 hours</option>
                 <option value="7d">7 days</option>
               </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Industry Chatter Module — UNDER CONSTRUCTION */}
+      <div
+        className="rounded-xl border border-[var(--border)] p-5 space-y-4 opacity-60"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)",
+        }}
+      >
+        <Toggle
+          enabled={data.industryChatterEnabled}
+          onToggle={() =>
+            update({ industryChatterEnabled: !data.industryChatterEnabled })
+          }
+          label="Industry Chatter"
+        />
+        <div className="flex items-center gap-2">
+          <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25">
+            Under Construction
+          </span>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+          Stay ahead of the conversation — surface what shipowners, brokers, and
+          operators are actually talking about across industry forums and social
+          channels. Know the sentiment before it moves the market.
+        </p>
+      </div>
+
+      {/* Earnings Call Summary Module — UNDER CONSTRUCTION */}
+      <div
+        className="rounded-xl border border-[var(--border)] p-5 space-y-4 opacity-60"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)",
+        }}
+      >
+        <Toggle
+          enabled={data.earningsCallEnabled}
+          onToggle={() =>
+            update({ earningsCallEnabled: !data.earningsCallEnabled })
+          }
+          label="Earnings Call Summary"
+        />
+        <div className="flex items-center gap-2">
+          <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25">
+            Under Construction
+          </span>
+        </div>
+        <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+          Never sit through another three-hour earnings call. Get the key
+          signals — fleet growth plans, rate outlooks, and management guidance —
+          extracted and translated into plain maritime intelligence.
+        </p>
+        {data.earningsCallEnabled && (
+          <div className="pt-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Companies to Track
+              </label>
+              <input
+                type="text"
+                value={data.earningsCallCompanies}
+                onChange={(e) =>
+                  update({ earningsCallCompanies: e.target.value })
+                }
+                placeholder="e.g. Frontline, Euronav, Tsakos"
+                disabled
+                className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-lg px-4 py-3 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] transition-colors opacity-50 cursor-not-allowed"
+              />
             </div>
           </div>
         )}
