@@ -108,7 +108,8 @@ export async function GET(request: Request) {
       const res = job.result as any;
       return NextResponse.json({
         status: "complete",
-        item: res?.item ?? null,
+        // Handle legacy Warden result shape (pre-fix, IntelItem stored directly without .item wrapper)
+        item: res?.item ?? (res?.headline ? res : null),
         isFresh: res?.isFresh ?? true,
         publishedDate: res?.publishedDate ?? null,
       });

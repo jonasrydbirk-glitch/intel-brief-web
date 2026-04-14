@@ -1364,7 +1364,7 @@ export default function OnboardPage() {
   useEffect(() => {
     if (stage !== "generating" || !previewJobId) return;
 
-    const TIMEOUT_MS = 45_000;
+    const TIMEOUT_MS = 90_000;
     const POLL_MS = 1_000;
     const started = Date.now();
     let cancelled = false;
