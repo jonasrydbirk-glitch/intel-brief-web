@@ -110,7 +110,7 @@ export async function GET(request: Request) {
         status: "complete",
         // Handle legacy Warden result shape (pre-fix, IntelItem stored directly without .item wrapper)
         item: res?.item ?? (res?.headline ? res : null),
-        isFresh: res?.isFresh ?? true,
+        isFresh: res?.isFresh ?? false, // default to false when absent — err on the side of showing the disclaimer banner rather than silently marking an unknown article as fresh
         publishedDate: res?.publishedDate ?? null,
       });
     }
