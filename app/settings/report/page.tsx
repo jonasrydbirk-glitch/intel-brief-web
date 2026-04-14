@@ -323,6 +323,192 @@ function IconLogout() {
   );
 }
 
+/* ────── sidebar sections ────── */
+
+type SectionId =
+  | "profile"
+  | "assets"
+  | "subjects"
+  | "modules"
+  | "delivery"
+  | "monthly"
+  | "security";
+
+const SECTIONS: Array<{
+  id: SectionId;
+  label: string;
+  Icon: () => React.ReactElement;
+  required: boolean;
+}> = [
+  { id: "profile",  label: "Profile",        Icon: IconUser,     required: true  },
+  { id: "assets",   label: "Asset Focus",     Icon: IconShip,     required: true  },
+  { id: "subjects", label: "Intel Subjects",  Icon: IconTarget,   required: true  },
+  { id: "modules",  label: "Modules",         Icon: IconPuzzle,   required: false },
+  { id: "delivery", label: "Delivery",        Icon: IconClock,    required: true  },
+  { id: "monthly",  label: "Monthly Review",  Icon: IconCalendar, required: false },
+  { id: "security", label: "Security",        Icon: IconShield,   required: false },
+];
+
+/* ────── summary strip ────── */
+
+function SummaryStrip({ form }: { form: FormState }) {
+  const freqLabel: Record<string, string> = {
+    business: "Business Days",
+    "3x": "3× Week",
+    weekly: "Weekly",
+    daily: "Daily",
+  };
+  const depthLabel: Record<string, string> = {
+    executive: "Executive Summary",
+    deep: "Deep Dive",
+    data: "Data Only",
+  };
+  const enabledCount = [
+    form.tenderEnabled,
+    form.prospectsEnabled,
+    form.marketPulseEnabled,
+    form.regulatoryTimelineEnabled,
+    form.offDutyEnabled,
+    form.competitorTrackerEnabled,
+    form.safetyEnabled,
+    form.monthlyProspectRollupEnabled,
+  ].filter(Boolean).length;
+
+  const tzShort = form.timezone
+    ? form.timezone.split("/").pop()?.replace(/_/g, " ")
+    : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted-foreground)] mt-1.5">
+      <span className="font-medium text-[var(--foreground)]">
+        {freqLabel[form.frequency] ?? form.frequency}
+      </span>
+      <span className="opacity-30">·</span>
+      <span>{form.deliveryTime}</span>
+      {tzShort && (
+        <>
+          <span className="opacity-30">·</span>
+          <span>{tzShort}</span>
+        </>
+      )}
+      <span className="opacity-30">·</span>
+      <span>{depthLabel[form.depth] ?? form.depth}</span>
+      <span className="opacity-30">·</span>
+      <span className={enabledCount > 0 ? "text-[#53b1c1]" : ""}>
+        {enabledCount} module{enabledCount !== 1 ? "s" : ""} active
+      </span>
+    </div>
+  );
+}
+
+/* ────── module card ────── */
+
+interface ModuleCardProps {
+  id: string;
+  title: string;
+  enabled: boolean;
+  isUC?: boolean;
+  description: string;
+  configSummary?: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onExpandToggle: () => void;
+  children?: React.ReactNode;
+}
+
+function ModuleCard({
+  title,
+  enabled,
+  isUC,
+  description,
+  configSummary,
+  expanded,
+  onToggle,
+  onExpandToggle,
+  children,
+}: ModuleCardProps) {
+  const statusChip = isUC ? (
+    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25 whitespace-nowrap">
+      Under Construction
+    </span>
+  ) : enabled ? (
+    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#53b1c1]/20 text-[#53b1c1] border border-[#53b1c1]/30 whitespace-nowrap">
+      Enabled
+    </span>
+  ) : (
+    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/5 text-[var(--muted-foreground)]/50 border border-[var(--border)] whitespace-nowrap">
+      Disabled
+    </span>
+  );
+
+  return (
+    <div
+      className={`rounded-xl border p-5 transition-all duration-200 ${
+        isUC
+          ? "border-[var(--border)] bg-[var(--background)]/40 opacity-60"
+          : expanded
+          ? "border-[#53b1c1]/40 bg-[var(--card)] shadow-sm"
+          : "border-[var(--border)] bg-[var(--card)] hover:border-[#53b1c1]/30 cursor-pointer"
+      }`}
+      style={
+        isUC
+          ? {
+              backgroundImage:
+                "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)",
+            }
+          : undefined
+      }
+      onClick={!isUC ? onExpandToggle : undefined}
+    >
+      {/* Card header */}
+      <div className="flex items-start justify-between gap-3 mb-2.5">
+        <h3 className="text-sm font-semibold leading-snug">{title}</h3>
+        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+          {statusChip}
+          {!isUC && (
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 shrink-0 ${
+                expanded ? "rotate-180" : ""
+              }`}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 7.5l5 5 5-5" />
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+        {description}
+      </p>
+
+      {/* Config summary — shown when enabled + collapsed */}
+      {!isUC && enabled && !expanded && configSummary && (
+        <p className="mt-2 text-xs text-[#53b1c1]/80 font-medium truncate">
+          {configSummary}
+        </p>
+      )}
+
+      {/* Expanded content */}
+      {!isUC && expanded && (
+        <div
+          className="mt-4 pt-4 border-t border-[var(--border)] space-y-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Toggle enabled={enabled} onToggle={onToggle} label={`Enable ${title}`} />
+          {enabled && children && (
+            <div className="space-y-4 pt-2">{children}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ────── main page ────── */
 
 export default function ReportSettingsPage() {
@@ -333,6 +519,10 @@ export default function ReportSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  const [activeSection, setActiveSection] = useState<SectionId>("profile");
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -341,8 +531,10 @@ export default function ReportSettingsPage() {
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwError, setPwError] = useState("");
 
-  const update = (partial: Partial<FormState>) =>
+  const update = (partial: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...partial }));
+    setDirty(true);
+  };
 
   const setSubject = (idx: 0 | 1 | 2, val: string) => {
     const next: [string, string, string] = [...form.subjects];
@@ -350,7 +542,9 @@ export default function ReportSettingsPage() {
     update({ subjects: next });
   };
 
-  // Try to load existing profile using session-backed API
+  const toggleModule = (id: string) =>
+    setExpandedModule((cur) => (cur === id ? null : id));
+
   useEffect(() => {
     async function load() {
       try {
@@ -359,6 +553,7 @@ export default function ReportSettingsPage() {
           const profile: ProfileData = await res.json();
           setProfileId(profile.id);
           setForm(profileToForm(profile));
+          setDirty(false);
         }
       } catch {
         // Use placeholders on error
@@ -389,6 +584,7 @@ export default function ReportSettingsPage() {
         return;
       }
       setSaved(true);
+      setDirty(false);
       setTimeout(() => setSaved(false), 3000);
     } catch {
       setError("Network error — please try again.");
@@ -406,6 +602,727 @@ export default function ReportSettingsPage() {
       </div>
     );
   }
+
+  // ── section renderers ─────────────────────────────────────────────────────
+
+  function renderProfile() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconUser />}
+          title="Professional Identity"
+          subtitle="How the engine understands your role and perspective"
+          helpExamples={[
+            "Chartering Manager at a mid-size tanker company",
+            "Technical Superintendent — bulk carriers",
+            "Sales Director at a marine engine OEM",
+          ]}
+        />
+        <div>
+          <label className={labelClass}>Role</label>
+          <input
+            type="text"
+            value={form.role}
+            onChange={(e) => update({ role: e.target.value })}
+            placeholder="e.g. Ship Owner/Operator"
+            className={inputClass}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  function renderAssets() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconShip />}
+          title="Asset & Market Focus"
+          subtitle="The vessel types, segments, and markets you operate in"
+          helpExamples={[
+            "MR Tankers on one line, Handysize Bulkers on the next",
+            "LPG and LNG Carriers — spot and term markets",
+            "Ballast Water Treatment Systems — retrofit market",
+          ]}
+        />
+        <div>
+          <label className={labelClass}>Assets and Markets</label>
+          <textarea
+            value={form.assets}
+            onChange={(e) => update({ assets: e.target.value })}
+            placeholder="One per line — e.g. LPG and LNG Carriers"
+            rows={4}
+            className={textareaClass}
+          />
+          <p className="text-xs text-[var(--muted-foreground)] mt-2">
+            Enter each asset type or market on a new line.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSubjects() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconTarget />}
+          title="Core Intelligence Subjects"
+          subtitle="Up to three topics the engine prioritises in every brief"
+          helpExamples={[
+            "Daily Suezmax spot rates — AG to Med",
+            "Port congestion at Singapore and Tanjung Pelepas",
+            "Class society approval trends for scrubber retrofits",
+          ]}
+        />
+        <div className="space-y-4">
+          {([0, 1, 2] as const).map((idx) => (
+            <div key={idx}>
+              <label className={labelClass}>Subject {idx + 1}</label>
+              <input
+                type="text"
+                value={form.subjects[idx]}
+                onChange={(e) => setSubject(idx, e.target.value)}
+                placeholder={`e.g. ${PLACEHOLDER.subjects[idx]}`}
+                className={inputClass}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderModules() {
+    const modules: ModuleCardProps[] = [
+      {
+        id: "tender",
+        title: "Tender Module",
+        enabled: form.tenderEnabled,
+        description:
+          "Track maritime and offshore tender opportunities relevant to your profile.",
+        configSummary:
+          [form.tenderRegion, form.tenderType].filter(Boolean).join(" · ") ||
+          undefined,
+        onToggle: () => update({ tenderEnabled: !form.tenderEnabled }),
+        expanded: expandedModule === "tender",
+        onExpandToggle: () => toggleModule("tender"),
+        children: (
+          <>
+            <div>
+              <label className={labelClass + " inline-flex items-center"}>
+                Focus Region{" "}
+                <HelpTooltip
+                  examples={[
+                    "South East Asia, Middle East",
+                    "West Africa, North Sea",
+                    "Global — offshore wind installation tenders",
+                  ]}
+                />
+              </label>
+              <input
+                type="text"
+                value={form.tenderRegion}
+                onChange={(e) => update({ tenderRegion: e.target.value })}
+                placeholder="e.g. South East Asia, Middle East"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass + " inline-flex items-center"}>
+                Tender Type{" "}
+                <HelpTooltip
+                  examples={[
+                    "Public procurement, time charter",
+                    "Offshore wind, FPSO conversion",
+                    "Equipment supply — propulsion systems",
+                  ]}
+                />
+              </label>
+              <input
+                type="text"
+                value={form.tenderType}
+                onChange={(e) => update({ tenderType: e.target.value })}
+                placeholder="e.g. Public procurement, Offshore wind"
+                className={inputClass}
+              />
+            </div>
+          </>
+        ),
+      },
+      {
+        id: "prospects",
+        title: "Client Prospects",
+        enabled: form.prospectsEnabled,
+        description:
+          "AI-powered lead generation — we analyse your role and market focus to suggest high-fit companies for outreach.",
+        configSummary: form.prospectsEnabled
+          ? `${form.prospectsPerReport} per report${form.prospectsFocusAreas ? ` · ${form.prospectsFocusAreas}` : ""}`
+          : undefined,
+        onToggle: () => update({ prospectsEnabled: !form.prospectsEnabled }),
+        expanded: expandedModule === "prospects",
+        onExpandToggle: () => toggleModule("prospects"),
+        children: (
+          <>
+            <div>
+              <label className={labelClass}>New Prospects Per Report</label>
+              <div className="flex gap-2">
+                {([1, 2, 3, 4, 5] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      update({ prospectsPerReport: n });
+                    }}
+                    className={`w-11 h-11 rounded-lg text-sm font-semibold transition-all ${
+                      form.prospectsPerReport === n
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)] ring-1 ring-[var(--accent)]"
+                        : "border border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass + " inline-flex items-center"}>
+                Focus Area / Regions{" "}
+                <HelpTooltip
+                  examples={[
+                    "Tanker operators in the Gulf",
+                    "Dry bulk shipowners — Greece, Japan",
+                    "Shipyards and repair yards seeking OEM partnerships",
+                  ]}
+                />
+              </label>
+              <input
+                type="text"
+                value={form.prospectsFocusAreas}
+                onChange={(e) => update({ prospectsFocusAreas: e.target.value })}
+                placeholder="e.g. Tanker operators in the Gulf"
+                className={inputClass}
+              />
+            </div>
+          </>
+        ),
+      },
+      {
+        id: "marketPulse",
+        title: "Market Pulse",
+        enabled: form.marketPulseEnabled,
+        description:
+          "Track live market data — bunker prices, freight indexes, and key rates relevant to your operations.",
+        configSummary: form.marketPulseDataToTrack || undefined,
+        onToggle: () => update({ marketPulseEnabled: !form.marketPulseEnabled }),
+        expanded: expandedModule === "marketPulse",
+        onExpandToggle: () => toggleModule("marketPulse"),
+        children: (
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              Data to Track{" "}
+              <HelpTooltip
+                examples={[
+                  "Bunker Prices SG, Baltic Dry Index",
+                  "VLSFO Rotterdam, Capesize FFA Q3",
+                  "Marine coating market prices, newbuild order book",
+                ]}
+              />
+            </label>
+            <input
+              type="text"
+              value={form.marketPulseDataToTrack}
+              onChange={(e) => update({ marketPulseDataToTrack: e.target.value })}
+              placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
+              className={inputClass}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "regulatoryTimeline",
+        title: "Regulatory Timeline",
+        enabled: form.regulatoryTimelineEnabled,
+        description:
+          "Countdown tracker for upcoming regulatory deadlines from IMO, USCG, EU, and DNV — so nothing catches you off guard.",
+        configSummary: form.regulatoryTimelineRegulations || undefined,
+        onToggle: () =>
+          update({
+            regulatoryTimelineEnabled: !form.regulatoryTimelineEnabled,
+          }),
+        expanded: expandedModule === "regulatoryTimeline",
+        onExpandToggle: () => toggleModule("regulatoryTimeline"),
+        children: (
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              Specific Regulations to Track{" "}
+              <HelpTooltip
+                examples={[
+                  "IMO CII ratings, EU ETS maritime phase-in",
+                  "USCG ballast water management compliance deadlines",
+                  "DNV class renewal requirements, MARPOL Annex VI updates",
+                ]}
+              />
+            </label>
+            <input
+              type="text"
+              value={form.regulatoryTimelineRegulations}
+              onChange={(e) =>
+                update({ regulatoryTimelineRegulations: e.target.value })
+              }
+              placeholder="e.g. IMO CII ratings, EU ETS shipping, USCG BWMS deadlines"
+              className={inputClass}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "offDuty",
+        title: "Off-Duty Module",
+        enabled: form.offDutyEnabled,
+        description:
+          "Add a personal interest section to your brief — hobbies, sports, or anything you follow outside of work.",
+        configSummary: form.offDutyInterests || undefined,
+        onToggle: () => update({ offDutyEnabled: !form.offDutyEnabled }),
+        expanded: expandedModule === "offDuty",
+        onExpandToggle: () => toggleModule("offDuty"),
+        children: (
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              What do you follow outside of work?{" "}
+              <HelpTooltip
+                examples={[
+                  "Formula 1, Premier League football",
+                  "Cycling, tech startups, wine regions",
+                  "Golf tournaments, yacht racing, aviation",
+                ]}
+              />
+            </label>
+            <input
+              type="text"
+              value={form.offDutyInterests}
+              onChange={(e) => update({ offDutyInterests: e.target.value })}
+              placeholder="e.g. Formula 1, Premier League football, deep-sea fishing"
+              className={inputClass}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "competitorTracker",
+        title: "Competitor Tracker",
+        enabled: form.competitorTrackerEnabled,
+        description:
+          "Monitor specific companies — we track their press releases, fleet moves, contract wins, and industry news so you stay one step ahead.",
+        configSummary: form.competitorTrackerCompanies || undefined,
+        onToggle: () =>
+          update({
+            competitorTrackerEnabled: !form.competitorTrackerEnabled,
+          }),
+        expanded: expandedModule === "competitorTracker",
+        onExpandToggle: () => toggleModule("competitorTracker"),
+        children: (
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              Companies to Track{" "}
+              <HelpTooltip
+                examples={[
+                  "Maersk, Hafnia, BW Group — fleet operator tracking competitor moves",
+                  "Wartsila, MAN Energy — tech provider monitoring rival product launches",
+                  "V.Group, Wilhelmsen — service company watching for contract wins and partnerships",
+                ]}
+              />
+            </label>
+            <input
+              type="text"
+              value={form.competitorTrackerCompanies}
+              onChange={(e) =>
+                update({ competitorTrackerCompanies: e.target.value })
+              }
+              placeholder="e.g. Maersk, Hapag-Lloyd, BW Group, Stena Bulk"
+              className={inputClass}
+            />
+          </div>
+        ),
+      },
+      {
+        id: "safety",
+        title: "Safety Intelligence",
+        enabled: form.safetyEnabled,
+        description:
+          "Track maritime safety incidents, security threats, and technical safety updates — crew welfare, asset protection, and operational risk intelligence.",
+        configSummary: form.safetyAreas || undefined,
+        onToggle: () => update({ safetyEnabled: !form.safetyEnabled }),
+        expanded: expandedModule === "safety",
+        onExpandToggle: () => toggleModule("safety"),
+        children: (
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              Specific Safety/Security Areas to Track{" "}
+              <HelpTooltip
+                examples={[
+                  "Piracy alerts — Red Sea, Gulf of Guinea",
+                  "Hazardous cargo incidents & DG handling",
+                  "Shipyard safety protocols & near-miss reports",
+                ]}
+              />
+            </label>
+            <input
+              type="text"
+              value={form.safetyAreas}
+              onChange={(e) => update({ safetyAreas: e.target.value })}
+              placeholder="e.g. Red Sea piracy alerts, SOLAS fire safety, H2S cargo handling"
+              className={inputClass}
+            />
+          </div>
+        ),
+      },
+      // Under Construction modules
+      {
+        id: "vesselArrivals",
+        title: "Vessel Arrivals",
+        enabled: form.vesselArrivalsEnabled,
+        isUC: true,
+        description:
+          "Track vessel arrivals at key ports — filtered by vessel type and timeframe. Coming soon.",
+        onToggle: () =>
+          update({ vesselArrivalsEnabled: !form.vesselArrivalsEnabled }),
+        expanded: false,
+        onExpandToggle: () => {},
+      },
+      {
+        id: "industryChatter",
+        title: "Industry Chatter",
+        enabled: form.industryChatterEnabled,
+        isUC: true,
+        description:
+          "Stay ahead of the conversation — surface what shipowners, brokers, and operators are actually talking about across industry forums and social channels. Know the sentiment before it moves the market.",
+        onToggle: () =>
+          update({ industryChatterEnabled: !form.industryChatterEnabled }),
+        expanded: false,
+        onExpandToggle: () => {},
+      },
+      {
+        id: "earningsCall",
+        title: "Earnings Call Summary",
+        enabled: form.earningsCallEnabled,
+        isUC: true,
+        description:
+          "Never sit through another three-hour earnings call. Get the key signals — fleet growth plans, rate outlooks, and management guidance — extracted and translated into plain maritime intelligence.",
+        onToggle: () =>
+          update({ earningsCallEnabled: !form.earningsCallEnabled }),
+        expanded: false,
+        onExpandToggle: () => {},
+      },
+    ];
+
+    return (
+      <div className="space-y-5">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl px-6 py-5">
+          <SectionHeader
+            icon={<IconPuzzle />}
+            title="Advanced Intel Modules"
+            subtitle="Optional add-ons to enrich your brief with specialised data"
+          />
+          <p className="text-xs text-[var(--muted-foreground)] -mt-2">
+            Click any card to expand and configure. Modules marked{" "}
+            <span className="text-amber-400 font-medium">Under Construction</span>{" "}
+            are coming soon.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          {modules.map((mod) => (
+            <ModuleCard key={mod.id} {...mod} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderDelivery() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconClock />}
+          title="Frequency & Depth"
+          subtitle="How often and how detailed your briefs are"
+          helpExamples={[
+            "Business Days + Executive Summary — concise brief every weekday",
+            "Daily + Deep Dive — comprehensive coverage, no gaps",
+            "3x Week + Data Only — pure numbers for OEM sales teams",
+          ]}
+        />
+
+        <div className="space-y-6">
+          <div>
+            <label className={labelClass}>Report Frequency</label>
+            <div className="grid grid-cols-3 gap-3">
+              <OptionCard
+                selected={form.frequency === "business"}
+                onClick={() => update({ frequency: "business" })}
+                title="Business Days"
+                description="Mon - Fri"
+              />
+              <OptionCard
+                selected={form.frequency === "3x"}
+                onClick={() => update({ frequency: "3x" })}
+                title="3x Week"
+                description="Mon, Wed, Fri (Recommended for Deep Dives)"
+              />
+              <OptionCard
+                selected={form.frequency === "weekly"}
+                onClick={() => update({ frequency: "weekly" })}
+                title="Weekly"
+                description="Once a week"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass + " inline-flex items-center"}>
+              Report Depth{" "}
+              <HelpTooltip
+                examples={[
+                  'Executive Summary — 3-5 bullet points per topic, key headlines only. "IMO approved CII tightening — your B-rated bulkers may slip to C by 2027."',
+                  "Deep Dive — full paragraphs with context, analysis, and source links. Covers background, implications, and recommended actions for each story.",
+                  "Data Only — pure tables and numbers: charter rates, bunker prices, index movements. No narrative, just the data you need for dashboards and models.",
+                ]}
+              />
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <OptionCard
+                selected={form.depth === "executive"}
+                onClick={() => update({ depth: "executive" })}
+                title="Executive Summary"
+                description="~1 min read"
+              />
+              <OptionCard
+                selected={form.depth === "deep"}
+                onClick={() => update({ depth: "deep" })}
+                title="Deep Dive"
+                description="~5 min read"
+              />
+              <OptionCard
+                selected={form.depth === "data"}
+                onClick={() => update({ depth: "data" })}
+                title="Data Only"
+                description="Numbers & tables"
+              />
+            </div>
+            <p className="text-xs text-[var(--muted-foreground)] mt-3 leading-relaxed italic">
+              Note: Selecting Daily + Deep Dive produces 7 comprehensive reports
+              per week. Consider starting with Business Days for a better balance
+              of coverage and volume.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Timezone</label>
+              <select
+                value={form.timezone}
+                onChange={(e) => update({ timezone: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Select your timezone</option>
+                <option value="Pacific/Auckland">Pacific/Auckland (UTC+12)</option>
+                <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+                <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
+                <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+                <option value="Europe/Athens">Europe/Athens (UTC+3)</option>
+                <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+                <option value="America/New_York">America/New_York (UTC-5)</option>
+                <option value="America/Chicago">America/Chicago (UTC-6)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Delivery Time</label>
+              <select
+                value={form.deliveryTime}
+                onChange={(e) => update({ deliveryTime: e.target.value })}
+                className={inputClass}
+              >
+                {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+                  (t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderMonthly() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconCalendar />}
+          title="Monthly Review"
+          subtitle="Topics for your end-of-month strategic summary"
+          helpExamples={[
+            "Updated sanctions list for Russia/Iran",
+            "Global scrapping stats and newbuild order book",
+            "Competitive landscape — new product launches from rival OEMs",
+          ]}
+        />
+        <div className="space-y-4">
+          <div>
+            <label className={labelClass}>
+              What would you like in your monthly strategic review?
+            </label>
+            <textarea
+              value={form.monthlyReview}
+              onChange={(e) => update({ monthlyReview: e.target.value })}
+              placeholder="One topic per line — e.g. Updated sanction lists"
+              rows={4}
+              className={textareaClass}
+            />
+          </div>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
+            <Toggle
+              enabled={form.monthlyProspectRollupEnabled}
+              onToggle={() =>
+                update({
+                  monthlyProspectRollupEnabled:
+                    !form.monthlyProspectRollupEnabled,
+                })
+              }
+              label="Monthly Prospect Roll-up"
+            />
+            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+              Include a summary of all prospects surfaced during the month in
+              your monthly strategic review — ranked by fit and engagement
+              potential.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSecurity() {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <SectionHeader
+          icon={<IconShield />}
+          title="Security"
+          subtitle="Manage your password and session"
+        />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>New Password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimum 8 characters"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              disabled={pwChanging || !currentPassword || newPassword.length < 8}
+              onClick={async () => {
+                setPwChanging(true);
+                setPwError("");
+                setPwSuccess(false);
+                try {
+                  const res = await fetch("/api/auth/change-password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ currentPassword, newPassword }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setPwSuccess(true);
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setTimeout(() => setPwSuccess(false), 3000);
+                  } else {
+                    setPwError(data.error || "Failed to change password");
+                  }
+                } catch {
+                  setPwError("Network error — please try again.");
+                } finally {
+                  setPwChanging(false);
+                }
+              }}
+              className="rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              {pwChanging ? "Updating..." : "Update Password"}
+            </button>
+            {pwSuccess && (
+              <span className="text-sm text-[var(--accent)] font-medium">
+                Password updated.
+              </span>
+            )}
+            {pwError && (
+              <span className="text-sm text-red-400 font-medium">{pwError}</span>
+            )}
+          </div>
+
+          <div className="border-t border-[var(--border)] pt-4 mt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Sign Out</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  End your current session
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  localStorage.removeItem("iqsea_subscriber_id");
+                  localStorage.removeItem("iqsea_email");
+                  router.push("/login");
+                }}
+                className="flex items-center gap-2 rounded-lg border border-red-500/30 px-5 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition"
+              >
+                <IconLogout />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSection() {
+    switch (activeSection) {
+      case "profile":  return renderProfile();
+      case "assets":   return renderAssets();
+      case "subjects": return renderSubjects();
+      case "modules":  return renderModules();
+      case "delivery": return renderDelivery();
+      case "monthly":  return renderMonthly();
+      case "security": return renderSecurity();
+    }
+  }
+
+  const showSaveBar = dirty || saving || saved || !!error;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -436,768 +1353,109 @@ export default function ReportSettingsPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-10">
-        <div className="mb-10">
-          <h1 className="text-2xl font-bold tracking-tight mb-1">Settings</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Manage your intelligence brief preferences. Changes take effect on your next report.
-          </p>
-        </div>
+      <main className="flex-1">
+        <div className="max-w-6xl mx-auto w-full px-6 py-8">
 
-        <div className="space-y-6">
-          {/* ── Professional Identity ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconUser />}
-              title="Professional Identity"
-              subtitle="How the engine understands your role and perspective"
-              helpExamples={[
-                "Chartering Manager at a mid-size tanker company",
-                "Technical Superintendent — bulk carriers",
-                "Sales Director at a marine engine OEM",
-              ]}
-            />
-            <div>
-              <label className={labelClass}>Role</label>
-              <input
-                type="text"
-                value={form.role}
-                onChange={(e) => update({ role: e.target.value })}
-                placeholder="e.g. Ship Owner/Operator"
-                className={inputClass}
-              />
-            </div>
-          </section>
-
-          {/* ── Asset & Market Focus ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconShip />}
-              title="Asset & Market Focus"
-              subtitle="The vessel types, segments, and markets you operate in"
-              helpExamples={[
-                "MR Tankers on one line, Handysize Bulkers on the next",
-                "LPG and LNG Carriers — spot and term markets",
-                "Ballast Water Treatment Systems — retrofit market",
-              ]}
-            />
-            <div>
-              <label className={labelClass}>Assets and Markets</label>
-              <textarea
-                value={form.assets}
-                onChange={(e) => update({ assets: e.target.value })}
-                placeholder="One per line — e.g. LPG and LNG Carriers"
-                rows={4}
-                className={textareaClass}
-              />
-              <p className="text-xs text-[var(--muted-foreground)] mt-2">
-                Enter each asset type or market on a new line.
-              </p>
-            </div>
-          </section>
-
-          {/* ── Core Intelligence Subjects ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconTarget />}
-              title="Core Intelligence Subjects"
-              subtitle="Up to three topics the engine prioritises in every brief"
-              helpExamples={[
-                "Daily Suezmax spot rates — AG to Med",
-                "Port congestion at Singapore and Tanjung Pelepas",
-                "Class society approval trends for scrubber retrofits",
-              ]}
-            />
-            <div className="space-y-4">
-              {([0, 1, 2] as const).map((idx) => (
-                <div key={idx}>
-                  <label className={labelClass}>Subject {idx + 1}</label>
-                  <input
-                    type="text"
-                    value={form.subjects[idx]}
-                    onChange={(e) => setSubject(idx, e.target.value)}
-                    placeholder={`e.g. ${PLACEHOLDER.subjects[idx]}`}
-                    className={inputClass}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Advanced Modules ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconPuzzle />}
-              title="Advanced Intel Modules"
-              subtitle="Optional add-ons to enrich your brief with specialised data"
-            />
-
-            <div className="space-y-4">
-              {/* Tender Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.tenderEnabled}
-                  onToggle={() =>
-                    update({ tenderEnabled: !form.tenderEnabled })
-                  }
-                  label="Tender Module"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Track maritime and offshore tender opportunities relevant to
-                  your profile.
-                </p>
-                {form.tenderEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>Focus Region <HelpTooltip examples={["South East Asia, Middle East", "West Africa, North Sea", "Global — offshore wind installation tenders"]} /></label>
-                      <input
-                        type="text"
-                        value={form.tenderRegion}
-                        onChange={(e) =>
-                          update({ tenderRegion: e.target.value })
-                        }
-                        placeholder="e.g. South East Asia, Middle East"
-                        className={inputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass + " inline-flex items-center"}>Tender Type <HelpTooltip examples={["Public procurement, time charter", "Offshore wind, FPSO conversion", "Equipment supply — propulsion systems"]} /></label>
-                      <input
-                        type="text"
-                        value={form.tenderType}
-                        onChange={(e) =>
-                          update({ tenderType: e.target.value })
-                        }
-                        placeholder="e.g. Public procurement, Offshore wind"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Client Prospects Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.prospectsEnabled}
-                  onToggle={() =>
-                    update({ prospectsEnabled: !form.prospectsEnabled })
-                  }
-                  label="Client Prospects"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  AI-powered lead generation — we analyse your role and market
-                  focus to suggest high-fit companies for outreach.
-                </p>
-                {form.prospectsEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass}>
-                        New Prospects Per Report
-                      </label>
-                      <div className="flex gap-2">
-                        {([1, 2, 3, 4, 5] as const).map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => update({ prospectsPerReport: n })}
-                            className={`w-11 h-11 rounded-lg text-sm font-semibold transition-all ${
-                              form.prospectsPerReport === n
-                                ? "bg-[var(--accent)] text-[var(--accent-foreground)] ring-1 ring-[var(--accent)]"
-                                : "border border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Focus Area / Regions <HelpTooltip examples={["Tanker operators in the Gulf", "Dry bulk shipowners — Greece, Japan", "Shipyards and repair yards seeking OEM partnerships"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.prospectsFocusAreas}
-                        onChange={(e) =>
-                          update({ prospectsFocusAreas: e.target.value })
-                        }
-                        placeholder="e.g. Tanker operators in the Gulf"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Market Pulse Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.marketPulseEnabled}
-                  onToggle={() =>
-                    update({ marketPulseEnabled: !form.marketPulseEnabled })
-                  }
-                  label="Market Pulse"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Track live market data — bunker prices, freight indexes, and
-                  key rates relevant to your operations.
-                </p>
-                {form.marketPulseEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>Data to Track <HelpTooltip examples={["Bunker Prices SG, Baltic Dry Index", "VLSFO Rotterdam, Capesize FFA Q3", "Marine coating market prices, newbuild order book"]} /></label>
-                      <input
-                        type="text"
-                        value={form.marketPulseDataToTrack}
-                        onChange={(e) =>
-                          update({ marketPulseDataToTrack: e.target.value })
-                        }
-                        placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Regulatory Timeline Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.regulatoryTimelineEnabled}
-                  onToggle={() =>
-                    update({ regulatoryTimelineEnabled: !form.regulatoryTimelineEnabled })
-                  }
-                  label="Regulatory Timeline"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Countdown tracker for upcoming regulatory deadlines from IMO,
-                  USCG, EU, and DNV — so nothing catches you off guard.
-                </p>
-                {form.regulatoryTimelineEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Specific Regulations to Track <HelpTooltip examples={["IMO CII ratings, EU ETS maritime phase-in", "USCG ballast water management compliance deadlines", "DNV class renewal requirements, MARPOL Annex VI updates"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.regulatoryTimelineRegulations}
-                        onChange={(e) =>
-                          update({ regulatoryTimelineRegulations: e.target.value })
-                        }
-                        placeholder="e.g. IMO CII ratings, EU ETS shipping, USCG BWMS deadlines"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Off-Duty Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.offDutyEnabled}
-                  onToggle={() =>
-                    update({ offDutyEnabled: !form.offDutyEnabled })
-                  }
-                  label="Off-Duty Module"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Add a personal interest section to your brief — hobbies,
-                  sports, or anything you follow outside of work.
-                </p>
-                {form.offDutyEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        What do you follow outside of work? <HelpTooltip examples={["Formula 1, Premier League football", "Cycling, tech startups, wine regions", "Golf tournaments, yacht racing, aviation"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.offDutyInterests}
-                        onChange={(e) =>
-                          update({ offDutyInterests: e.target.value })
-                        }
-                        placeholder="e.g. Formula 1, Premier League football, deep-sea fishing"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Competitor Tracker Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.competitorTrackerEnabled}
-                  onToggle={() =>
-                    update({ competitorTrackerEnabled: !form.competitorTrackerEnabled })
-                  }
-                  label="Competitor Tracker"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Monitor specific companies — we track their press releases,
-                  fleet moves, contract wins, and industry news so you stay one
-                  step ahead.
-                </p>
-                {form.competitorTrackerEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Companies to Track <HelpTooltip examples={["Maersk, Hafnia, BW Group — fleet operator tracking competitor moves", "Wartsila, MAN Energy — tech provider monitoring rival product launches", "V.Group, Wilhelmsen — service company watching for contract wins and partnerships"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.competitorTrackerCompanies}
-                        onChange={(e) =>
-                          update({ competitorTrackerCompanies: e.target.value })
-                        }
-                        placeholder="e.g. Maersk, Hapag-Lloyd, BW Group, Stena Bulk"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Safety Intelligence Module */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.safetyEnabled}
-                  onToggle={() =>
-                    update({ safetyEnabled: !form.safetyEnabled })
-                  }
-                  label="Safety Intelligence"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Track maritime safety incidents, security threats, and
-                  technical safety updates — crew welfare, asset protection,
-                  and operational risk intelligence.
-                </p>
-                {form.safetyEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Specific Safety/Security Areas to Track <HelpTooltip examples={["Piracy alerts — Red Sea, Gulf of Guinea", "Hazardous cargo incidents & DG handling", "Shipyard safety protocols & near-miss reports"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.safetyAreas}
-                        onChange={(e) =>
-                          update({ safetyAreas: e.target.value })
-                        }
-                        placeholder="e.g. Red Sea piracy alerts, SOLAS fire safety, H2S cargo handling"
-                        className={inputClass}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Vessel Arrivals Module — UNDER CONSTRUCTION */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)" }}>
-                <Toggle
-                  enabled={form.vesselArrivalsEnabled}
-                  onToggle={() =>
-                    update({ vesselArrivalsEnabled: !form.vesselArrivalsEnabled })
-                  }
-                  label="Vessel Arrivals"
-                />
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                    Under Construction
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Track vessel arrivals at key ports — filtered by vessel type
-                  and timeframe. Coming soon.
-                </p>
-                {form.vesselArrivalsEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Port <HelpTooltip examples={["Singapore — busiest bunkering hub, ideal for tanker operators", "Dubai — Middle East gateway for offshore and LPG traffic", "Houston — US Gulf energy corridor for bulk and chemical carriers"]} />
-                      </label>
-                      <select
-                        value={form.vesselArrivalsPort}
-                        onChange={(e) => update({ vesselArrivalsPort: e.target.value })}
-                        className={inputClass}
-                      >
-                        <option value="">Select port</option>
-                        <option value="Singapore">Singapore</option>
-                        <option value="Dubai">Dubai</option>
-                        <option value="Houston">Houston</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Vessel Type</label>
-                      <select
-                        value={form.vesselArrivalsVesselType}
-                        onChange={(e) => update({ vesselArrivalsVesselType: e.target.value })}
-                        className={inputClass}
-                      >
-                        <option value="">Select vessel type</option>
-                        <option value="Tanker">Tanker</option>
-                        <option value="Bulker">Bulker</option>
-                        <option value="LPG">LPG</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Timeframe</label>
-                      <select
-                        value={form.vesselArrivalsTimeframe}
-                        onChange={(e) => update({ vesselArrivalsTimeframe: e.target.value })}
-                        className={inputClass}
-                      >
-                        <option value="">Select timeframe</option>
-                        <option value="48h">48 hours</option>
-                        <option value="96h">96 hours</option>
-                        <option value="7d">7 days</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Industry Chatter Module — UNDER CONSTRUCTION */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)" }}>
-                <Toggle
-                  enabled={form.industryChatterEnabled}
-                  onToggle={() =>
-                    update({ industryChatterEnabled: !form.industryChatterEnabled })
-                  }
-                  label="Industry Chatter"
-                />
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                    Under Construction
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Stay ahead of the conversation — surface what shipowners, brokers, and
-                  operators are actually talking about across industry forums and social
-                  channels. Know the sentiment before it moves the market.
-                </p>
-              </div>
-
-              {/* Earnings Call Summary Module — UNDER CONSTRUCTION */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 10px, rgba(255,180,0,0.04) 10px, rgba(255,180,0,0.04) 20px)" }}>
-                <Toggle
-                  enabled={form.earningsCallEnabled}
-                  onToggle={() =>
-                    update({ earningsCallEnabled: !form.earningsCallEnabled })
-                  }
-                  label="Earnings Call Summary"
-                />
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                    Under Construction
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Never sit through another three-hour earnings call. Get the key
-                  signals — fleet growth plans, rate outlooks, and management guidance —
-                  extracted and translated into plain maritime intelligence.
-                </p>
-                {form.earningsCallEnabled && (
-                  <div className="space-y-4 pt-1 border-t border-[var(--border)]">
-                    <div className="pt-3">
-                      <label className={labelClass + " inline-flex items-center"}>
-                        Companies to Track <HelpTooltip examples={["Frontline — track fleet expansion and rate guidance", "Euronav — crude tanker market outlook", "Tsakos Energy Navigation — diversified fleet signals"]} />
-                      </label>
-                      <input
-                        type="text"
-                        value={form.earningsCallCompanies}
-                        onChange={(e) => update({ earningsCallCompanies: e.target.value })}
-                        placeholder="e.g. Frontline, Euronav, Tsakos"
-                        disabled
-                        className={inputClass + " opacity-50 cursor-not-allowed"}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* ── Frequency & Delivery ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconClock />}
-              title="Frequency & Depth"
-              subtitle="How often and how detailed your briefs are"
-              helpExamples={[
-                "Business Days + Executive Summary — concise brief every weekday",
-                "Daily + Deep Dive — comprehensive coverage, no gaps",
-                "3x Week + Data Only — pure numbers for OEM sales teams",
-              ]}
-            />
-
-            <div className="space-y-6">
-              <div>
-                <label className={labelClass}>Report Frequency</label>
-                <div className="grid grid-cols-3 gap-3">
-                  <OptionCard
-                    selected={form.frequency === "business"}
-                    onClick={() => update({ frequency: "business" })}
-                    title="Business Days"
-                    description="Mon - Fri"
-                  />
-                  <OptionCard
-                    selected={form.frequency === "3x"}
-                    onClick={() => update({ frequency: "3x" })}
-                    title="3x Week"
-                    description="Mon, Wed, Fri (Recommended for Deep Dives)"
-                  />
-                  <OptionCard
-                    selected={form.frequency === "weekly"}
-                    onClick={() => update({ frequency: "weekly" })}
-                    title="Weekly"
-                    description="Once a week"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={labelClass + " inline-flex items-center"}>
-                  Report Depth <HelpTooltip examples={[
-                    "Executive Summary — 3-5 bullet points per topic, key headlines only. \"IMO approved CII tightening — your B-rated bulkers may slip to C by 2027.\"",
-                    "Deep Dive — full paragraphs with context, analysis, and source links. Covers background, implications, and recommended actions for each story.",
-                    "Data Only — pure tables and numbers: charter rates, bunker prices, index movements. No narrative, just the data you need for dashboards and models."
-                  ]} />
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <OptionCard
-                    selected={form.depth === "executive"}
-                    onClick={() => update({ depth: "executive" })}
-                    title="Executive Summary"
-                    description="~1 min read"
-                  />
-                  <OptionCard
-                    selected={form.depth === "deep"}
-                    onClick={() => update({ depth: "deep" })}
-                    title="Deep Dive"
-                    description="~5 min read"
-                  />
-                  <OptionCard
-                    selected={form.depth === "data"}
-                    onClick={() => update({ depth: "data" })}
-                    title="Data Only"
-                    description="Numbers & tables"
-                  />
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] mt-3 leading-relaxed italic">
-                  Note: Selecting Daily + Deep Dive produces 7 comprehensive reports per week. Consider starting with Business Days for a better balance of coverage and volume.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Timezone</label>
-                  <select
-                    value={form.timezone}
-                    onChange={(e) => update({ timezone: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">Select your timezone</option>
-                    <option value="Pacific/Auckland">Pacific/Auckland (UTC+12)</option>
-                    <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
-                    <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
-                    <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
-                    <option value="Europe/Athens">Europe/Athens (UTC+3)</option>
-                    <option value="Europe/London">Europe/London (UTC+0/+1)</option>
-                    <option value="America/New_York">America/New_York (UTC-5)</option>
-                    <option value="America/Chicago">America/Chicago (UTC-6)</option>
-                    <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Delivery Time</label>
-                  <select
-                    value={form.deliveryTime}
-                    onChange={(e) => update({ deliveryTime: e.target.value })}
-                    className={inputClass}
-                  >
-                    {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
-                      (t) => (
-                        <option key={t} value={t}>{t}</option>
-                      )
-                    )}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Monthly Review ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconCalendar />}
-              title="Monthly Review"
-              subtitle="Topics for your end-of-month strategic summary"
-              helpExamples={[
-                "Updated sanctions list for Russia/Iran",
-                "Global scrapping stats and newbuild order book",
-                "Competitive landscape — new product launches from rival OEMs",
-              ]}
-            />
-            <div className="space-y-4">
-              <div>
-                <label className={labelClass}>
-                  What would you like in your monthly strategic review?
-                </label>
-                <textarea
-                  value={form.monthlyReview}
-                  onChange={(e) => update({ monthlyReview: e.target.value })}
-                  placeholder="One topic per line — e.g. Updated sanction lists"
-                  rows={4}
-                  className={textareaClass}
-                />
-              </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-                <Toggle
-                  enabled={form.monthlyProspectRollupEnabled}
-                  onToggle={() =>
-                    update({ monthlyProspectRollupEnabled: !form.monthlyProspectRollupEnabled })
-                  }
-                  label="Monthly Prospect Roll-up"
-                />
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  Include a summary of all prospects surfaced during the month
-                  in your monthly strategic review — ranked by fit and engagement
-                  potential.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Save ── */}
-          <div className="flex items-center gap-4 py-2">
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded-lg bg-[var(--accent)] px-8 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-            {saved && (
-              <span className="text-sm text-[var(--accent)] font-medium">
-                Settings saved successfully.
-              </span>
-            )}
-            {error && (
-              <span className="text-sm text-red-400 font-medium">{error}</span>
-            )}
+          {/* Page title + summary strip */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+            <SummaryStrip form={form} />
           </div>
 
-          {/* ── Security ── */}
-          <section className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <SectionHeader
-              icon={<IconShield />}
-              title="Security"
-              subtitle="Manage your password and session"
-            />
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Current Password</label>
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 8 characters"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
+          {/* Mobile: horizontal scroll pill nav */}
+          <div className="md:hidden overflow-x-auto pb-1 mb-5 -mx-1">
+            <div className="flex gap-2 px-1 min-w-max">
+              {SECTIONS.map((s) => (
                 <button
+                  key={s.id}
                   type="button"
-                  disabled={
-                    pwChanging ||
-                    !currentPassword ||
-                    newPassword.length < 8
-                  }
-                  onClick={async () => {
-                    setPwChanging(true);
-                    setPwError("");
-                    setPwSuccess(false);
-                    try {
-                      const res = await fetch("/api/auth/change-password", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ currentPassword, newPassword }),
-                      });
-                      const data = await res.json();
-                      if (res.ok) {
-                        setPwSuccess(true);
-                        setCurrentPassword("");
-                        setNewPassword("");
-                        setTimeout(() => setPwSuccess(false), 3000);
-                      } else {
-                        setPwError(data.error || "Failed to change password");
-                      }
-                    } catch {
-                      setPwError("Network error — please try again.");
-                    } finally {
-                      setPwChanging(false);
-                    }
-                  }}
-                  className="rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  onClick={() => setActiveSection(s.id)}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                    activeSection === s.id
+                      ? "bg-[#53b1c1]/20 text-[#53b1c1] border border-[#53b1c1]/40"
+                      : "bg-[var(--card)] text-[var(--muted-foreground)] border border-[var(--border)] hover:text-[var(--foreground)]"
+                  }`}
                 >
-                  {pwChanging ? "Updating..." : "Update Password"}
+                  {s.label}
                 </button>
-                {pwSuccess && (
-                  <span className="text-sm text-[var(--accent)] font-medium">
-                    Password updated.
-                  </span>
-                )}
-                {pwError && (
-                  <span className="text-sm text-red-400 font-medium">
-                    {pwError}
-                  </span>
-                )}
-              </div>
-
-              <div className="border-t border-[var(--border)] pt-4 mt-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Sign Out</p>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      End your current session
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch("/api/auth/logout", { method: "POST" });
-                      localStorage.removeItem("iqsea_subscriber_id");
-                      localStorage.removeItem("iqsea_email");
-                      router.push("/login");
-                    }}
-                    className="flex items-center gap-2 rounded-lg border border-red-500/30 px-5 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition"
-                  >
-                    <IconLogout />
-                    Sign Out
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
-          </section>
+          </div>
+
+          {/* Desktop: two-column layout */}
+          <div className="flex gap-8 items-start">
+
+            {/* Sidebar — desktop only */}
+            <aside className="hidden md:block w-56 shrink-0 sticky top-20">
+              <ul className="space-y-0.5">
+                {SECTIONS.map((s) => {
+                  const isActive = activeSection === s.id;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(s.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors text-left ${
+                          isActive
+                            ? "bg-[#53b1c1]/15 text-[#53b1c1] font-medium"
+                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--card)]"
+                        }`}
+                      >
+                        <span
+                          className={`w-4 h-4 shrink-0 ${
+                            isActive ? "" : "opacity-60"
+                          }`}
+                        >
+                          <s.Icon />
+                        </span>
+                        <span className="flex-1">{s.label}</span>
+                        {!s.required && (
+                          <span className="text-[10px] text-[var(--muted-foreground)]/50 font-normal">
+                            opt
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </aside>
+
+            {/* Content column */}
+            <div className="flex-1 min-w-0 pb-24">
+              {renderSection()}
+            </div>
+
+          </div>
         </div>
       </main>
+
+      {/* Fixed save bar — fades in on unsaved changes */}
+      <div
+        className={`fixed bottom-6 right-6 z-40 transition-all duration-300 ${
+          showSaveBar
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-1 pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-3 bg-[var(--card)]/95 backdrop-blur-sm border border-[var(--border)] rounded-2xl px-5 py-3 shadow-2xl">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={`rounded-lg px-6 py-2 text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+              dirty
+                ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-110 shadow-md shadow-[#53b1c1]/20"
+                : "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-110"
+            }`}
+          >
+            {saving ? "Saving..." : saved ? "Saved ✓" : "Save Changes"}
+          </button>
+          {error && (
+            <span className="text-sm text-red-400 font-medium">{error}</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
