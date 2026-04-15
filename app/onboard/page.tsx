@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HelpTooltip } from "../components/help-tooltip";
+import { PasswordInput } from "../components/password-input";
 
 /* ────── types ────── */
 
@@ -1334,8 +1335,7 @@ function SignupStage({
 
         <div>
           <label className="block text-sm font-medium mb-2">Create a password</label>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Minimum 8 characters"

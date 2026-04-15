@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IQseaLogo } from "../../components/iqsea-logo";
+import { PasswordInput } from "../../components/password-input";
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
@@ -70,15 +71,13 @@ export default function AdminLoginPage() {
                 >
                   Admin Password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter admin password"
                   required
                   autoFocus
-                  className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--navy-900)] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent transition"
                 />
               </div>
 

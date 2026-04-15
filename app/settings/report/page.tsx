@@ -6,12 +6,15 @@ import { useRouter } from "next/navigation";
 import { IQseaLogoSmall } from "../../components/iqsea-logo";
 import { LogoutButton } from "../../components/logout-button";
 import { HelpTooltip } from "../../components/help-tooltip";
+import { PasswordInput } from "../../components/password-input";
 
 /* ────── types ────── */
 
 interface ProfileData {
   id: string;
   email: string;
+  fullName?: string;
+  companyName?: string;
   role: string;
   assets: string[];
   subjects: string[];
@@ -34,6 +37,8 @@ interface ProfileData {
 }
 
 interface FormState {
+  fullName: string;
+  companyName: string;
   role: string;
   assets: string;
   subjects: [string, string, string];
@@ -69,6 +74,8 @@ interface FormState {
 }
 
 const PLACEHOLDER: FormState = {
+  fullName: "",
+  companyName: "",
   role: "Ship Owner/Operator",
   assets: "LPG and LNG Carriers\nCapesize Bulkers",
   subjects: [
@@ -109,6 +116,8 @@ const PLACEHOLDER: FormState = {
 
 function profileToForm(p: ProfileData): FormState {
   return {
+    fullName: p.fullName || "",
+    companyName: p.companyName || "",
     role: p.role || PLACEHOLDER.role,
     assets: (p.assets || []).join("\n") || PLACEHOLDER.assets,
     subjects: [
@@ -618,15 +627,58 @@ export default function ReportSettingsPage() {
             "Sales Director at a marine engine OEM",
           ]}
         />
-        <div>
-          <label className={labelClass}>Role</label>
-          <input
-            type="text"
-            value={form.role}
-            onChange={(e) => update({ role: e.target.value })}
-            placeholder="e.g. Ship Owner/Operator"
-            className={inputClass}
-          />
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Full Name</label>
+              <input
+                type="text"
+                value={form.fullName}
+                onChange={(e) => update({ fullName: e.target.value })}
+                placeholder="e.g. James Hargreaves"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Company Name</label>
+              <input
+                type="text"
+                value={form.companyName}
+                onChange={(e) => update({ companyName: e.target.value })}
+                placeholder="e.g. Pacific Bulk Carriers"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Role</label>
+            <input
+              type="text"
+              value={form.role}
+              onChange={(e) => update({ role: e.target.value })}
+              placeholder="e.g. Ship Owner/Operator"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Timezone</label>
+            <select
+              value={form.timezone}
+              onChange={(e) => update({ timezone: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select your timezone</option>
+              <option value="Pacific/Auckland">Pacific/Auckland (UTC+12)</option>
+              <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+              <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
+              <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+              <option value="Europe/Athens">Europe/Athens (UTC+3)</option>
+              <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+              <option value="America/New_York">America/New_York (UTC-5)</option>
+              <option value="America/Chicago">America/Chicago (UTC-6)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
+            </select>
+          </div>
         </div>
       </div>
     );
@@ -1118,42 +1170,21 @@ export default function ReportSettingsPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Timezone</label>
-              <select
-                value={form.timezone}
-                onChange={(e) => update({ timezone: e.target.value })}
-                className={inputClass}
-              >
-                <option value="">Select your timezone</option>
-                <option value="Pacific/Auckland">Pacific/Auckland (UTC+12)</option>
-                <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
-                <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
-                <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
-                <option value="Europe/Athens">Europe/Athens (UTC+3)</option>
-                <option value="Europe/London">Europe/London (UTC+0/+1)</option>
-                <option value="America/New_York">America/New_York (UTC-5)</option>
-                <option value="America/Chicago">America/Chicago (UTC-6)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (UTC-8)</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Delivery Time</label>
-              <select
-                value={form.deliveryTime}
-                onChange={(e) => update({ deliveryTime: e.target.value })}
-                className={inputClass}
-              >
-                {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
-                  (t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
+          <div>
+            <label className={labelClass}>Delivery Time</label>
+            <select
+              value={form.deliveryTime}
+              onChange={(e) => update({ deliveryTime: e.target.value })}
+              className={inputClass}
+            >
+              {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+                (t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                )
+              )}
+            </select>
           </div>
         </div>
       </div>
@@ -1220,8 +1251,7 @@ export default function ReportSettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Current Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="Enter current password"
@@ -1230,8 +1260,7 @@ export default function ReportSettingsPage() {
             </div>
             <div>
               <label className={labelClass}>New Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Minimum 8 characters"
