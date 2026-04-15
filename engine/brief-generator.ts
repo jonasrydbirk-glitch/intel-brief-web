@@ -83,7 +83,13 @@ export interface SubscriberProfile {
       enabled: boolean;
       regulations?: string;
     };
-    monthlyProspectRollup: {
+    monthlyProspectRollup?: {
+      enabled: boolean;
+    };
+    monthlyLeadSummary?: {
+      enabled: boolean;
+    };
+    monthlyTenderSummary?: {
       enabled: boolean;
     };
     competitorTracker: {
@@ -400,6 +406,10 @@ Return up to 3 results per query. Only include results with real, direct article
 //           the "Marine Engineer" analytical lens
 // ---------------------------------------------------------------------------
 
+// TODO(monthly rollups): When subscriber.monthlyTenderSummary or
+// monthlyLeadSummary is true in a monthly-type generation, produce
+// a 30-day rollup of all tender/prospect items from the last month's
+// daily briefs. See Phase 2 Part B / feature tracker.
 export async function architectStage(
   profile: SubscriberProfile,
   scout: ScoutResult
@@ -624,7 +634,7 @@ For each entry:
 - "daysLeft": Integer — approximate days until deadline from today
 - "impact": One-line impact statement for the subscriber (e.g. "Fleet CII reports due — non-submission triggers flag state audit")
 Do NOT return null for regulatoryCountdown when this module is enabled. NO EMOJIS.` : ""}
-${profile.modules.monthlyProspectRollup?.enabled ? `
+${profile.modules.monthlyProspectRollup?.enabled || profile.modules.monthlyLeadSummary?.enabled ? `
 MONTHLY PROSPECT ROLL-UP INSTRUCTIONS (when triggered for monthly report):
 If this is a monthly report generation, populate "monthlyProspectRollup" with a summary of historical prospect data — up to 10 of the highest-fit prospects surfaced over the past month, ranked by relevance and engagement potential.
 For each item:

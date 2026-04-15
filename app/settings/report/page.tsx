@@ -27,8 +27,12 @@ interface ProfileData {
     competitorTracker: { enabled: boolean; companies?: string };
     vesselArrivals: { enabled: boolean; port?: string; vesselType?: string; timeframe?: string };
     safety: { enabled: boolean; areas?: string };
-    monthlyProspectRollup: { enabled: boolean };
+    monthlyProspectRollup?: { enabled: boolean }; // legacy — kept for backward-compat read
+    monthlyLeadSummary?: { enabled: boolean };
+    monthlyTenderSummary?: { enabled: boolean };
   };
+  monthlyReviewDay?: number | "last";
+  monthlyReviewTime?: string;
   frequency: string;
   depth: string;
   timezone: string;
@@ -70,7 +74,10 @@ interface FormState {
   timezone: string;
   deliveryTime: string;
   monthlyReview: string;
-  monthlyProspectRollupEnabled: boolean;
+  monthlyLeadSummaryEnabled: boolean;
+  monthlyTenderSummaryEnabled: boolean;
+  monthlyReviewDay: number | "last";
+  monthlyReviewTime: string;
 }
 
 const PLACEHOLDER: FormState = {
@@ -111,7 +118,10 @@ const PLACEHOLDER: FormState = {
   timezone: "",
   deliveryTime: "08:00",
   monthlyReview: "Updated sanction lists\nGlobal scrapping stats for 2026",
-  monthlyProspectRollupEnabled: false,
+  monthlyLeadSummaryEnabled: false,
+  monthlyTenderSummaryEnabled: false,
+  monthlyReviewDay: 1,
+  monthlyReviewTime: "08:00",
 };
 
 function profileToForm(p: ProfileData): FormState {
@@ -154,7 +164,12 @@ function profileToForm(p: ProfileData): FormState {
     marketPulseDataToTrack: p.modules?.marketPulse?.dataToTrack || "",
     regulatoryTimelineEnabled: p.modules?.regulatoryTimeline?.enabled ?? false,
     regulatoryTimelineRegulations: p.modules?.regulatoryTimeline?.regulations || "",
-    monthlyProspectRollupEnabled: p.modules?.monthlyProspectRollup?.enabled ?? false,
+    // monthlyLeadSummary: read new key, fall back to legacy monthlyProspectRollup for existing subscribers
+    monthlyLeadSummaryEnabled:
+      p.modules?.monthlyLeadSummary?.enabled ?? p.modules?.monthlyProspectRollup?.enabled ?? false,
+    monthlyTenderSummaryEnabled: p.modules?.monthlyTenderSummary?.enabled ?? false,
+    monthlyReviewDay: p.monthlyReviewDay ?? 1,
+    monthlyReviewTime: p.monthlyReviewTime ?? p.deliveryTime ?? "08:00",
   };
 }
 
@@ -380,7 +395,8 @@ function SummaryStrip({ form }: { form: FormState }) {
     form.offDutyEnabled,
     form.competitorTrackerEnabled,
     form.safetyEnabled,
-    form.monthlyProspectRollupEnabled,
+    form.monthlyLeadSummaryEnabled,
+    form.monthlyTenderSummaryEnabled,
   ].filter(Boolean).length;
 
   const tzShort = form.timezone
@@ -1192,19 +1208,24 @@ export default function ReportSettingsPage() {
   }
 
   function renderMonthly() {
+    const dayOptions: Array<{ value: number | "last"; label: string }> = [
+      ...Array.from({ length: 28 }, (_, i) => ({ value: i + 1 as number, label: String(i + 1) })),
+      { value: "last", label: "Last day of month" },
+    ];
+
     return (
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
         <SectionHeader
           icon={<IconCalendar />}
           title="Monthly Review"
-          subtitle="Topics for your end-of-month strategic summary"
+          subtitle="Topics and timing for your end-of-month strategic summary"
           helpExamples={[
             "Updated sanctions list for Russia/Iran",
             "Global scrapping stats and newbuild order book",
             "Competitive landscape — new product launches from rival OEMs",
           ]}
         />
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
             <label className={labelClass}>
               What would you like in your monthly strategic review?
@@ -1217,22 +1238,77 @@ export default function ReportSettingsPage() {
               className={textareaClass}
             />
           </div>
+
+          {/* Content toggles */}
           <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
-            <Toggle
-              enabled={form.monthlyProspectRollupEnabled}
-              onToggle={() =>
-                update({
-                  monthlyProspectRollupEnabled:
-                    !form.monthlyProspectRollupEnabled,
-                })
-              }
-              label="Monthly Prospect Roll-up"
-            />
-            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-              Include a summary of all prospects surfaced during the month in
-              your monthly strategic review — ranked by fit and engagement
-              potential.
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+              Content rollups
             </p>
+            <div className="space-y-3">
+              <Toggle
+                enabled={form.monthlyLeadSummaryEnabled}
+                onToggle={() => update({ monthlyLeadSummaryEnabled: !form.monthlyLeadSummaryEnabled })}
+                label="Include Lead / Prospect summary"
+              />
+              <p className="text-xs text-[var(--muted-foreground)] leading-relaxed pl-14">
+                A ranked roll-up of all prospects surfaced during the month — fit score, engagement signals, and cumulative intelligence.
+              </p>
+            </div>
+            <div className="space-y-3 pt-1">
+              <Toggle
+                enabled={form.monthlyTenderSummaryEnabled}
+                onToggle={() => update({ monthlyTenderSummaryEnabled: !form.monthlyTenderSummaryEnabled })}
+                label="Include Tender summary"
+              />
+              <p className="text-xs text-[var(--muted-foreground)] leading-relaxed pl-14">
+                A consolidated list of all tenders captured during the month, grouped by region and deadline proximity.
+              </p>
+            </div>
+          </div>
+
+          {/* Delivery timing */}
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 p-5 space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+              Monthly delivery timing
+            </p>
+            <p className="text-xs text-[var(--muted-foreground)] leading-relaxed -mt-1">
+              Uses your profile timezone ({form.timezone ? form.timezone.split("/").pop()?.replace(/_/g, " ") : "not set"}).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Day of month</label>
+                <select
+                  value={String(form.monthlyReviewDay)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    update({ monthlyReviewDay: v === "last" ? "last" : Number(v) });
+                  }}
+                  className={inputClass}
+                >
+                  {dayOptions.map((opt) => (
+                    <option key={String(opt.value)} value={String(opt.value)}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Delivery time</label>
+                <select
+                  value={form.monthlyReviewTime}
+                  onChange={(e) => update({ monthlyReviewTime: e.target.value })}
+                  className={inputClass}
+                >
+                  {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+                    (t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </div>

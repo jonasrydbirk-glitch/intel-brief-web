@@ -66,11 +66,14 @@ export async function POST(request: Request) {
       .map((l: string) => l.trim())
       .filter((l: string) => l.length > 0);
   }
+  if (body.monthlyReviewDay !== undefined) updates.monthlyReviewDay = body.monthlyReviewDay;
+  if (body.monthlyReviewTime !== undefined) updates.monthlyReviewTime = body.monthlyReviewTime;
 
   // Module updates
   const hasModuleUpdate = [
     "tenderEnabled", "prospectsEnabled", "offDutyEnabled",
-    "marketPulseEnabled", "regulatoryTimelineEnabled", "monthlyProspectRollupEnabled",
+    "marketPulseEnabled", "regulatoryTimelineEnabled",
+    "monthlyLeadSummaryEnabled", "monthlyTenderSummaryEnabled",
     "competitorTrackerEnabled", "vesselArrivalsEnabled", "safetyEnabled",
   ].some((key) => body[key] !== undefined);
 
@@ -105,8 +108,13 @@ export async function POST(request: Request) {
         ? { enabled: true, regulations: body.regulatoryTimelineRegulations || "" }
         : { enabled: false };
     }
-    if (body.monthlyProspectRollupEnabled !== undefined) {
-      modules.monthlyProspectRollup = body.monthlyProspectRollupEnabled
+    if (body.monthlyLeadSummaryEnabled !== undefined) {
+      modules.monthlyLeadSummary = body.monthlyLeadSummaryEnabled
+        ? { enabled: true }
+        : { enabled: false };
+    }
+    if (body.monthlyTenderSummaryEnabled !== undefined) {
+      modules.monthlyTenderSummary = body.monthlyTenderSummaryEnabled
         ? { enabled: true }
         : { enabled: false };
     }
