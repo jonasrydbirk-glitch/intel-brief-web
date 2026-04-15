@@ -5,6 +5,7 @@ module.exports = {
       script: 'npm',
       args: 'run warden',
       cwd: './',
+      interpreter: 'none',
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
