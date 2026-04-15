@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import type { BriefPayload } from "@/engine/brief-generator";
 import { renderBriefPdf } from "@/lib/render-pdf";
 import { sendEmail } from "@/lib/delivery";
-import { supabase } from "@/lib/supabase";
+import { supabase, getSupabaseUrl } from "@/lib/supabase";
+
+// NOTE: SUPABASE_SERVICE_KEY must be set as a Vercel environment variable
+// for the reports INSERT below to succeed — the anon key is blocked by RLS.
+const supabaseAdmin = createClient(
+  getSupabaseUrl(),
+  process.env.SUPABASE_SERVICE_KEY ?? ""
+);
 
 // PDF render + email is fast — 30 s is plenty
 export const maxDuration = 30;
@@ -103,7 +111,7 @@ export async function POST(request: Request) {
     });
 
     // Save report record
-    await supabase.from("reports").insert({
+    await supabaseAdmin.from("reports").insert({
       user_id: subscriberId,
       type: "daily",
       status: "delivered",
