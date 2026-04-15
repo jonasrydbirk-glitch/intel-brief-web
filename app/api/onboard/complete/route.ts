@@ -38,7 +38,10 @@ export async function PATCH(request: Request) {
         regulatoryTimeline: body.regulatoryTimelineEnabled
           ? { enabled: true, regulations: body.regulatoryTimelineRegulations ?? "" }
           : { enabled: false },
-        monthlyProspectRollup: body.monthlyProspectRollupEnabled
+        monthlyLeadSummary: body.monthlyLeadSummaryEnabled
+          ? { enabled: true }
+          : { enabled: false },
+        monthlyTenderSummary: body.monthlyTenderSummaryEnabled
           ? { enabled: true }
           : { enabled: false },
         competitorTracker: body.competitorTrackerEnabled
@@ -59,6 +62,9 @@ export async function PATCH(request: Request) {
         .split("\n")
         .map((line: string) => line.trim())
         .filter((line: string) => line.length > 0),
+      monthlyReviewDay: body.monthlyReviewDay ?? 1,
+      // Default monthly time to daily delivery time if the user left it unchanged
+      monthlyReviewTime: body.monthlyReviewTime || body.deliveryTime || "08:00",
       onboarding_complete: true,
     };
 

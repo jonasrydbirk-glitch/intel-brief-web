@@ -52,7 +52,10 @@ interface FormData {
   timezone: string;
   deliveryTime: string;
   monthlyReview: string;
-  monthlyProspectRollupEnabled: boolean;
+  monthlyLeadSummaryEnabled: boolean;
+  monthlyTenderSummaryEnabled: boolean;
+  monthlyReviewDay: number | "last";
+  monthlyReviewTime: string;
 }
 
 const INITIAL: FormData = {
@@ -89,7 +92,10 @@ const INITIAL: FormData = {
   timezone: "",
   deliveryTime: "",
   monthlyReview: "",
-  monthlyProspectRollupEnabled: false,
+  monthlyLeadSummaryEnabled: false,
+  monthlyTenderSummaryEnabled: false,
+  monthlyReviewDay: 1,
+  monthlyReviewTime: "",
 };
 
 const QUESTIONNAIRE_STEPS = 6;
@@ -1035,17 +1041,70 @@ function Step5({
         ]}
         rows={4}
       />
+      {/* Content rollups */}
       <div className="rounded-xl border border-[var(--border)] p-5 space-y-4">
-        <Toggle
-          enabled={data.monthlyProspectRollupEnabled}
-          onToggle={() =>
-            update({ monthlyProspectRollupEnabled: !data.monthlyProspectRollupEnabled })
-          }
-          label="Monthly Prospect Roll-up"
-        />
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+          Content rollups
+        </p>
+        <div className="space-y-3">
+          <Toggle
+            enabled={data.monthlyLeadSummaryEnabled}
+            onToggle={() => update({ monthlyLeadSummaryEnabled: !data.monthlyLeadSummaryEnabled })}
+            label="Include Lead / Prospect summary"
+          />
+          <p className="text-xs text-[var(--muted-foreground)] pl-14">
+            A ranked roll-up of all prospects surfaced during the month — fit score, engagement signals, and cumulative intelligence.
+          </p>
+        </div>
+        <div className="space-y-3 pt-1">
+          <Toggle
+            enabled={data.monthlyTenderSummaryEnabled}
+            onToggle={() => update({ monthlyTenderSummaryEnabled: !data.monthlyTenderSummaryEnabled })}
+            label="Include Tender summary"
+          />
+          <p className="text-xs text-[var(--muted-foreground)] pl-14">
+            A consolidated list of all tenders captured during the month, grouped by region and deadline proximity.
+          </p>
+        </div>
+      </div>
+
+      {/* Delivery timing */}
+      <div className="rounded-xl border border-[var(--border)] p-5 space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+          Monthly delivery timing
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Day of month</label>
+            <select
+              value={String(data.monthlyReviewDay)}
+              onChange={(e) => {
+                const v = e.target.value;
+                update({ monthlyReviewDay: v === "last" ? "last" : Number(v) });
+              }}
+              className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-lg px-4 py-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={String(d)}>{d}</option>
+              ))}
+              <option value="last">Last day of month</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Delivery time</label>
+            <select
+              value={data.monthlyReviewTime || data.deliveryTime || "08:00"}
+              onChange={(e) => update({ monthlyReviewTime: e.target.value })}
+              className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-lg px-4 py-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+            >
+              {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <p className="text-xs text-[var(--muted-foreground)]">
-          Include a summary of all prospects surfaced during the month in your
-          monthly strategic review — ranked by fit and engagement potential.
+          Uses your chosen timezone. Defaults to your daily delivery time if unchanged.
         </p>
       </div>
     </div>
