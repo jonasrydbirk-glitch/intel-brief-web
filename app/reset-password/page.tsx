@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { IQseaLogo } from "../components/iqsea-logo";
+import { PasswordInput } from "../components/password-input";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -106,15 +107,13 @@ function ResetPasswordForm() {
           >
             New Password
           </label>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter new password"
             required
             minLength={8}
-            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--navy-900)] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent transition"
           />
         </div>
 
@@ -125,15 +124,13 @@ function ResetPasswordForm() {
           >
             Confirm Password
           </label>
-          <input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Confirm new password"
             required
             minLength={8}
-            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--navy-900)] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent transition"
           />
         </div>
 

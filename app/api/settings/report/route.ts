@@ -42,6 +42,8 @@ export async function POST(request: Request) {
   // Build update object
   const updates: Record<string, unknown> = {};
 
+  if (body.fullName !== undefined) updates.fullName = body.fullName;
+  if (body.companyName !== undefined) updates.companyName = body.companyName;
   if (body.role !== undefined) updates.role = body.role;
   if (body.assets !== undefined) {
     updates.assets = body.assets
