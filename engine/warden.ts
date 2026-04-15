@@ -43,6 +43,21 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Service-role client — bypasses RLS for server-side operations on the
+// reports table. The anon key silently returns empty results on SELECT
+// (breaking the duplicate guard) and fails with 42501 on INSERT (silently
+// dropping delivery records). Service key is required for Warden to work.
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_KEY ?? "";
+if (!SUPABASE_SERVICE_KEY) {
+  console.warn(
+    "[Warden] SUPABASE_SERVICE_KEY not set — reports table operations will " +
+      "fail silently and the duplicate-send guard will be disabled. " +
+      "Add SUPABASE_SERVICE_KEY to .env."
+  );
+}
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
 const LOG_PATH = path.join(__dirname, "warden.log");
 
 // ---------------------------------------------------------------------------
@@ -262,7 +277,7 @@ async function alreadySentToday(
   const startOfDay = `${localDate}T00:00:00.000Z`;
   const endOfDay = `${localDate}T23:59:59.999Z`;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("reports")
     .select("id")
     .eq("user_id", userId)
@@ -350,7 +365,7 @@ async function dispatchBrief(subscriber: {
   }
 
   // Stage 4: Record delivery
-  await supabase.from("reports").insert({
+  const { error: insertErr } = await supabaseAdmin.from("reports").insert({
     user_id: subscriber.id,
     type: "daily",
     status: "delivered",
@@ -358,6 +373,13 @@ async function dispatchBrief(subscriber: {
     generated_at: new Date().toISOString(),
     pdf_url: null,
   });
+  if (insertErr) {
+    log(
+      "ERROR",
+      `Failed to record delivery for ${subscriber.id}: ${insertErr.message} — brief was sent but duplicate guard may not work next cycle.`
+    );
+    // Don't throw — brief was already delivered, just log the tracking failure
+  }
 
   log("INFO", `Brief delivered to ${subscriber.email} via Graph API`);
 }
@@ -491,7 +513,7 @@ async function processJobQueue(): Promise<void> {
         }
 
         // Record delivery in reports table
-        await supabase.from("reports").insert({
+        const { error: jobInsertErr } = await supabaseAdmin.from("reports").insert({
           user_id: job.subscriber_id,
           type: "daily",
           status: "delivered",
@@ -499,6 +521,12 @@ async function processJobQueue(): Promise<void> {
           generated_at: new Date().toISOString(),
           pdf_url: null,
         });
+        if (jobInsertErr) {
+          log(
+            "ERROR",
+            `Failed to record delivery for job ${job.id}: ${jobInsertErr.message} — brief was sent but duplicate guard may not work next cycle.`
+          );
+        }
 
         await supabase
           .from("brief_jobs")
