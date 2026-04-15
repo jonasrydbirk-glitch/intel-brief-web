@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "warden": "tsx engine/warden.ts"
   },
   "dependencies": {
     "@sparticuz/chromium": "^133.0.0",
