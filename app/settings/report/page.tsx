@@ -1226,6 +1226,23 @@ export default function ReportSettingsPage() {
           ]}
         />
         <div className="space-y-5">
+          {/* Coming soon banner */}
+          <div className="flex gap-3 rounded-lg border border-[#53b1c1]/50 bg-[#53b1c1]/15 p-4">
+            <div className="shrink-0 mt-0.5">
+              <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4">
+                <circle cx="10" cy="10" r="10" fill="#53b1c1" />
+                <rect x="9" y="8.5" width="2" height="5.5" rx="1" fill="white" />
+                <circle cx="10" cy="6.5" r="1.1" fill="white" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-[#f0f4f8] leading-relaxed">
+                Your monthly strategic review is coming soon. Configure your preferences below — we&apos;ll start delivering rich monthly rollups once you&apos;ve built up 30 days of daily brief history.
+              </p>
+              <p className="text-xs text-[#53b1c1] font-medium mt-1">Under construction</p>
+            </div>
+          </div>
+
           <div>
             <label className={labelClass}>
               What would you like in your monthly strategic review?
