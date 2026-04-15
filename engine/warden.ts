@@ -22,6 +22,10 @@ import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
 import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendViaGraph } from "../lib/postman";
+// RSS / intelligence ingestion pipeline (Phase 2 Part A)
+import { registeredSources } from "./sources/index";
+import { runAllIngestions } from "./sources/runner";
+import "./sources/rss"; // side-effect: registers all RSS feeds
 
 // ---------------------------------------------------------------------------
 // Config
@@ -57,6 +61,12 @@ if (!SUPABASE_SERVICE_KEY) {
   );
 }
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+// ---------------------------------------------------------------------------
+// Ingestion config (Phase 2 Part A)
+// ---------------------------------------------------------------------------
+
+const INGESTION_INTERVAL_MS = 20 * 60 * 1_000; // 20 minutes
 
 const LOG_PATH = path.join(__dirname, "warden.log");
 
@@ -648,15 +658,26 @@ async function scan(): Promise<void> {
 async function main(): Promise<void> {
   console.log("Warden starting...");
 
+  // Log registered intelligence sources on startup
+  if (registeredSources.length > 0) {
+    log(
+      "INFO",
+      `Registered ${registeredSources.length} intelligence source(s): ${registeredSources.map((s) => s.name).join(", ")}`
+    );
+  } else {
+    log("WARN", "No intelligence sources registered — ingestion pipeline inactive.");
+  }
+
   const args = process.argv.slice(2);
   const oneShot = args.includes("--once");
 
   if (oneShot) {
-    // One-shot mode — run both, then exit
+    // One-shot mode — run scan, job queue, and one ingestion pass, then exit
     log("INFO", "Warden one-shot mode (--once).");
     try {
       await scan();
       await processJobQueue();
+      await runAllIngestions(supabaseAdmin, log);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log("ERROR", `One-shot error: ${msg}`);
@@ -671,14 +692,18 @@ async function main(): Promise<void> {
     : 5;
   const scanIntervalMs = intervalMin * 60_000;
 
-  log("INFO", `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s. Waiting for first scan interval before subscriber dispatch.`);
+  log(
+    "INFO",
+    `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ingestion every ${INGESTION_INTERVAL_MS / 60_000}m.`
+  );
 
   let lastScanTime = Date.now(); // Start at now so scan() waits for the full interval — no immediate subscriber blast on boot
+  let lastIngestionRun = 0;      // Start at 0 so ingestion fires on the first loop tick
 
   while (true) {
     const now = Date.now();
 
-    // Job queue poll every iteration (fast interval)
+    // Job queue poll every iteration (fast — 5s)
     try {
       await processJobQueue();
     } catch (err) {
@@ -686,7 +711,7 @@ async function main(): Promise<void> {
       log("ERROR", `Unhandled error during job queue poll: ${msg}`);
     }
 
-    // Subscriber scan on the slow interval
+    // Subscriber scan on the slow interval (default 5 min)
     if (now - lastScanTime >= scanIntervalMs) {
       try {
         await scan();
@@ -695,6 +720,17 @@ async function main(): Promise<void> {
         log("ERROR", `Unhandled error during scan: ${msg}`);
       }
       lastScanTime = Date.now();
+    }
+
+    // RSS ingestion on its own cadence (default 20 min)
+    if (now - lastIngestionRun >= INGESTION_INTERVAL_MS) {
+      lastIngestionRun = Date.now();
+      try {
+        await runAllIngestions(supabaseAdmin, log);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during ingestion: ${msg}`);
+      }
     }
 
     console.log(`[Warden] Loop tick complete — sleeping ${JOB_POLL_INTERVAL_MS / 1000}s...`);
