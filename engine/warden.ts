@@ -22,7 +22,7 @@ import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
 import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendViaGraph } from "../lib/postman";
-// RSS / intelligence ingestion pipeline (Phase 2 Part A)
+// RSS / intelligence ingestion pipeline (Phase 2 Part A Step 1)
 import { registeredSources } from "./sources/index";
 import { runAllIngestions } from "./sources/runner";
 import "./sources/rss";      // side-effect: registers all 17 RSS feeds
@@ -30,6 +30,8 @@ import "./sources/sitemap";  // registers TradeWinds (Google News Sitemap)
 import "./sources/lr";       // registers Lloyd's Register (HTML list)
 import "./sources/dnv";      // registers DNV (data-props JSON, maritime-filtered)
 import "./sources/wp-rest";  // registers Safety4Sea (WordPress REST API)
+// Article text extraction pipeline (Phase 2 Part A Step 2)
+import { extractMissingTextBatch } from "./extractors/runner";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -67,10 +69,11 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ---------------------------------------------------------------------------
-// Ingestion config (Phase 2 Part A)
+// Pipeline intervals (Phase 2 Part A)
 // ---------------------------------------------------------------------------
 
-const INGESTION_INTERVAL_MS = 20 * 60 * 1_000; // 20 minutes
+const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap polling
+const EXTRACTION_INTERVAL_MS =      60 * 1_000; //  1 minute  — Jina article text extraction
 
 const LOG_PATH = path.join(__dirname, "warden.log");
 
@@ -676,12 +679,19 @@ async function main(): Promise<void> {
   const oneShot = args.includes("--once");
 
   if (oneShot) {
-    // One-shot mode — run scan, job queue, and one ingestion pass, then exit
+    // One-shot mode — run scan, job queue, one ingestion pass, one extraction pass, then exit
     log("INFO", "Warden one-shot mode (--once).");
     try {
       await scan();
       await processJobQueue();
       await runAllIngestions(supabaseAdmin, log);
+      const exCounts = await extractMissingTextBatch(supabaseAdmin, log);
+      log(
+        "INFO",
+        `[Extraction] one-shot cycle: ${exCounts.attempted} attempted · ` +
+          `${exCounts.succeeded} succeeded · ${exCounts.failed} failed · ` +
+          `${exCounts.skipped} skipped`
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log("ERROR", `One-shot error: ${msg}`);
@@ -698,11 +708,13 @@ async function main(): Promise<void> {
 
   log(
     "INFO",
-    `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ingestion every ${INGESTION_INTERVAL_MS / 60_000}m.`
+    `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ` +
+      `ingestion every ${INGESTION_INTERVAL_MS / 60_000}m, extraction every ${EXTRACTION_INTERVAL_MS / 1000}s.`
   );
 
-  let lastScanTime = Date.now(); // Start at now so scan() waits for the full interval — no immediate subscriber blast on boot
-  let lastIngestionRun = 0;      // Start at 0 so ingestion fires on the first loop tick
+  let lastScanTime      = Date.now(); // Start at now so scan() waits — no immediate subscriber blast on boot
+  let lastIngestionRun  = 0;          // Start at 0 so ingestion fires on the first loop tick
+  let lastExtractionRun = 0;          // Start at 0 so extraction fires on the first loop tick
 
   while (true) {
     const now = Date.now();
@@ -726,7 +738,7 @@ async function main(): Promise<void> {
       lastScanTime = Date.now();
     }
 
-    // RSS ingestion on its own cadence (default 20 min)
+    // RSS / sitemap ingestion on its own cadence (default 20 min)
     if (now - lastIngestionRun >= INGESTION_INTERVAL_MS) {
       lastIngestionRun = Date.now();
       try {
@@ -734,6 +746,25 @@ async function main(): Promise<void> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during ingestion: ${msg}`);
+      }
+    }
+
+    // Article text extraction — runs every minute, processes up to 10 items
+    if (now - lastExtractionRun >= EXTRACTION_INTERVAL_MS) {
+      lastExtractionRun = Date.now();
+      try {
+        const counts = await extractMissingTextBatch(supabaseAdmin, log);
+        if (counts.attempted > 0 || counts.skipped > 0) {
+          log(
+            "INFO",
+            `[Extraction] cycle complete: ${counts.attempted} attempted · ` +
+              `${counts.succeeded} succeeded · ${counts.failed} failed · ` +
+              `${counts.skipped} skipped (paywalled/maxed)`
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during extraction: ${msg}`);
       }
     }
 
