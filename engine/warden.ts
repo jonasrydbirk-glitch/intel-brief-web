@@ -75,7 +75,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 // ---------------------------------------------------------------------------
 
 const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap polling
-const EXTRACTION_INTERVAL_MS =      60 * 1_000; //  1 minute  — Jina article text extraction
+const EXTRACTION_INTERVAL_MS =      30 * 1_000; // 30 seconds — Jina article text extraction (was 60s)
 const EMBEDDING_INTERVAL_MS  =  2 * 60 * 1_000; //  2 minutes — OpenAI vector embeddings
 
 const LOG_PATH = path.join(__dirname, "warden.log");
@@ -760,7 +760,7 @@ async function main(): Promise<void> {
       }
     }
 
-    // Article text extraction — runs every minute, processes up to 10 items
+    // Article text extraction — runs every 30s, processes up to 20 items in parallel waves
     if (now - lastExtractionRun >= EXTRACTION_INTERVAL_MS) {
       lastExtractionRun = Date.now();
       try {

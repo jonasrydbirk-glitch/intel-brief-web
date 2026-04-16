@@ -3,15 +3,21 @@
  * where raw_text is NULL, using Jina Reader.
  *
  * Each call to extractMissingTextBatch():
- *   1. Queries intelligence_items for rows where raw_text IS NULL
- *   2. Filters in JS: skips items with contentTier='headline_only', those
- *      that have already failed 3 times, and those retried within the last
- *      30 minutes (exponential cool-down without a scheduler)
- *   3. Calls Jina Reader for each eligible item (up to BATCH_SIZE per cycle)
+ *   1. Queries intelligence_items for rows where raw_text IS NULL, excluding
+ *      headline_only items at the DB level (so they never waste batch slots)
+ *   2. Filters in JS: skips items that have already failed 3+ times, and
+ *      those retried within the last 30 minutes (exponential cool-down)
+ *   3. Calls Jina Reader for all eligible items in parallel waves
+ *      (MAX_CONCURRENCY at a time, so we never spin >10 simultaneous requests)
  *   4. On success: writes raw_text, increments metadata.extraction_attempts
  *   5. On failure: bumps metadata.extraction_attempts, stores error string,
  *      sets metadata.last_extraction_at for the cool-down window
  *   6. Returns counts for the Warden log summary
+ *
+ * Throughput targets (at BATCH_SIZE=20, interval=30s, MAX_CONCURRENCY=10):
+ *   - Two parallel waves of 10 = max-latency of one Jina request per wave
+ *   - 2 cycles/min × 20 items/cycle = up to 40 extractions/min
+ *   - Comfortably under Jina free-tier 100 RPM limit
  *
  * The metadata tracking fields written to intelligence_items.metadata:
  *   extraction_attempts:   number  (incremented on every attempt, success or fail)
@@ -20,11 +26,12 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createJinaReader } from "./jina";
+import { createJinaReader, JinaReader } from "./jina";
 
-const EXTRACTION_BATCH_SIZE = 10;
-const MAX_ATTEMPTS = 3;
-const RETRY_COOLDOWN_MS = 30 * 60 * 1_000; // 30 minutes
+const EXTRACTION_BATCH_SIZE = 20;    // items per cycle (was 10)
+const MAX_CONCURRENCY      = 10;    // max parallel Jina requests per wave
+const MAX_ATTEMPTS         = 3;
+const RETRY_COOLDOWN_MS    = 30 * 60 * 1_000; // 30 minutes
 
 // ---------------------------------------------------------------------------
 // Types for intelligence_items rows we select
@@ -36,6 +43,88 @@ interface IntelItemRow {
   title: string;
   ingested_at: string;
   metadata: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Per-item extraction (used in parallel)
+// ---------------------------------------------------------------------------
+
+interface ExtractResult {
+  ok: boolean;
+}
+
+async function extractOne(
+  row: IntelItemRow,
+  db: SupabaseClient,
+  jina: JinaReader,
+  logFn: (level: "INFO" | "WARN" | "ERROR", msg: string) => void
+): Promise<ExtractResult> {
+  const meta = row.metadata ?? {};
+  const attempts = Number(meta.extraction_attempts ?? 0);
+  const attemptAt = new Date().toISOString();
+
+  const result = await jina.fetch(row.url, logFn);
+
+  if ("error" in result) {
+    // Extraction failed — bump attempts, record error, update cool-down
+    const updatedMeta: Record<string, unknown> = {
+      ...meta,
+      extraction_attempts: attempts + 1,
+      last_extraction_at: attemptAt,
+      extraction_error: result.error,
+    };
+
+    const { error: updateErr } = await db
+      .from("intelligence_items")
+      .update({ metadata: updatedMeta })
+      .eq("id", row.id);
+
+    if (updateErr) {
+      logFn(
+        "WARN",
+        `[Extraction] Failed to update error metadata for ${row.id}: ${updateErr.message}`
+      );
+    }
+
+    logFn(
+      "WARN",
+      `[Extraction] ${row.title.slice(0, 60)} — FAILED (attempt ${
+        attempts + 1
+      }/${MAX_ATTEMPTS}): ${result.error}`
+    );
+
+    return { ok: false };
+  } else {
+    // Extraction succeeded — write raw_text, bump attempts, clear error
+    const updatedMeta: Record<string, unknown> = {
+      ...meta,
+      extraction_attempts: attempts + 1,
+      last_extraction_at: attemptAt,
+      extraction_error: null,
+    };
+
+    const { error: updateErr } = await db
+      .from("intelligence_items")
+      .update({
+        raw_text: result.content,
+        metadata: updatedMeta,
+      })
+      .eq("id", row.id);
+
+    if (updateErr) {
+      logFn(
+        "WARN",
+        `[Extraction] Failed to persist raw_text for ${row.id}: ${updateErr.message}`
+      );
+      return { ok: false };
+    }
+
+    logFn(
+      "INFO",
+      `[Extraction] ${row.title.slice(0, 60)} — OK (${result.content.length} chars)`
+    );
+    return { ok: true };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -51,14 +140,16 @@ export async function extractMissingTextBatch(
   failed: number;
   skipped: number;
 }> {
-  // Fetch a wider window than BATCH_SIZE to account for items we'll filter
-  // out (headline_only, max attempts reached, within cool-down).
+  // Fetch only extractable items — exclude headline_only at the DB level so
+  // paywalled items never consume batch slots. Fetch 3× batch to account for
+  // JS-side cool-down and max-attempts filtering still needed.
   const { data, error: queryError } = await db
     .from("intelligence_items")
     .select("id, url, title, ingested_at, metadata")
     .is("raw_text", null)
+    .not("metadata->>contentTier", "eq", "headline_only")
     .order("ingested_at", { ascending: false })
-    .limit(EXTRACTION_BATCH_SIZE * 5);
+    .limit(EXTRACTION_BATCH_SIZE * 3);
 
   if (queryError) {
     logFn(
@@ -84,12 +175,6 @@ export async function extractMissingTextBatch(
 
   for (const row of rows) {
     const meta = row.metadata ?? {};
-
-    // Skip headline_only tier — paywall content, Jina would return garbage
-    if (meta.contentTier === "headline_only") {
-      skipped++;
-      continue;
-    }
 
     // Skip if we've already hit the max attempt ceiling
     const attempts = Number(meta.extraction_attempts ?? 0);
@@ -120,73 +205,25 @@ export async function extractMissingTextBatch(
   let succeeded = 0;
   let failed = 0;
 
-  for (const row of eligible) {
-    const meta = row.metadata ?? {};
-    const attempts = Number(meta.extraction_attempts ?? 0);
-    const attemptAt = new Date().toISOString();
+  // ---------------------------------------------------------------------------
+  // Parallel extraction — process in waves of MAX_CONCURRENCY
+  // With BATCH_SIZE=20 and MAX_CONCURRENCY=10 this runs 2 waves of 10.
+  // Promise.allSettled ensures a single Jina failure never aborts the wave.
+  // ---------------------------------------------------------------------------
 
-    const result = await jina.fetch(row.url, logFn);
-
-    if ("error" in result) {
-      // Extraction failed — bump attempts, record error, update cool-down
-      const updatedMeta: Record<string, unknown> = {
-        ...meta,
-        extraction_attempts: attempts + 1,
-        last_extraction_at: attemptAt,
-        extraction_error: result.error,
-      };
-
-      const { error: updateErr } = await db
-        .from("intelligence_items")
-        .update({ metadata: updatedMeta })
-        .eq("id", row.id);
-
-      if (updateErr) {
-        logFn(
-          "WARN",
-          `[Extraction] Failed to update error metadata for ${row.id}: ${updateErr.message}`
-        );
-      }
-
-      logFn(
-        "WARN",
-        `[Extraction] ${row.title.slice(0, 60)} — FAILED (attempt ${
-          attempts + 1
-        }/${MAX_ATTEMPTS}): ${result.error}`
-      );
-
-      failed++;
-    } else {
-      // Extraction succeeded — write raw_text, bump attempts, clear error
-      const updatedMeta: Record<string, unknown> = {
-        ...meta,
-        extraction_attempts: attempts + 1,
-        last_extraction_at: attemptAt,
-        extraction_error: null,
-      };
-
-      const { error: updateErr } = await db
-        .from("intelligence_items")
-        .update({
-          raw_text: result.content,
-          metadata: updatedMeta,
-        })
-        .eq("id", row.id);
-
-      if (updateErr) {
-        logFn(
-          "WARN",
-          `[Extraction] Failed to persist raw_text for ${row.id}: ${updateErr.message}`
-        );
-        failed++;
+  for (let i = 0; i < eligible.length; i += MAX_CONCURRENCY) {
+    const wave = eligible.slice(i, i + MAX_CONCURRENCY);
+    const results = await Promise.allSettled(
+      wave.map((row) => extractOne(row, db, jina, logFn))
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        if (r.value.ok) succeeded++;
+        else failed++;
       } else {
-        logFn(
-          "INFO",
-          `[Extraction] ${row.title.slice(0, 60)} — OK (${
-            result.content.length
-          } chars)`
-        );
-        succeeded++;
+        // Unexpected throw from extractOne — shouldn't happen, but count it
+        logFn("ERROR", `[Extraction] Unexpected extractOne throw: ${r.reason}`);
+        failed++;
       }
     }
   }
