@@ -77,6 +77,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap polling
 const EXTRACTION_INTERVAL_MS =      30 * 1_000; // 30 seconds — Jina article text extraction (was 60s)
 const EMBEDDING_INTERVAL_MS  =  2 * 60 * 1_000; //  2 minutes — OpenAI vector embeddings
+const HEARTBEAT_INTERVAL_MS  =  5 * 60 * 1_000; //  5 minutes — Supabase liveness heartbeat
 
 const LOG_PATH = path.join(__dirname, "warden.log");
 
@@ -997,6 +998,46 @@ async function scan(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Heartbeat — Supabase liveness write
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert a heartbeat row for service='warden' into the heartbeats table.
+ * Called on startup and every HEARTBEAT_INTERVAL_MS (5 min) in the loop.
+ *
+ * Metadata included:
+ *   registered_sources  — number of active intelligence sources
+ *   node_version        — Node.js version string
+ *   uptime_seconds      — process uptime since Warden started
+ *   last_ingestion_at   — ISO timestamp of most recent ingestion run (optional)
+ *   last_extraction_at  — ISO timestamp of most recent extraction cycle (optional)
+ *   last_embedding_at   — ISO timestamp of most recent embedding cycle (optional)
+ */
+async function writeHeartbeat(
+  extra?: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("heartbeats")
+    .upsert(
+      {
+        service:   "warden",
+        last_beat: new Date().toISOString(),
+        metadata:  {
+          registered_sources: registeredSources.length,
+          node_version:       process.version,
+          uptime_seconds:     Math.floor(process.uptime()),
+          ...extra,
+        },
+      },
+      { onConflict: "service" }
+    );
+
+  if (error) {
+    log("WARN", `[Heartbeat] Write failed: ${error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
@@ -1012,6 +1053,9 @@ async function main(): Promise<void> {
   } else {
     log("WARN", "No intelligence sources registered — ingestion pipeline inactive.");
   }
+
+  // Startup heartbeat — signals to /api/health that Warden is alive
+  await writeHeartbeat();
 
   const args = process.argv.slice(2);
   const oneShot = args.includes("--once");
@@ -1055,7 +1099,8 @@ async function main(): Promise<void> {
     `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ` +
       `delivery loop every ${DELIVERY_LOOP_INTERVAL_MS / 1000}s, ` +
       `ingestion every ${INGESTION_INTERVAL_MS / 60_000}m, extraction every ${EXTRACTION_INTERVAL_MS / 1000}s, ` +
-      `embedding every ${EMBEDDING_INTERVAL_MS / 1000}s.`
+      `embedding every ${EMBEDDING_INTERVAL_MS / 1000}s, ` +
+      `heartbeat every ${HEARTBEAT_INTERVAL_MS / 60_000}m.`
   );
 
   let lastScanTime      = Date.now(); // Start at now so scan() waits — no immediate subscriber blast on boot
@@ -1063,6 +1108,12 @@ async function main(): Promise<void> {
   let lastExtractionRun = 0;          // Start at 0 so extraction fires on the first loop tick
   let lastEmbeddingRun  = 0;          // Start at 0 so embedding fires on the first loop tick
   let lastDeliveryCheck = 0;          // Start at 0 so delivery loop fires on the first tick
+  let lastHeartbeatRun  = Date.now(); // Start at now — startup beat already written above
+
+  // Track cycle timestamps for heartbeat metadata
+  let lastIngestionAt:  string | undefined;
+  let lastExtractionAt: string | undefined;
+  let lastEmbeddingAt:  string | undefined;
 
   while (true) {
     const now = Date.now();
@@ -1102,6 +1153,7 @@ async function main(): Promise<void> {
       lastIngestionRun = Date.now();
       try {
         await runAllIngestions(supabaseAdmin, log);
+        lastIngestionAt = new Date().toISOString();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during ingestion: ${msg}`);
@@ -1121,6 +1173,7 @@ async function main(): Promise<void> {
               `${counts.skipped} skipped (paywalled/maxed)`
           );
         }
+        lastExtractionAt = new Date().toISOString();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during extraction: ${msg}`);
@@ -1139,10 +1192,21 @@ async function main(): Promise<void> {
               `${counts.succeeded} succeeded · ${counts.failed} failed`
           );
         }
+        lastEmbeddingAt = new Date().toISOString();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during embedding: ${msg}`);
       }
+    }
+
+    // Heartbeat — upsert liveness row every 5 minutes
+    if (now - lastHeartbeatRun >= HEARTBEAT_INTERVAL_MS) {
+      lastHeartbeatRun = Date.now();
+      await writeHeartbeat({
+        ...(lastIngestionAt  ? { last_ingestion_at:  lastIngestionAt  } : {}),
+        ...(lastExtractionAt ? { last_extraction_at: lastExtractionAt } : {}),
+        ...(lastEmbeddingAt  ? { last_embedding_at:  lastEmbeddingAt  } : {}),
+      });
     }
 
     console.log(`[Warden] Loop tick complete — sleeping ${JOB_POLL_INTERVAL_MS / 1000}s...`);

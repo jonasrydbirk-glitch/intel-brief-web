@@ -171,6 +171,7 @@ async function loadHealthData() {
     urlTotalRes,
     sentArticlesRes,
     briefResultsRes,
+    heartbeatRes,
   ] = await Promise.all([
     db.from("ingestion_runs")
       .select("source_name, started_at, error, items_new, items_found")
@@ -240,6 +241,12 @@ async function loadHealthData() {
       .eq("status", "complete")
       .gte("created_at", since7d)
       .limit(50),
+
+    // Warden heartbeat
+    db.from("heartbeats")
+      .select("last_beat, metadata")
+      .eq("service", "warden")
+      .single(),
   ]);
 
   // Build per-source latest-run map (first occurrence = most recent, list is DESC)
@@ -294,6 +301,15 @@ async function loadHealthData() {
   }
   const quoteCompliance = pct(quoteItems, totalBriefItems);
 
+  // Warden heartbeat
+  const WARDEN_STALE_MS = 15 * 60 * 1_000; // 15 minutes
+  const heartbeat = heartbeatRes.data as { last_beat: string; metadata: Record<string, unknown> } | null;
+  const wardenLastBeat   = heartbeat?.last_beat ?? null;
+  const wardenAgeMs      = wardenLastBeat ? Date.now() - new Date(wardenLastBeat).getTime() : null;
+  const wardenAlive      = wardenAgeMs !== null && wardenAgeMs < WARDEN_STALE_MS;
+  const wardenAgeMin     = wardenAgeMs !== null ? Math.floor(wardenAgeMs / 60_000) : null;
+  const wardenMeta       = (heartbeat?.metadata ?? {}) as Record<string, unknown>;
+
   return {
     latestRuns,
     totalItems,
@@ -318,6 +334,11 @@ async function loadHealthData() {
     totalBriefItems,
     overallStatus: deriveOverall(latestRuns, textCov, embedCov),
     fetchedAt: new Date().toISOString(),
+    // Warden heartbeat
+    wardenAlive,
+    wardenLastBeat,
+    wardenAgeMin,
+    wardenMeta,
   };
 }
 
@@ -665,6 +686,62 @@ export default async function IntelHealthPage() {
                   <div className="text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
                     <div>{greenCount} green · {yellowCount} yellow · {redCount} red · {unknownCount} unknown</div>
                     <div className="mt-0.5">{ALL_SOURCES.length} registered sources</div>
+                  </div>
+                </div>
+
+                {/* ── Warden Heartbeat ─────────────────────────────────────── */}
+                <div className={`rounded-lg border px-5 py-4 flex items-center justify-between ${
+                  data.wardenAlive
+                    ? "bg-emerald-950/30 border-emerald-700/40"
+                    : data.wardenLastBeat
+                    ? "bg-red-950/30 border-red-700/40"
+                    : "bg-zinc-900/50 border-zinc-700/40"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-3 w-3 shrink-0">
+                      {data.wardenAlive && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                      )}
+                      <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                        data.wardenAlive ? "bg-emerald-400" : data.wardenLastBeat ? "bg-red-400" : "bg-zinc-600"
+                      }`} />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] tracking-wider ${
+                          data.wardenAlive ? "text-emerald-300" : data.wardenLastBeat ? "text-red-300" : "text-zinc-400"
+                        }`}>
+                          WARDEN {data.wardenAlive ? "ONLINE" : data.wardenLastBeat ? "STALE" : "NO DATA"}
+                        </span>
+                        <InfoTooltip text="Warden is the local engine process on the Beelink. It writes a heartbeat every 5 minutes. STALE = no heartbeat for 15+ minutes." />
+                      </div>
+                      <div className="text-xs font-[family-name:var(--font-geist-mono)] mt-0.5 text-[var(--muted-foreground)]">
+                        {data.wardenLastBeat
+                          ? <>Last beat: <span className="text-[var(--slate-300)]">{fmtAge(data.wardenLastBeat)}</span>
+                              {" · "}{new Date(data.wardenLastBeat).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" })}
+                            </>
+                          : "No heartbeat recorded yet — Warden may not have started after migration 008"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)] space-y-0.5">
+                    {data.wardenMeta.uptime_seconds != null && (
+                      <div>
+                        Uptime: <span className="text-[var(--slate-300)]">
+                          {Math.floor(Number(data.wardenMeta.uptime_seconds) / 3600)}h{" "}
+                          {Math.floor((Number(data.wardenMeta.uptime_seconds) % 3600) / 60)}m
+                        </span>
+                      </div>
+                    )}
+                    {data.wardenMeta.registered_sources != null && (
+                      <div>Sources: <span className="text-[var(--slate-300)]">{String(data.wardenMeta.registered_sources)}</span></div>
+                    )}
+                    {data.wardenMeta.node_version != null && (
+                      <div>Node: <span className="text-[var(--slate-300)]">{String(data.wardenMeta.node_version)}</span></div>
+                    )}
+                    {!data.wardenLastBeat && (
+                      <div className="text-zinc-600">Run migration 008 in Supabase</div>
+                    )}
                   </div>
                 </div>
 
