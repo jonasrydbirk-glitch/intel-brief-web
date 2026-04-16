@@ -12,6 +12,8 @@ import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
 import { stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
+import { retrieveForQuery } from "./search/retriever";
+import type { SearchHit } from "./search/types";
 
 // ---------------------------------------------------------------------------
 // Raw-dump logger — writes first 500 chars of AI response to warden.log
@@ -111,11 +113,11 @@ export interface SubscriberProfile {
   depth: string;
 }
 
-export interface SearchHit {
-  title: string;
-  snippet: string;
-  url: string;
-}
+// SearchHit is defined in engine/search/types.ts to avoid a circular import
+// cycle (brief-generator → retriever → tavily → types).
+// Re-exported here so all downstream importers (preview-story.ts, etc.)
+// continue to work without any changes.
+export type { SearchHit } from "./search/types";
 
 export interface ScoutResult {
   queries: string[];
@@ -310,96 +312,11 @@ Return a JSON object with a single key "queries" containing an array of query st
 }
 
 // ---------------------------------------------------------------------------
-// Stage 1.5 — Scout Search: execute Scout queries via Serper/Google
-//              to get real search results with verifiable URLs
+// Stage 1.5 — Retrieval: library-first semantic search + Tavily gap-fill
 // ---------------------------------------------------------------------------
-
-export async function sonarSearch(queries: string[]): Promise<SearchHit[]> {
-  const combined = queries.map((q, i) => `${i + 1}. ${q}`).join("\n");
-
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "perplexity/sonar-pro",
-      messages: [
-        {
-          role: "system",
-          content: `You are a maritime news search engine. For each query, return the most relevant recent news articles you find. For EVERY result, you MUST include:
-1. The exact article title
-2. A 1-2 sentence snippet of the article content
-3. The full, direct URL to the specific article (NOT a homepage)
-
-Format each result as:
-TITLE: <exact article title>
-SNIPPET: <1-2 sentence summary of article content>
-URL: <full direct URL to the article>
----
-
-Return up to 3 results per query. Only include results with real, direct article URLs.`,
-        },
-        {
-          role: "user",
-          content: `Find the latest news articles for these queries:\n${combined}`,
-        },
-      ],
-      max_tokens: 4096,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    dumpRaw("Search ERROR", `${response.status} — ${text}`);
-    // Non-fatal: return empty hits, Architect will produce empty sections
-    return [];
-  }
-
-  const data = await response.json();
-  const rawContent = data.choices?.[0]?.message?.content ?? "";
-
-  // OpenRouter returns Perplexity citations as a top-level array
-  const citations: string[] = data.citations ?? [];
-
-  dumpRaw("Search", rawContent);
-  dumpRaw("Search citations", JSON.stringify(citations));
-
-  const hits: SearchHit[] = [];
-
-  // Parse structured TITLE/SNIPPET/URL blocks from response content
-  const blocks = rawContent.split(/---+/).filter((b: string) => b.trim());
-  for (const block of blocks) {
-    const titleMatch = block.match(/TITLE:\s*(.+)/i);
-    const snippetMatch = block.match(/SNIPPET:\s*(.+)/i);
-    const urlMatch = block.match(/URL:\s*(https?:\/\/\S+)/i);
-
-    if (titleMatch && urlMatch) {
-      hits.push({
-        title: titleMatch[1].trim(),
-        snippet: snippetMatch ? snippetMatch[1].trim() : "",
-        url: urlMatch[1].trim(),
-      });
-    }
-  }
-
-  // Also incorporate any citations from the Perplexity API that weren't
-  // captured in the structured blocks
-  for (const citationUrl of citations) {
-    if (!hits.some((h) => h.url === citationUrl)) {
-      hits.push({
-        title: "",
-        snippet: "",
-        url: citationUrl,
-      });
-    }
-  }
-
-  dumpRaw("Search parsed", `${hits.length} search hits extracted`);
-  return hits;
-}
+// sonarSearch (Perplexity Sonar) has been removed — replaced by the
+// library-first retriever in engine/search/retriever.ts (Phase 2 Step 4).
+// If you need to revert this change use: git revert HEAD~1
 
 // ---------------------------------------------------------------------------
 // Stage 2 — Architect (Claude Sonnet 4.6): synthesise raw data through
@@ -875,11 +792,25 @@ export async function generateBrief(
   // Stage 1: Scout generates targeted search queries
   const scoutResult = await scoutStage(profile);
 
-  // Stage 1.5: Scout search executes queries and returns real search results with URLs
-  const searchHits = await sonarSearch(scoutResult.queries);
-  scoutResult.searchHits = searchHits;
+  // Stage 1.5: Retrieve search hits — library-first, Tavily gap-fill per query
+  const allHits: SearchHit[] = [];
+  const seenUrls = new Set<string>();
+  for (const query of scoutResult.queries) {
+    const { hits, source, isFresh } = await retrieveForQuery(query, { freshDays: 7 });
+    dumpRaw(
+      "Retriever",
+      `query="${query.slice(0, 60)}" source=${source} fresh=${isFresh} hits=${hits.length}`
+    );
+    for (const hit of hits) {
+      if (!seenUrls.has(hit.url)) {
+        seenUrls.add(hit.url);
+        allHits.push(hit);
+      }
+    }
+  }
+  scoutResult.searchHits = allHits;
 
-  dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, search returned ${searchHits.length} hits`);
+  dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, retriever returned ${allHits.length} deduplicated hits`);
 
   // Stage 2: Architect synthesises brief from search metadata ONLY
   const rawBrief = await architectStage(profile, scoutResult);
