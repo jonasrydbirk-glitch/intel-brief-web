@@ -10,8 +10,12 @@
  */
 
 import "dotenv/config";
-// Import rss.ts to trigger the registerSource() calls
+// Import all source modules to trigger their registerSource() calls
 import "../engine/sources/rss";
+import "../engine/sources/sitemap";
+import "../engine/sources/lr";
+import "../engine/sources/dnv";
+import "../engine/sources/wp-rest";
 import { registeredSources } from "../engine/sources/index";
 import type { IntelItem } from "../engine/sources/index";
 

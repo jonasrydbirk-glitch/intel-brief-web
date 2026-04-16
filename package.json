@@ -12,6 +12,7 @@
   "dependencies": {
     "@sparticuz/chromium": "^133.0.0",
     "@supabase/supabase-js": "^2.101.1",
+    "cheerio": "^1.2.0",
     "jose": "^6.2.2",
     "nanoid": "^5.1.7",
     "next": "^15.1.12",

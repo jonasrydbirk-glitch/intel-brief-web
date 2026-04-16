@@ -25,7 +25,11 @@ import { sendViaGraph } from "../lib/postman";
 // RSS / intelligence ingestion pipeline (Phase 2 Part A)
 import { registeredSources } from "./sources/index";
 import { runAllIngestions } from "./sources/runner";
-import "./sources/rss"; // side-effect: registers all RSS feeds
+import "./sources/rss";      // side-effect: registers all 17 RSS feeds
+import "./sources/sitemap";  // registers TradeWinds (Google News Sitemap)
+import "./sources/lr";       // registers Lloyd's Register (HTML list)
+import "./sources/dnv";      // registers DNV (data-props JSON, maritime-filtered)
+import "./sources/wp-rest";  // registers Safety4Sea (WordPress REST API)
 
 // ---------------------------------------------------------------------------
 // Config
