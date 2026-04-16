@@ -22,11 +22,15 @@ function renderItem(item: IntelItem): string {
   const commentaryHtml = item.commentary
     ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;margin-bottom:6px;padding:6px 10px;background:#eff6ff;border-radius:4px;font-style:italic;"><strong>Engineer's Take:</strong> ${esc(item.commentary)}</div>`
     : "";
+  const quoteHtml = item.quote?.trim()
+    ? `<blockquote style="margin:6px 0;padding:6px 10px;border-left:3px solid #0d9488;background:#f0fdfa;border-radius:0 4px 4px 0;font-size:12px;color:#134e4a;font-style:italic;line-height:1.5;">&ldquo;${esc(item.quote.trim())}&rdquo;</blockquote>`
+    : "";
   return `
     <div style="margin-bottom:16px;padding:14px 16px;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:6px;">
       <div style="font-weight:600;font-size:15px;color:#0f172a;margin-bottom:2px;">${esc(item.headline)}</div>
       <div style="font-size:13px;color:#334155;line-height:1.5;margin-bottom:6px;">${esc(item.summary)}</div>
       ${renderSourceLink(item.source)}
+      ${quoteHtml}
       ${commentaryHtml}
       <div style="font-size:11px;color:#64748b;">
         <span><strong>Relevance:</strong> ${esc(item.relevance)}</span>

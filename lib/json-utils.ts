@@ -95,9 +95,14 @@ export interface IntelItem {
   commentary: string;
   relevance: string;
   source: string;
+  /** Verbatim pull-quote from the source article. Optional — preserved as-is
+   *  (no emoji stripping) so the exact words from the original source are kept. */
+  quote?: string;
 }
 
-/** Sanitise an IntelItem — strip emojis from all text fields. */
+/** Sanitise an IntelItem — strip emojis from all text fields.
+ *  The `quote` field is preserved verbatim (no emoji stripping) because it
+ *  must remain an exact copy of the original source text. */
 export function sanitiseItem(item: IntelItem): IntelItem {
   return {
     headline: stripEmojis(item.headline ?? ""),
@@ -105,6 +110,7 @@ export function sanitiseItem(item: IntelItem): IntelItem {
     commentary: stripEmojis(item.commentary ?? ""),
     relevance: stripEmojis(item.relevance ?? ""),
     source: stripEmojis(item.source ?? ""),
+    ...(item.quote?.trim() ? { quote: item.quote.trim() } : {}),
   };
 }
 
