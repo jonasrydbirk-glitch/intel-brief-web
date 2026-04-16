@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { findUserByEmail } from "@/app/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { sendEmail } from "@/lib/delivery";
+import { sendEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -58,12 +58,12 @@ export async function POST(request: Request) {
   const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
 
   try {
-    console.log("[forgot-password] Sending reset email to:", email, "from:", process.env.M365_SENDER_EMAIL, "via M365 Graph API...");
-    await sendEmail({
+    console.log("[forgot-password] Sending reset email to:", email, "via Resend/Graph...");
+    const emailResult = await sendEmail({
       to: email,
       from: "noreply@iqsea.io",
       subject: "Reset your IQsea Password",
-      htmlBody: `
+      html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
           <div style="text-align: center; margin-bottom: 32px;">
             <h1 style="color: #e8eef4; font-size: 24px; margin: 0;">Reset Your Password</h1>
@@ -87,7 +87,14 @@ export async function POST(request: Request) {
         </div>
       `,
     });
-    console.log("[forgot-password] Reset email sent successfully to:", email);
+    if (!emailResult.success) {
+      throw new Error(emailResult.error ?? "Email delivery failed");
+    }
+    console.log(
+      "[forgot-password] Reset email sent successfully to:", email,
+      "via", emailResult.provider ?? "unknown",
+      emailResult.messageId ? `(id: ${emailResult.messageId})` : ""
+    );
   } catch (err) {
     console.error("[forgot-password] FAILED to send reset email:", err);
     // Still return success to prevent enumeration
