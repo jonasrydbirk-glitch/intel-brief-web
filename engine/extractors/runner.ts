@@ -171,10 +171,21 @@ export async function extractMissingTextBatch(
   // ---------------------------------------------------------------------------
 
   let skipped = 0;
+  let hlSkipped = 0;  // headline_only items that leaked past the DB filter
   const eligible: IntelItemRow[] = [];
 
   for (const row of rows) {
     const meta = row.metadata ?? {};
+
+    // Defence-in-depth: headline_only items should be excluded by the DB query
+    // (.not("metadata->>contentTier", "eq", "headline_only")), but guard here
+    // too in case of metadata format variation (e.g. contentTier stored as a
+    // number or boolean due to an old ingester bug).
+    if (meta.contentTier === "headline_only") {
+      hlSkipped++;
+      skipped++;
+      continue;
+    }
 
     // Skip if we've already hit the max attempt ceiling
     const attempts = Number(meta.extraction_attempts ?? 0);
@@ -195,6 +206,13 @@ export async function extractMissingTextBatch(
 
     eligible.push(row);
     if (eligible.length >= EXTRACTION_BATCH_SIZE) break;
+  }
+
+  if (hlSkipped > 0) {
+    logFn(
+      "WARN",
+      `[Extraction] ${hlSkipped} headline_only item(s) bypassed DB filter — check ingester metadata format`
+    );
   }
 
   if (eligible.length === 0) {
