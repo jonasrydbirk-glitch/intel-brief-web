@@ -314,7 +314,37 @@ async function alreadySentToday(
 }
 
 // ---------------------------------------------------------------------------
+// Email HTML builder — shared by dispatchBrief, processJobQueue JET mode,
+// and deliveryLoop so we never duplicate this template.
+// ---------------------------------------------------------------------------
+
+function buildBriefEmailHtml(fullName: string, dateStr: string): string {
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
+        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
+      </div>
+      <div style="padding:24px 0;">
+        <p style="font-size:15px;line-height:1.6;">Hi ${fullName || "there"},</p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
+          and covers the latest developments relevant to your profile.
+        </p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Open the attached PDF for the full analysis.
+        </p>
+      </div>
+      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+        IQsea Intel Engine &middot; Confidential
+      </div>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch pipeline (Engine → PDF → Email → Report record)
+// Used by scan() for legacy immediate-dispatch path.
 // ---------------------------------------------------------------------------
 
 async function dispatchBrief(subscriber: {
@@ -343,33 +373,11 @@ async function dispatchBrief(subscriber: {
   const subject = `Your IQsea Intel Brief - ${dateStr}`;
   const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-  const htmlBody = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
-        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
-      </div>
-      <div style="padding:24px 0;">
-        <p style="font-size:15px;line-height:1.6;">Hi ${subscriber.fullName || "there"},</p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
-          and covers the latest developments relevant to your profile.
-        </p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Open the attached PDF for the full analysis.
-        </p>
-      </div>
-      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
-        IQsea Intel Engine &middot; Confidential
-      </div>
-    </div>
-  `;
-
   try {
     await sendViaGraph({
       to: subscriber.email,
       subject,
-      htmlBody,
+      htmlBody: buildBriefEmailHtml(subscriber.fullName, dateStr),
       attachments: [
         {
           filename: pdfFilename,
@@ -421,7 +429,7 @@ const JOB_POLL_INTERVAL_MS = 5_000; // 5 seconds
 async function processJobQueue(): Promise<void> {
   const { data: pendingJobs, error: fetchErr } = await supabase
     .from("brief_jobs")
-    .select("id, subscriber_id, dispatch_now, job_type, preview_subject")
+    .select("id, subscriber_id, dispatch_now, job_type, preview_subject, scheduled_delivery_at")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -463,8 +471,25 @@ async function processJobQueue(): Promise<void> {
       const rawBrief = await generateBrief(job.subscriber_id);
       const brief = validateBriefUrls(rawBrief);
 
-      if (job.dispatch_now) {
-        // JET mode: full pipeline — generate + PDF + email delivery
+      if (job.scheduled_delivery_at) {
+        // Pre-generation mode: brief is ready; delivery loop will send the email
+        // when scheduled_delivery_at arrives (within the next 30s delivery tick).
+        await supabase
+          .from("brief_jobs")
+          .update({
+            status: "ready_to_send",
+            result: brief,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+
+        log(
+          "INFO",
+          `Job ${job.id} pre-generated — ready_to_send at ${job.scheduled_delivery_at}.`
+        );
+      } else if (job.dispatch_now) {
+        // JET mode (legacy — dispatch_now without scheduled_delivery_at):
+        // full pipeline — generate + PDF + email delivery in one shot.
         log("INFO", `Job ${job.id} — rendering PDF...`);
 
         // Look up subscriber email + name for delivery
@@ -489,27 +514,7 @@ async function processJobQueue(): Promise<void> {
         const subject = `Your IQsea Intel Brief - ${dateStr}`;
         const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-        const htmlBody = `
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-            <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
-              <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-              <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
-            </div>
-            <div style="padding:24px 0;">
-              <p style="font-size:15px;line-height:1.6;">Hi ${sub.fullName || "there"},</p>
-              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-                Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
-                and covers the latest developments relevant to your profile.
-              </p>
-              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-                Open the attached PDF for the full analysis.
-              </p>
-            </div>
-            <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
-              IQsea Intel Engine &middot; Confidential
-            </div>
-          </div>
-        `;
+        const htmlBody = buildBriefEmailHtml(sub.fullName, dateStr);
 
         log("INFO", `Job ${job.id} — Postman delivering to ${sub.email}...`);
 
