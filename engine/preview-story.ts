@@ -55,9 +55,10 @@ ${freshnessRule}
 - commentary: 1-2 sentences of professional maritime analyst insight — why this matters operationally.
 - relevance: one sentence on why this is relevant to "${subject}".
 - source: exact URL copied from the search results.
+- quote: single verbatim sentence lifted directly from the snippet. Copy exact words — no paraphrase. Omit the field entirely if no clean quotable sentence exists in the provided snippets.
 
 Return ONLY valid JSON matching this schema — no prose, no code fences:
-{"headline":"...","summary":"...","commentary":"...","relevance":"...","source":"..."}
+{"headline":"...","summary":"...","commentary":"...","relevance":"...","source":"...","quote":"<verbatim sentence or omit>"}
 
 If you cannot produce a valid item from the provided results, return exactly: null`;
 

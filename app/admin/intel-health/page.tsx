@@ -11,6 +11,7 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { IQseaLogoSmall } from "@/app/components/iqsea-logo";
 import { BUILD_VERSION } from "@/lib/constants";
+import { InfoTooltip } from "@/app/components/info-tooltip";
 
 // ---------------------------------------------------------------------------
 // Source registry — mirrors engine/sources/* registrations
@@ -165,6 +166,11 @@ async function loadHealthData() {
     subsRes,
     done24hRes,
     done7dRes,
+    // Brief Quality queries
+    urlDeadRes,
+    urlTotalRes,
+    sentArticlesRes,
+    briefResultsRes,
   ] = await Promise.all([
     db.from("ingestion_runs")
       .select("source_name, started_at, error, items_new, items_found")
@@ -212,6 +218,28 @@ async function loadHealthData() {
       .select("*", { count: "exact", head: true })
       .eq("status", "complete")
       .gte("created_at", since7d),
+
+    // Brief Quality — dead link rate (last 24h)
+    db.from("url_verification_log")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "dead_4xx")
+      .gte("checked_at", since24h),
+
+    db.from("url_verification_log")
+      .select("*", { count: "exact", head: true })
+      .gte("checked_at", since24h),
+
+    // Brief Quality — items deduped (sent_articles last 7d)
+    db.from("sent_articles")
+      .select("*", { count: "exact", head: true })
+      .gte("sent_at", since7d),
+
+    // Brief Quality — quote compliance (result JSONB from completed briefs last 7d)
+    db.from("brief_jobs")
+      .select("result")
+      .eq("status", "complete")
+      .gte("created_at", since7d)
+      .limit(50),
   ]);
 
   // Build per-source latest-run map (first occurrence = most recent, list is DESC)
@@ -241,6 +269,31 @@ async function loadHealthData() {
   const textCov  = pct(itemsWithText,  totalItems);
   const embedCov = pct(itemsWithEmbed, totalItems);
 
+  // Brief Quality — dead link rate
+  const urlDeadCount  = urlDeadRes.count  ?? 0;
+  const urlTotalCount = urlTotalRes.count ?? 0;
+  const deadLinkRate  = pct(urlDeadCount, urlTotalCount);
+
+  // Brief Quality — items deduped last 7d
+  const dedupedLast7d = sentArticlesRes.count ?? 0;
+
+  // Brief Quality — quote compliance: scan result JSONB from brief_jobs
+  let quoteItems = 0;
+  let totalBriefItems = 0;
+  for (const job of (briefResultsRes.data ?? []) as Array<{ result: unknown }>) {
+    if (!job.result || typeof job.result !== "object") continue;
+    const payload = job.result as {
+      sections?: Array<{ items?: Array<{ quote?: string }> }>;
+    };
+    for (const sec of payload.sections ?? []) {
+      for (const item of sec.items ?? []) {
+        totalBriefItems++;
+        if (item.quote && item.quote.trim().length > 0) quoteItems++;
+      }
+    }
+  }
+  const quoteCompliance = pct(quoteItems, totalBriefItems);
+
   return {
     latestRuns,
     totalItems,
@@ -255,6 +308,14 @@ async function loadHealthData() {
     subscriberCount,
     reportsDone24h,
     reportsDone7d,
+    // Brief Quality
+    deadLinkRate,
+    urlDeadCount,
+    urlTotalCount,
+    dedupedLast7d,
+    quoteCompliance,
+    quoteItems,
+    totalBriefItems,
     overallStatus: deriveOverall(latestRuns, textCov, embedCov),
     fetchedAt: new Date().toISOString(),
   };
@@ -306,19 +367,22 @@ function StatCard({
   value,
   sub,
   accentStatus,
+  tip,
 }: {
   label: string;
   value: string | number;
   sub?: string;
   accentStatus?: OverallStatus;
+  tip?: string;
 }) {
   return (
     <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
       {accentStatus && (
         <div className={`absolute top-0 left-0 w-full h-[2px] ${STATUS_BAR[accentStatus]}`} />
       )}
-      <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-1.5 font-[family-name:var(--font-geist-mono)]">
+      <div className="flex items-center text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-1.5 font-[family-name:var(--font-geist-mono)]">
         {label}
+        {tip && <InfoTooltip text={tip} />}
       </div>
       <div className="text-2xl font-bold font-[family-name:var(--font-geist-mono)] leading-none">
         {value}
@@ -613,22 +677,34 @@ export default async function IntelHealthPage() {
                       INGESTION
                     </div>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Sources active</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Sources active
+                          <InfoTooltip text="Sources that have reported at least one run in the last 2 hours (green or yellow status)." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
                           {greenCount + yellowCount} / {ALL_SOURCES.length}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 1h</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Items last 1h
+                          <InfoTooltip text="Intelligence items ingested across all sources in the last hour." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast1h}</span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 24h</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Items last 24h
+                          <InfoTooltip text="Intelligence items ingested across all sources in the last 24 hours." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast24h}</span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 7d</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Items last 7d
+                          <InfoTooltip text="Intelligence items ingested across all sources in the last 7 days." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast7d}</span>
                       </div>
                     </div>
@@ -642,22 +718,31 @@ export default async function IntelHealthPage() {
                     </div>
                     <div className="space-y-2.5">
                       <div>
-                        <div className="flex justify-between items-baseline mb-1.5">
-                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Coverage</span>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                            Coverage
+                            <InfoTooltip text="Percentage of library items that have had their full article text extracted. Used for embedding generation and semantic search." />
+                          </span>
                           <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${STATUS_LABEL[coverageStatus(data.textCov)]}`}>
                             {data.textCov}%
                           </span>
                         </div>
                         <CovBar value={data.textCov} status={coverageStatus(data.textCov)} />
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Extracted</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Extracted
+                          <InfoTooltip text="Items with raw_text populated vs total library items." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
                           {data.itemsWithText.toLocaleString()} / {data.totalItems.toLocaleString()}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Queue depth</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Queue depth
+                          <InfoTooltip text="Items awaiting text extraction (total minus extracted)." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
                           {(data.totalItems - data.itemsWithText).toLocaleString()}
                         </span>
@@ -673,27 +758,143 @@ export default async function IntelHealthPage() {
                     </div>
                     <div className="space-y-2.5">
                       <div>
-                        <div className="flex justify-between items-baseline mb-1.5">
-                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Coverage</span>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                            Coverage
+                            <InfoTooltip text="Percentage of text-extracted items that have been converted to vector embeddings. Higher coverage = better semantic search recall." />
+                          </span>
                           <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${STATUS_LABEL[coverageStatus(data.embedCov)]}`}>
                             {data.embedCov}%
                           </span>
                         </div>
                         <CovBar value={data.embedCov} status={coverageStatus(data.embedCov)} />
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Embedded</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Embedded
+                          <InfoTooltip text="Items with a 1536-dim vector embedding vs total library items." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
                           {data.itemsWithEmbed.toLocaleString()} / {data.totalItems.toLocaleString()}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Queue depth</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Queue depth
+                          <InfoTooltip text="Items awaiting embedding (requires text extraction first)." />
+                        </span>
                         <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
                           {(data.itemsWithText - data.itemsWithEmbed).toLocaleString()}
                         </span>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* ── Brief Quality card ───────────────────────────────────── */}
+                <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-[2px] bg-[var(--teal-500)]" />
+                  <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                    BRIEF QUALITY
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                    {/* Dead link rate */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Dead link rate (24h)
+                          <InfoTooltip text="Percentage of source URLs checked in the last 24h that returned a 4xx response. High rates indicate stale library content or misconfigured paywall sources." />
+                        </span>
+                        <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${
+                          data.urlTotalCount === 0
+                            ? "text-[var(--muted-foreground)]"
+                            : data.deadLinkRate >= 20
+                            ? "text-red-400"
+                            : data.deadLinkRate >= 10
+                            ? "text-amber-400"
+                            : "text-emerald-400"
+                        }`}>
+                          {data.urlTotalCount === 0 ? "—" : `${data.deadLinkRate}%`}
+                        </span>
+                      </div>
+                      {data.urlTotalCount > 0 && (
+                        <>
+                          <CovBar
+                            value={data.deadLinkRate}
+                            status={
+                              data.deadLinkRate >= 20 ? "red" :
+                              data.deadLinkRate >= 10 ? "yellow" : "green"
+                            }
+                          />
+                          <div className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                            {data.urlDeadCount} dead / {data.urlTotalCount} checked
+                          </div>
+                        </>
+                      )}
+                      {data.urlTotalCount === 0 && (
+                        <div className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                          No URL checks logged yet
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quote compliance */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          Quote compliance (7d)
+                          <InfoTooltip text="Percentage of intelligence items in the last 7d briefs that include a verbatim pull-quote from the source article. Higher = richer subscriber experience." />
+                        </span>
+                        <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${
+                          data.totalBriefItems === 0
+                            ? "text-[var(--muted-foreground)]"
+                            : data.quoteCompliance >= 60
+                            ? "text-emerald-400"
+                            : data.quoteCompliance >= 30
+                            ? "text-amber-400"
+                            : "text-red-400"
+                        }`}>
+                          {data.totalBriefItems === 0 ? "—" : `${data.quoteCompliance}%`}
+                        </span>
+                      </div>
+                      {data.totalBriefItems > 0 && (
+                        <>
+                          <CovBar
+                            value={data.quoteCompliance}
+                            status={
+                              data.quoteCompliance >= 60 ? "green" :
+                              data.quoteCompliance >= 30 ? "yellow" : "red"
+                            }
+                          />
+                          <div className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                            {data.quoteItems} items with quote / {data.totalBriefItems} total
+                          </div>
+                        </>
+                      )}
+                      {data.totalBriefItems === 0 && (
+                        <div className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                          No brief results parsed yet
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Items deduped */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] flex items-center">
+                          URLs tracked (7d)
+                          <InfoTooltip text="Article URLs recorded in the cross-day dedup log in the last 7 days. These URLs are filtered from future briefs to prevent the same article appearing twice within a 7-day window." />
+                        </span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {data.dedupedLast7d.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                        Unique article URLs sent last 7d
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 
@@ -709,18 +910,22 @@ export default async function IntelHealthPage() {
                         label="TOTAL ITEMS"
                         value={data.totalItems.toLocaleString()}
                         accentStatus={data.totalItems > 0 ? "green" : "yellow"}
+                        tip="Total intelligence items in the library database."
                       />
                       <StatCard
                         label="LAST 1H"
                         value={data.itemsLast1h}
+                        tip="Items ingested in the last hour."
                       />
                       <StatCard
                         label="LAST 24H"
                         value={data.itemsLast24h}
+                        tip="Items ingested in the last 24 hours."
                       />
                       <StatCard
                         label="LAST 7D"
                         value={data.itemsLast7d.toLocaleString()}
+                        tip="Items ingested in the last 7 days."
                       />
                     </div>
                   </div>
@@ -735,20 +940,24 @@ export default async function IntelHealthPage() {
                         label="SUBSCRIBERS"
                         value={data.subscriberCount}
                         accentStatus="green"
+                        tip="Total registered subscribers receiving intelligence briefs."
                       />
                       <StatCard
                         label="REPORTS 24H"
                         value={data.reportsDone24h}
                         accentStatus={data.reportsDone24h > 0 ? "green" : "yellow"}
+                        tip="Briefs successfully completed and delivered in the last 24 hours."
                       />
                       <StatCard
                         label="REPORTS 7D"
                         value={data.reportsDone7d}
+                        tip="Briefs successfully completed and delivered in the last 7 days."
                       />
                       <StatCard
                         label="JOB ERRORS 24H"
                         value={data.jobErrors.length}
                         accentStatus={data.jobErrors.length > 0 ? "red" : "green"}
+                        tip="Brief generation jobs that failed in the last 24 hours. See error table below for details."
                       />
                     </div>
                   </div>
