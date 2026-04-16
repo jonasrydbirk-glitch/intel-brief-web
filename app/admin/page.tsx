@@ -629,8 +629,8 @@ export default function AdminDashboard() {
             ))}
           </nav>
 
-          {/* Test Center link */}
-          <div className="px-2 mt-4">
+          {/* Test Center + Intel Health links */}
+          <div className="px-2 mt-4 space-y-0.5">
             <Link
               href="/admin/test"
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--gold-400)] hover:bg-[var(--gold-500)]/10 hover:text-[var(--gold-300)] font-[family-name:var(--font-geist-mono)]"
@@ -639,6 +639,15 @@ export default function AdminDashboard() {
                 <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
               </svg>
               Test Center
+            </Link>
+            <Link
+              href="/admin/intel-health"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--teal-400)] hover:bg-[var(--teal-500)]/10 hover:text-[var(--teal-300)] font-[family-name:var(--font-geist-mono)]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Intel Health
             </Link>
           </div>
 
@@ -679,6 +688,15 @@ export default function AdminDashboard() {
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
             Test Center
+          </Link>
+          <Link
+            href="/admin/intel-health"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-[var(--teal-400)] hover:bg-[var(--teal-500)]/10 font-[family-name:var(--font-geist-mono)]"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Intel Health
           </Link>
         </div>
 

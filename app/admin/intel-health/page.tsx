@@ -1,0 +1,824 @@
+/**
+ * /admin/intel-health — Intel Pipeline Health Dashboard
+ *
+ * Server component — all data fetched at request time (force-dynamic).
+ * No client JS required; refresh by navigating to the page.
+ */
+
+export const dynamic = "force-dynamic";
+
+import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
+import { IQseaLogoSmall } from "@/app/components/iqsea-logo";
+import { BUILD_VERSION } from "@/lib/constants";
+
+// ---------------------------------------------------------------------------
+// Source registry — mirrors engine/sources/* registrations
+// ---------------------------------------------------------------------------
+
+const ALL_SOURCES: string[] = [
+  // RSS (17)
+  "Splash247",
+  "gCaptain",
+  "Hellenic Shipping News",
+  "LNG Prime",
+  "Offshore Energy",
+  "Ship Technology Global",
+  "The Loadstar",
+  "ship.energy",
+  "Seatrade Maritime",
+  "Maritime Executive",
+  "Riviera Maritime Media",
+  "Marine Link",
+  "Marine Log",
+  "Container News",
+  "Offshore Engineer",
+  "LNG Industry",
+  "Dry Bulk Magazine",
+  // Sitemap (1)
+  "TradeWinds",
+  // HTML scraper (1)
+  "Lloyd's Register",
+  // Data-props JSON (1)
+  "DNV",
+  // WordPress REST (1)
+  "Safety4Sea",
+];
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface IngestionRunRow {
+  source_name: string;
+  started_at: string;
+  error: string | null;
+  items_new: number;
+  items_found: number;
+}
+
+interface BriefJobErrorRow {
+  subscriber_id: string;
+  error: string | null;
+  created_at: string;
+}
+
+type SourceStatus = "green" | "yellow" | "red" | "unknown";
+type OverallStatus = "green" | "yellow" | "red";
+
+interface LatestRun {
+  started_at: string;
+  error: string | null;
+  items_new: number;
+  items_found: number;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function fmtAge(isoString: string): string {
+  const ms = Date.now() - new Date(isoString).getTime();
+  const m = Math.round(ms / 60_000);
+  if (m < 1) return "< 1 min ago";
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem > 0 ? `${h}h ${rem}m ago` : `${h}h ago`;
+}
+
+function fmtTime(isoString: string): string {
+  return new Date(isoString).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  });
+}
+
+function pct(num: number, denom: number): number {
+  if (denom === 0) return 0;
+  return Math.round((num / denom) * 100);
+}
+
+function getSourceStatus(run: LatestRun | undefined): SourceStatus {
+  if (!run) return "unknown";
+  const ageMin = (Date.now() - new Date(run.started_at).getTime()) / 60_000;
+  if (run.error) return ageMin < 25 ? "yellow" : "red";
+  if (ageMin < 25) return "green";
+  if (ageMin < 120) return "yellow";
+  return "red";
+}
+
+function coverageStatus(pcnt: number): OverallStatus {
+  if (pcnt >= 80) return "green";
+  if (pcnt >= 50) return "yellow";
+  return "red";
+}
+
+function deriveOverall(
+  latestRuns: Map<string, LatestRun>,
+  textCov: number,
+  embedCov: number
+): OverallStatus {
+  const srcStatuses = ALL_SOURCES.map((s) => getSourceStatus(latestRuns.get(s)));
+  if (srcStatuses.some((s) => s === "red")) return "red";
+  if (coverageStatus(textCov) === "red" || coverageStatus(embedCov) === "red") return "red";
+  if (srcStatuses.some((s) => s === "yellow")) return "yellow";
+  if (coverageStatus(textCov) === "yellow" || coverageStatus(embedCov) === "yellow") return "yellow";
+  return "green";
+}
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
+
+async function loadHealthData() {
+  const supabaseUrl =
+    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    "";
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing Supabase credentials (SUPABASE_URL / SUPABASE_SERVICE_KEY)");
+  }
+
+  const db = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+
+  const since48h = new Date(Date.now() - 48 * 60 * 60 * 1_000).toISOString();
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
+  const since7d  = new Date(Date.now() -  7 * 24 * 60 * 60 * 1_000).toISOString();
+  const since1h  = new Date(Date.now() -       60 * 60 * 1_000).toISOString();
+
+  const [
+    runsRes,
+    totalRes,
+    withTextRes,
+    withEmbedRes,
+    last1hRes,
+    last24hRes,
+    last7dRes,
+    errorsRes,
+    subsRes,
+    done24hRes,
+    done7dRes,
+  ] = await Promise.all([
+    db.from("ingestion_runs")
+      .select("source_name, started_at, error, items_new, items_found")
+      .gte("started_at", since48h)
+      .order("started_at", { ascending: false })
+      .limit(300),
+
+    db.from("intelligence_items").select("*", { count: "exact", head: true }),
+
+    db.from("intelligence_items")
+      .select("*", { count: "exact", head: true })
+      .not("raw_text", "is", null),
+
+    db.from("intelligence_items")
+      .select("*", { count: "exact", head: true })
+      .not("embedding", "is", null),
+
+    db.from("intelligence_items")
+      .select("*", { count: "exact", head: true })
+      .gte("ingested_at", since1h),
+
+    db.from("intelligence_items")
+      .select("*", { count: "exact", head: true })
+      .gte("ingested_at", since24h),
+
+    db.from("intelligence_items")
+      .select("*", { count: "exact", head: true })
+      .gte("ingested_at", since7d),
+
+    db.from("brief_jobs")
+      .select("subscriber_id, error, created_at")
+      .eq("status", "error")
+      .gte("created_at", since24h)
+      .order("created_at", { ascending: false })
+      .limit(20),
+
+    db.from("subscribers").select("*", { count: "exact", head: true }),
+
+    db.from("brief_jobs")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "complete")
+      .gte("created_at", since24h),
+
+    db.from("brief_jobs")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "complete")
+      .gte("created_at", since7d),
+  ]);
+
+  // Build per-source latest-run map (first occurrence = most recent, list is DESC)
+  const latestRuns = new Map<string, LatestRun>();
+  for (const row of (runsRes.data ?? []) as IngestionRunRow[]) {
+    if (!latestRuns.has(row.source_name)) {
+      latestRuns.set(row.source_name, {
+        started_at: row.started_at,
+        error: row.error,
+        items_new: row.items_new,
+        items_found: row.items_found,
+      });
+    }
+  }
+
+  const totalItems     = totalRes.count    ?? 0;
+  const itemsWithText  = withTextRes.count  ?? 0;
+  const itemsWithEmbed = withEmbedRes.count ?? 0;
+  const itemsLast1h    = last1hRes.count    ?? 0;
+  const itemsLast24h   = last24hRes.count   ?? 0;
+  const itemsLast7d    = last7dRes.count    ?? 0;
+  const jobErrors      = (errorsRes.data    ?? []) as BriefJobErrorRow[];
+  const subscriberCount = subsRes.count     ?? 0;
+  const reportsDone24h = done24hRes.count   ?? 0;
+  const reportsDone7d  = done7dRes.count    ?? 0;
+
+  const textCov  = pct(itemsWithText,  totalItems);
+  const embedCov = pct(itemsWithEmbed, totalItems);
+
+  return {
+    latestRuns,
+    totalItems,
+    itemsWithText,
+    itemsWithEmbed,
+    itemsLast1h,
+    itemsLast24h,
+    itemsLast7d,
+    textCov,
+    embedCov,
+    jobErrors,
+    subscriberCount,
+    reportsDone24h,
+    reportsDone7d,
+    overallStatus: deriveOverall(latestRuns, textCov, embedCov),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components (plain functions — server component, no hooks)
+// ---------------------------------------------------------------------------
+
+const STATUS_DOT: Record<SourceStatus, string> = {
+  green:   "bg-emerald-400",
+  yellow:  "bg-amber-400",
+  red:     "bg-red-400",
+  unknown: "bg-zinc-600",
+};
+
+const STATUS_LABEL: Record<SourceStatus, string> = {
+  green:   "text-emerald-400",
+  yellow:  "text-amber-400",
+  red:     "text-red-400",
+  unknown: "text-zinc-500",
+};
+
+const STATUS_BAR: Record<OverallStatus, string> = {
+  green:  "bg-emerald-500",
+  yellow: "bg-amber-500",
+  red:    "bg-red-500",
+};
+
+const OVERALL_BANNER: Record<OverallStatus, { bg: string; border: string; text: string; label: string }> = {
+  green:  { bg: "bg-emerald-950/40", border: "border-emerald-700/50", text: "text-emerald-300", label: "NOMINAL" },
+  yellow: { bg: "bg-amber-950/40",   border: "border-amber-700/50",   text: "text-amber-300",   label: "DEGRADED" },
+  red:    { bg: "bg-red-950/40",     border: "border-red-700/50",     text: "text-red-300",     label: "ALERT"    },
+};
+
+function CovBar({ value, status }: { value: number; status: OverallStatus }) {
+  return (
+    <div className="w-full h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+      <div
+        className={`h-full rounded-full transition-all ${STATUS_BAR[status]}`}
+        style={{ width: `${value}%` }}
+      />
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  accentStatus,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accentStatus?: OverallStatus;
+}) {
+  return (
+    <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
+      {accentStatus && (
+        <div className={`absolute top-0 left-0 w-full h-[2px] ${STATUS_BAR[accentStatus]}`} />
+      )}
+      <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-1.5 font-[family-name:var(--font-geist-mono)]">
+        {label}
+      </div>
+      <div className="text-2xl font-bold font-[family-name:var(--font-geist-mono)] leading-none">
+        {value}
+      </div>
+      {sub && (
+        <div className="text-[11px] text-[var(--muted-foreground)] mt-1 font-[family-name:var(--font-geist-mono)]">
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SourceCard({
+  name,
+  run,
+}: {
+  name: string;
+  run: LatestRun | undefined;
+}) {
+  const status = getSourceStatus(run);
+  return (
+    <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-md px-3 py-2.5 flex items-start gap-2.5">
+      <span className="relative flex h-2 w-2 mt-[5px] shrink-0">
+        {status === "green" && (
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${STATUS_DOT.green} opacity-60`} />
+        )}
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${STATUS_DOT[status]}`} />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[11px] font-medium font-[family-name:var(--font-geist-mono)] text-[var(--slate-200)] truncate leading-tight">
+          {name}
+        </div>
+        {run ? (
+          <div className={`text-[10px] font-[family-name:var(--font-geist-mono)] mt-0.5 ${STATUS_LABEL[status]}`}>
+            {fmtAge(run.started_at)}
+            {run.error ? (
+              <span className="text-red-400"> · ERR</span>
+            ) : (
+              <span className="text-[var(--muted-foreground)]"> · {run.items_new} new</span>
+            )}
+          </div>
+        ) : (
+          <div className="text-[10px] text-zinc-600 font-[family-name:var(--font-geist-mono)] mt-0.5">
+            no data
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default async function IntelHealthPage() {
+  let data: Awaited<ReturnType<typeof loadHealthData>> | null = null;
+  let loadError: string | null = null;
+
+  try {
+    data = await loadHealthData();
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : String(err);
+  }
+
+  const overall: OverallStatus = data?.overallStatus ?? "red";
+  const banner = OVERALL_BANNER[overall];
+
+  // Sort sources: RED → YELLOW → GREEN → UNKNOWN
+  const sortedSources = [...ALL_SOURCES].sort((a, b) => {
+    const order: Record<SourceStatus, number> = { red: 0, yellow: 1, green: 2, unknown: 3 };
+    return (
+      order[getSourceStatus(data?.latestRuns.get(a))] -
+      order[getSourceStatus(data?.latestRuns.get(b))]
+    );
+  });
+
+  const greenCount   = ALL_SOURCES.filter((s) => getSourceStatus(data?.latestRuns.get(s)) === "green").length;
+  const yellowCount  = ALL_SOURCES.filter((s) => getSourceStatus(data?.latestRuns.get(s)) === "yellow").length;
+  const redCount     = ALL_SOURCES.filter((s) => getSourceStatus(data?.latestRuns.get(s)) === "red").length;
+  const unknownCount = ALL_SOURCES.filter((s) => getSourceStatus(data?.latestRuns.get(s)) === "unknown").length;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[var(--background)]">
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--navy-950)]/95 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center">
+              <IQseaLogoSmall className="h-6" />
+            </Link>
+            <span className="text-[var(--border)]">|</span>
+            <span className="text-[10px] tracking-[0.2em] text-[var(--gold-400)] font-[family-name:var(--font-geist-mono)] font-semibold">
+              MISSION CONTROL
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+            </span>
+            <span>ADMIN</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+        <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:flex md:flex-col">
+          <nav className="space-y-0.5 px-2">
+            {[
+              {
+                href: "/admin",
+                label: "Overview",
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                ),
+              },
+              {
+                href: "/admin",
+                label: "Users",
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                ),
+              },
+              {
+                href: "/admin",
+                label: "Tenders",
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                ),
+              },
+              {
+                href: "/admin",
+                label: "Outreach",
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                    <path d="M22 2L11 13" />
+                    <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                  </svg>
+                ),
+              },
+              {
+                href: "/admin",
+                label: "System Logs",
+                icon: (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                ),
+              },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Secondary nav */}
+          <div className="px-2 mt-3 space-y-0.5">
+            <Link
+              href="/admin/test"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+              </svg>
+              Test Center
+            </Link>
+
+            {/* Active: Intel Health */}
+            <Link
+              href="/admin/intel-health"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs bg-[var(--teal-500)]/10 text-[var(--teal-400)] font-semibold font-[family-name:var(--font-geist-mono)]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Intel Health
+            </Link>
+          </div>
+
+          {/* Sidebar footer */}
+          <div className="mt-auto px-4 pt-6">
+            <div className="border-t border-[var(--border)] pt-4">
+              <div className="text-[9px] tracking-[0.15em] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] opacity-50">
+                IQsea v1.0
+              </div>
+              <div className="inline-block mt-1.5 px-2 py-0.5 rounded bg-[#1a1400] border border-[#FFD700]/40 text-[8px] font-bold tracking-[0.1em] text-[#FFD700] font-[family-name:var(--font-geist-mono)]">
+                {BUILD_VERSION}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Main ─────────────────────────────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
+
+            {/* Page title */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-lg font-bold font-[family-name:var(--font-geist-mono)] tracking-tight">
+                  Intel Pipeline Health
+                </h1>
+                <div className="h-px bg-gradient-to-r from-[var(--teal-500)]/50 via-[var(--gold-500)]/30 to-transparent mt-1" />
+              </div>
+              <div className="flex items-center gap-3">
+                {data && (
+                  <span className="text-[10px] text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+                    Updated {fmtTime(data.fetchedAt)}
+                  </span>
+                )}
+                <Link
+                  href="/admin/intel-health"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium tracking-wide transition-all bg-transparent text-white/80 border border-[var(--border)] hover:border-[var(--teal-500)]/60 hover:text-[var(--teal-400)] font-[family-name:var(--font-geist-mono)]"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-3.5 h-3.5">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
+                  </svg>
+                  Refresh
+                </Link>
+              </div>
+            </div>
+
+            {/* ── DB error ─────────────────────────────────────────────────── */}
+            {loadError && (
+              <div className="px-4 py-3 rounded-lg bg-red-950/40 border border-red-700/50 text-red-300 text-sm font-[family-name:var(--font-geist-mono)]">
+                <span className="font-semibold">Database error:</span> {loadError}
+              </div>
+            )}
+
+            {data && (
+              <>
+                {/* ── Overall status banner ─────────────────────────────────── */}
+                <div className={`rounded-lg border px-5 py-4 flex items-center justify-between ${banner.bg} ${banner.border}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="relative flex h-3 w-3">
+                      {overall === "green" && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                      )}
+                      <span className={`relative inline-flex rounded-full h-3 w-3 ${STATUS_DOT[overall]}`} />
+                    </span>
+                    <div>
+                      <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] tracking-wider ${banner.text}`}>
+                        {banner.label}
+                      </span>
+                      <span className={`ml-3 text-xs font-[family-name:var(--font-geist-mono)] opacity-80 ${banner.text}`}>
+                        {overall === "green"
+                          ? `All ${ALL_SOURCES.length} sources reporting · text ${data.textCov}% · embed ${data.embedCov}%`
+                          : overall === "yellow"
+                          ? `${yellowCount} source(s) stale · text ${data.textCov}% · embed ${data.embedCov}%`
+                          : `${redCount} source(s) in error · text ${data.textCov}% · embed ${data.embedCov}%`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
+                    <div>{greenCount} green · {yellowCount} yellow · {redCount} red · {unknownCount} unknown</div>
+                    <div className="mt-0.5">{ALL_SOURCES.length} registered sources</div>
+                  </div>
+                </div>
+
+                {/* ── Pipeline cards (3 col) ────────────────────────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Ingestion */}
+                  <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-[2px] ${STATUS_BAR[overall === "red" && redCount > 0 ? "red" : overall === "yellow" && yellowCount > 0 ? "yellow" : "green"]}`} />
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      INGESTION
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Sources active</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {greenCount + yellowCount} / {ALL_SOURCES.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 1h</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast1h}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 24h</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast24h}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Items last 7d</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">{data.itemsLast7d}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Text extraction */}
+                  <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-[2px] ${STATUS_BAR[coverageStatus(data.textCov)]}`} />
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      TEXT EXTRACTION
+                    </div>
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="flex justify-between items-baseline mb-1.5">
+                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Coverage</span>
+                          <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${STATUS_LABEL[coverageStatus(data.textCov)]}`}>
+                            {data.textCov}%
+                          </span>
+                        </div>
+                        <CovBar value={data.textCov} status={coverageStatus(data.textCov)} />
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Extracted</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {data.itemsWithText.toLocaleString()} / {data.totalItems.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Queue depth</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {(data.totalItems - data.itemsWithText).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Embeddings */}
+                  <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4 relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-[2px] ${STATUS_BAR[coverageStatus(data.embedCov)]}`} />
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      VECTOR EMBEDDINGS
+                    </div>
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="flex justify-between items-baseline mb-1.5">
+                          <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Coverage</span>
+                          <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] ${STATUS_LABEL[coverageStatus(data.embedCov)]}`}>
+                            {data.embedCov}%
+                          </span>
+                        </div>
+                        <CovBar value={data.embedCov} status={coverageStatus(data.embedCov)} />
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Embedded</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {data.itemsWithEmbed.toLocaleString()} / {data.totalItems.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">Queue depth</span>
+                        <span className="text-sm font-bold font-[family-name:var(--font-geist-mono)]">
+                          {(data.itemsWithText - data.itemsWithEmbed).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Library stats + Delivery snapshot (2 col) ─────────────── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Library stats */}
+                  <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4">
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      LIBRARY
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatCard
+                        label="TOTAL ITEMS"
+                        value={data.totalItems.toLocaleString()}
+                        accentStatus={data.totalItems > 0 ? "green" : "yellow"}
+                      />
+                      <StatCard
+                        label="LAST 1H"
+                        value={data.itemsLast1h}
+                      />
+                      <StatCard
+                        label="LAST 24H"
+                        value={data.itemsLast24h}
+                      />
+                      <StatCard
+                        label="LAST 7D"
+                        value={data.itemsLast7d.toLocaleString()}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Delivery snapshot */}
+                  <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg p-4">
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      DELIVERY
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <StatCard
+                        label="SUBSCRIBERS"
+                        value={data.subscriberCount}
+                        accentStatus="green"
+                      />
+                      <StatCard
+                        label="REPORTS 24H"
+                        value={data.reportsDone24h}
+                        accentStatus={data.reportsDone24h > 0 ? "green" : "yellow"}
+                      />
+                      <StatCard
+                        label="REPORTS 7D"
+                        value={data.reportsDone7d}
+                      />
+                      <StatCard
+                        label="JOB ERRORS 24H"
+                        value={data.jobErrors.length}
+                        accentStatus={data.jobErrors.length > 0 ? "red" : "green"}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Source grid ───────────────────────────────────────────── */}
+                <div>
+                  <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                    SOURCE GRID — {ALL_SOURCES.length} REGISTERED
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                    {sortedSources.map((name) => (
+                      <SourceCard
+                        key={name}
+                        name={name}
+                        run={data.latestRuns.get(name)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Brief job errors ──────────────────────────────────────── */}
+                {data.jobErrors.length > 0 && (
+                  <div>
+                    <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)]">
+                      BRIEF JOB ERRORS (LAST 24H)
+                    </div>
+                    <div className="bg-[var(--navy-900)] border border-red-900/40 rounded-lg overflow-hidden">
+                      <table className="w-full text-xs font-[family-name:var(--font-geist-mono)]">
+                        <thead>
+                          <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)]">
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">TIME</th>
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">SUBSCRIBER</th>
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">ERROR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.jobErrors.map((err, i) => (
+                            <tr
+                              key={i}
+                              className="border-t border-[var(--border)] hover:bg-red-950/20 transition-colors"
+                            >
+                              <td className="px-4 py-2.5 text-[var(--muted-foreground)] whitespace-nowrap">
+                                {fmtAge(err.created_at)}
+                              </td>
+                              <td className="px-4 py-2.5 text-[var(--muted-foreground)] font-mono text-[10px]">
+                                {err.subscriber_id.slice(0, 12)}…
+                              </td>
+                              <td className="px-4 py-2.5 text-red-400 max-w-xs truncate">
+                                {err.error ?? "unknown error"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── No errors state ───────────────────────────────────────── */}
+                {data.jobErrors.length === 0 && (
+                  <div className="text-center py-6 text-[var(--muted-foreground)] text-xs font-[family-name:var(--font-geist-mono)]">
+                    <span className="text-emerald-500">✓</span> No brief job errors in the last 24 hours
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
