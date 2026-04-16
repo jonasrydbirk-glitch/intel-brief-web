@@ -4,28 +4,30 @@
  * Each RSSIngestor wraps a single feed URL.  At the bottom of this file,
  * all production feeds are registered via registerSource().
  *
- * Feed verification status (checked 2026-04-15):
- *   ✅ Splash247              https://splash247.com/feed/                         200 RSS/XML
- *   ✅ gCaptain                https://gcaptain.com/feed/                          200 RSS/XML
- *   ✅ Hellenic Shipping News  https://www.hellenicshippingnews.com/feed/          200 RSS/XML
- *   ✅ LNG Prime               https://lngprime.com/feed/                          200 RSS/XML
- *   ✅ Offshore Energy         https://www.offshore-energy.biz/feed/               200 RSS/XML
- *   ✅ Ship Technology Global  https://www.ship-technology.com/feed/               200 RSS/XML
- *   ✅ The Loadstar            https://theloadstar.com/feed/                       200 RSS/XML (10 items)
- *   ⚠  World Maritime News     https://worldmaritimenews.com/feed/                 200 RSS/XML but 0 items (feed broken)
- *   ✅ ship.energy             https://ship.energy/feed/                           200 RSS/XML
+ * Feed verification status (checked 2026-04-15/16):
+ *   ✅ Splash247              https://splash247.com/feed/                                200 RSS/XML
+ *   ✅ gCaptain                https://gcaptain.com/feed/                                200 RSS/XML
+ *   ✅ Hellenic Shipping News  https://www.hellenicshippingnews.com/feed/                200 RSS/XML
+ *   ✅ LNG Prime               https://lngprime.com/feed/                                200 RSS/XML
+ *   ✅ Offshore Energy         https://www.offshore-energy.biz/feed/                     200 RSS/XML
+ *   ✅ Ship Technology Global  https://www.ship-technology.com/feed/                     200 RSS/XML
+ *   ✅ The Loadstar            https://theloadstar.com/feed/                             200 RSS/XML
+ *   ✅ ship.energy             https://ship.energy/feed/                                 200 RSS/XML
+ *   ✅ Seatrade Maritime       https://www.seatrade-maritime.com/rss.xml                 200 RSS/XML  (rss.xml bypasses Cloudflare; /rss 403s)
+ *   ✅ Maritime Executive      https://maritime-executive.com/articles.rss               200 Atom/XML (hidden in /features footer; not in <head> autodiscovery)
+ *   ✅ Riviera Maritime Media  https://www.rivieramm.com/Syndication/DF.cfm?f=8&ft=10   200 RSS/XML  (Affino CMS; discovered via <link rel="alternate"> in /news-content-hub)
+ *   ✅ Marine Link             https://www.marinelink.com/rss                            200 RSS/XML
+ *   ✅ Marine Log              https://www.marinelog.com/rss                             200 RSS/XML
+ *   ✅ Container News          https://container-news.com/rss                            200 RSS/XML
+ *   ✅ Offshore Engineer       https://www.oedigital.com/rss                             200 RSS/XML
+ *   ✅ LNG Industry            https://www.lngindustry.com/rss/lngindustry.xml           200 RSS/XML  (Informa hidden path; not at /rss)
+ *   ✅ Dry Bulk Magazine       https://www.drybulkmagazine.com/rss/drybulk.xml           200 RSS/XML  (Informa hidden path)
  *
- *   ❌ Seatrade Maritime       https://www.seatrade-maritime.com/rss               403 Cloudflare
- *   ❌ Maritime Executive      https://www.maritime-executive.com/rss              301→404 broken chain
- *   ❌ Riviera Maritime Media  https://www.rivieramm.com/rss                       301→HTML (not XML)
- *   ❌ Lloyds Loading List     https://www.lloydsloadinglist.com/rss.htm           301→403
- *
- * TODO(jonas): Seatrade, Maritime Executive, Riviera, and Lloyds Loading List
- * all returned errors during automated verification. Check whether:
- *   • They need a registered User-Agent header or API key
- *   • They have moved to new feed URLs
- *   • They are paywalled / Cloudflare-protected (Seatrade, Lloyds)
- * When you have working URLs, add them to the FEEDS array at the bottom.
+ * TODO(jonas): Deferred sources tracked in memory (ShippingWatch, class societies,
+ * Safety4Sea, Firecrawl candidates). Revisit when Firecrawl is in place (Phase 2
+ * Step 2) or corporate subscriptions become available. Paywalled/blocked:
+ * TradeWinds (needs SitemapIngestor), ShippingWatch (NHST/Zephr, no sitemap access),
+ * Tanker Operator (Cloudflare total block), S&P Platts (subscription), Reuters (dead RSS).
  */
 
 import Parser from "rss-parser";
@@ -117,18 +119,33 @@ export class RSSIngestor implements IntelSource {
 // Production feed registry
 // ---------------------------------------------------------------------------
 
-// TODO(jonas): Add verified replacements for the 4 dead feeds listed in the
-// file-level comment above (Seatrade, Maritime Executive, Riviera, Lloyds).
 const FEEDS: Array<{ name: string; url: string }> = [
-  // Confirmed working 2026-04-15
-  { name: "Splash247",             url: "https://splash247.com/feed/" },
-  { name: "gCaptain",              url: "https://gcaptain.com/feed/" },
-  { name: "Hellenic Shipping News",url: "https://www.hellenicshippingnews.com/feed/" },
-  { name: "LNG Prime",             url: "https://lngprime.com/feed/" },
-  { name: "Offshore Energy",       url: "https://www.offshore-energy.biz/feed/" },
-  { name: "Ship Technology Global",url: "https://www.ship-technology.com/feed/" },
-  { name: "The Loadstar",          url: "https://theloadstar.com/feed/" },
-  { name: "ship.energy",           url: "https://ship.energy/feed/" },
+  // --- Original roster (confirmed working 2026-04-15) ---
+  { name: "Splash247",              url: "https://splash247.com/feed/" },
+  { name: "gCaptain",               url: "https://gcaptain.com/feed/" },
+  { name: "Hellenic Shipping News", url: "https://www.hellenicshippingnews.com/feed/" },
+  { name: "LNG Prime",              url: "https://lngprime.com/feed/" },
+  { name: "Offshore Energy",        url: "https://www.offshore-energy.biz/feed/" },
+  { name: "Ship Technology Global", url: "https://www.ship-technology.com/feed/" },
+  { name: "The Loadstar",           url: "https://theloadstar.com/feed/" },
+  { name: "ship.energy",            url: "https://ship.energy/feed/" },
+
+  // --- Expanded roster (confirmed working 2026-04-16) ---
+
+  // Recovered sources (non-obvious URLs found via research):
+  { name: "Seatrade Maritime",      url: "https://www.seatrade-maritime.com/rss.xml" },
+  { name: "Maritime Executive",     url: "https://maritime-executive.com/articles.rss" },
+  { name: "Riviera Maritime Media", url: "https://www.rivieramm.com/Syndication/DF.cfm?f=8&ft=10" },
+
+  // General commercial maritime trade press:
+  { name: "Marine Link",            url: "https://www.marinelink.com/rss" },
+  { name: "Marine Log",             url: "https://www.marinelog.com/rss" },
+  { name: "Container News",         url: "https://container-news.com/rss" },
+  { name: "Offshore Engineer",      url: "https://www.oedigital.com/rss" },
+
+  // Informa specialist titles (non-standard feed paths):
+  { name: "LNG Industry",           url: "https://www.lngindustry.com/rss/lngindustry.xml" },
+  { name: "Dry Bulk Magazine",      url: "https://www.drybulkmagazine.com/rss/drybulk.xml" },
 ];
 
 for (const feed of FEEDS) {
