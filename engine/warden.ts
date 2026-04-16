@@ -32,6 +32,8 @@ import "./sources/dnv";      // registers DNV (data-props JSON, maritime-filtere
 import "./sources/wp-rest";  // registers Safety4Sea (WordPress REST API)
 // Article text extraction pipeline (Phase 2 Part A Step 2)
 import { extractMissingTextBatch } from "./extractors/runner";
+// Vector embedding pipeline (Phase 2 Part A Step 3)
+import { embedMissingItems } from "./embeddings/runner";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -74,6 +76,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap polling
 const EXTRACTION_INTERVAL_MS =      60 * 1_000; //  1 minute  — Jina article text extraction
+const EMBEDDING_INTERVAL_MS  =  2 * 60 * 1_000; //  2 minutes — OpenAI vector embeddings
 
 const LOG_PATH = path.join(__dirname, "warden.log");
 
@@ -679,7 +682,7 @@ async function main(): Promise<void> {
   const oneShot = args.includes("--once");
 
   if (oneShot) {
-    // One-shot mode — run scan, job queue, one ingestion pass, one extraction pass, then exit
+    // One-shot mode — run scan, job queue, ingestion, extraction, embedding, then exit
     log("INFO", "Warden one-shot mode (--once).");
     try {
       await scan();
@@ -691,6 +694,12 @@ async function main(): Promise<void> {
         `[Extraction] one-shot cycle: ${exCounts.attempted} attempted · ` +
           `${exCounts.succeeded} succeeded · ${exCounts.failed} failed · ` +
           `${exCounts.skipped} skipped`
+      );
+      const embCounts = await embedMissingItems(supabaseAdmin, log);
+      log(
+        "INFO",
+        `[Embeddings] one-shot cycle: ${embCounts.attempted} attempted · ` +
+          `${embCounts.succeeded} succeeded · ${embCounts.failed} failed`
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -709,12 +718,14 @@ async function main(): Promise<void> {
   log(
     "INFO",
     `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ` +
-      `ingestion every ${INGESTION_INTERVAL_MS / 60_000}m, extraction every ${EXTRACTION_INTERVAL_MS / 1000}s.`
+      `ingestion every ${INGESTION_INTERVAL_MS / 60_000}m, extraction every ${EXTRACTION_INTERVAL_MS / 1000}s, ` +
+      `embedding every ${EMBEDDING_INTERVAL_MS / 1000}s.`
   );
 
   let lastScanTime      = Date.now(); // Start at now so scan() waits — no immediate subscriber blast on boot
   let lastIngestionRun  = 0;          // Start at 0 so ingestion fires on the first loop tick
   let lastExtractionRun = 0;          // Start at 0 so extraction fires on the first loop tick
+  let lastEmbeddingRun  = 0;          // Start at 0 so embedding fires on the first loop tick
 
   while (true) {
     const now = Date.now();
@@ -765,6 +776,24 @@ async function main(): Promise<void> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("ERROR", `Unhandled error during extraction: ${msg}`);
+      }
+    }
+
+    // Vector embedding — runs every 2 minutes, processes up to 20 items
+    if (now - lastEmbeddingRun >= EMBEDDING_INTERVAL_MS) {
+      lastEmbeddingRun = Date.now();
+      try {
+        const counts = await embedMissingItems(supabaseAdmin, log);
+        if (counts.attempted > 0) {
+          log(
+            "INFO",
+            `[Embeddings] cycle complete: ${counts.attempted} attempted · ` +
+              `${counts.succeeded} succeeded · ${counts.failed} failed`
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during embedding: ${msg}`);
       }
     }
 
