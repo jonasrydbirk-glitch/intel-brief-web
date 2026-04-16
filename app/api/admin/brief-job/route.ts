@@ -51,7 +51,11 @@ export async function POST(request: Request) {
         .insert({
           subscriber_id: subscriberId,
           status: "pending",
-          ...(dispatch_now ? { dispatch_now: true } : {}),
+          // dispatch_now=true means "deliver immediately" — set scheduled_delivery_at
+          // to now() so the delivery loop picks it up within the next 30s tick.
+          ...(dispatch_now
+            ? { dispatch_now: true, scheduled_delivery_at: new Date().toISOString() }
+            : {}),
         })
         .select("id")
         .single();

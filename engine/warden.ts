@@ -314,7 +314,319 @@ async function alreadySentToday(
 }
 
 // ---------------------------------------------------------------------------
+// Timezone → UTC conversion helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Given a date string ("YYYY-MM-DD"), an hour, a minute, and an IANA timezone,
+ * return the exact UTC Date for that local wall-clock time on that date.
+ *
+ * Uses the "noon-UTC offset trick":
+ *   1. Create noon UTC on the given date (avoids midnight DST edge cases).
+ *   2. Format that UTC instant in the target timezone to get the local hour.
+ *   3. Compute offsetMs = (local noon wall-clock as UTC) − (noon UTC).
+ *   4. deliveryUtc = Date.UTC(y, m-1, d, hour, minute) − offsetMs.
+ */
+function tzDeliveryToUtc(
+  dateStr: string,
+  hour: number,
+  minute: number,
+  tz: string
+): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+
+  // Noon UTC on this date (safe midpoint — well away from DST transitions)
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+
+  // What hour is noon-UTC in the target timezone?
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year:   "numeric",
+    month:  "2-digit",
+    day:    "2-digit",
+    hour:   "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(noonUtc);
+
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+
+  // Reconstruct local noon as a UTC ms value (no timezone applied yet)
+  const localNoonAsUtcMs = Date.UTC(
+    get("year"), get("month") - 1, get("day"),
+    get("hour"), get("minute"), get("second")
+  );
+
+  // offsetMs: how many ms the timezone is ahead of UTC (positive = east)
+  const offsetMs = localNoonAsUtcMs - noonUtc.getTime();
+
+  // Delivery instant: local YYYY-MM-DD HH:MM minus the offset
+  return new Date(Date.UTC(year, month - 1, day, hour, minute) - offsetMs);
+}
+
+/**
+ * Find the next UTC instant when a subscriber with the given timezone,
+ * deliveryTime (e.g. "09:00"), and frequency is due to receive a brief.
+ *
+ * Scans up to 8 days ahead from today (in the subscriber's local timezone)
+ * and returns the first candidate that:
+ *   - Is at least 60 s in the future (guards against race conditions)
+ *   - Falls on a valid delivery day for the given frequency
+ *
+ * Falls back to tomorrow's delivery time if no valid day is found within
+ * 8 days (shouldn't happen in practice with any supported frequency).
+ */
+function nextDeliveryUtc(
+  tz: string,
+  deliveryTimeStr: string,
+  frequency: string
+): Date {
+  const timeParts = deliveryTimeStr.split(":");
+  const hour   = parseInt(timeParts[0] ?? "9",  10);
+  const minute = parseInt(timeParts[1] ?? "0",  10);
+  const now    = Date.now();
+
+  // Today's date string in the subscriber's timezone
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year:     "numeric",
+    month:    "2-digit",
+    day:      "2-digit",
+  }).format(new Date());
+
+  const [ty, tm, td] = todayStr.split("-").map(Number);
+
+  for (let daysAhead = 0; daysAhead <= 7; daysAhead++) {
+    // Advance by daysAhead calendar days from today (UTC date arithmetic is
+    // fine here — we only need the date string for tzDeliveryToUtc)
+    const checkDate = new Date(Date.UTC(ty, tm - 1, td + daysAhead));
+    const dateStr   = checkDate.toISOString().slice(0, 10);
+
+    const candidate = tzDeliveryToUtc(dateStr, hour, minute, tz);
+
+    // Must be more than 60 s in the future
+    if (candidate.getTime() <= now + 60_000) continue;
+
+    // Check day-of-week in the subscriber's timezone
+    const dowStr = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      weekday: "short",
+    }).format(candidate);
+    const dowMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    const dow = dowMap[dowStr] ?? -1;
+
+    const isValidDay = (() => {
+      switch (frequency) {
+        case "daily":    return true;
+        case "business": return dow >= 1 && dow <= 5;
+        case "3x":       return dow === 1 || dow === 3 || dow === 5;
+        case "weekly":   return dow === 1;
+        default:         return true;
+      }
+    })();
+
+    if (isValidDay) return candidate;
+  }
+
+  // Last-resort fallback: tomorrow at delivery time
+  const tomorrow = new Date(Date.UTC(ty, tm - 1, td + 1)).toISOString().slice(0, 10);
+  return tzDeliveryToUtc(tomorrow, hour, minute, tz);
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling dedup guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if a brief_jobs row already exists for this subscriber within
+ * ±4 hours of the proposed scheduledAt — preventing scan() from creating
+ * duplicate pre-generation jobs when it fires every 5 minutes.
+ */
+async function alreadyScheduledForDelivery(
+  subscriberId: string,
+  scheduledAt: Date
+): Promise<boolean> {
+  const windowStart = new Date(scheduledAt.getTime() - 4 * 60 * 60_000).toISOString();
+  const windowEnd   = new Date(scheduledAt.getTime() + 4 * 60 * 60_000).toISOString();
+
+  const { data, error } = await supabaseAdmin
+    .from("brief_jobs")
+    .select("id")
+    .eq("subscriber_id", subscriberId)
+    .in("status", ["pending", "processing", "ready_to_send", "delivered"])
+    .not("scheduled_delivery_at", "is", null)
+    .gte("scheduled_delivery_at", windowStart)
+    .lte("scheduled_delivery_at", windowEnd)
+    .limit(1);
+
+  if (error) {
+    log("WARN", `Scheduling dedup check failed for ${subscriberId}: ${error.message}`);
+    return true; // err on the side of caution — don't double-schedule
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Delivery loop — sends ready_to_send jobs whose scheduled time has arrived
+// ---------------------------------------------------------------------------
+
+/**
+ * Queries brief_jobs for rows with status='ready_to_send' and
+ * scheduled_delivery_at <= now(), then sends the pre-generated brief via
+ * email for each one.
+ *
+ * The brief content (BriefPayload JSON) was stored in the result column
+ * by processJobQueue() during pre-generation.  We re-render the PDF here
+ * at delivery time so the date string on the email is always "today".
+ *
+ * Called every DELIVERY_LOOP_INTERVAL_MS (30 s) from main().
+ */
+async function deliveryLoop(): Promise<void> {
+  const nowIso = new Date().toISOString();
+
+  const { data: readyJobs, error } = await supabaseAdmin
+    .from("brief_jobs")
+    .select("id, subscriber_id, result, scheduled_delivery_at")
+    .eq("status", "ready_to_send")
+    .lte("scheduled_delivery_at", nowIso)
+    .order("scheduled_delivery_at", { ascending: true });
+
+  if (error) {
+    log("WARN", `[Delivery] Loop fetch failed: ${error.message}`);
+    return;
+  }
+
+  if (!readyJobs || readyJobs.length === 0) return;
+
+  log("INFO", `[Delivery] ${readyJobs.length} job(s) ready — sending...`);
+
+  for (const job of readyJobs) {
+    try {
+      // Optimistic claim — only update if still ready_to_send (prevents
+      // double-delivery if two Warden processes run concurrently)
+      const { data: claimed } = await supabaseAdmin
+        .from("brief_jobs")
+        .update({ status: "processing", updated_at: new Date().toISOString() })
+        .eq("id", job.id)
+        .eq("status", "ready_to_send")
+        .select("id");
+
+      if (!claimed || claimed.length === 0) {
+        log("INFO", `[Delivery] Job ${job.id} already claimed by another worker — skipping.`);
+        continue;
+      }
+
+      const brief = job.result as BriefPayload;
+      if (!brief || !brief.sections) {
+        throw new Error("Job result is empty — pre-generation may have failed.");
+      }
+
+      // Subscriber lookup for email + name
+      const { data: sub, error: subErr } = await supabase
+        .from("subscribers")
+        .select("email, fullName")
+        .eq("id", job.subscriber_id)
+        .single();
+
+      if (subErr || !sub) {
+        throw new Error(
+          `Subscriber lookup failed: ${subErr?.message ?? "not found"}`
+        );
+      }
+
+      // Render PDF — always use today's date so the brief title is current
+      const pdfBuffer   = await renderBriefPdf(brief);
+      const pdfBase64   = pdfBuffer.toString("base64");
+      const dateStr     = new Date().toLocaleDateString("en-GB", {
+        day: "numeric", month: "long", year: "numeric",
+      });
+      const subject     = `Your IQsea Intel Brief - ${dateStr}`;
+      const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
+
+      await sendViaGraph({
+        to:       sub.email,
+        subject,
+        htmlBody: buildBriefEmailHtml(sub.fullName, dateStr),
+        attachments: [
+          { filename: pdfFilename, contentBytes: pdfBase64, contentType: "application/pdf" },
+        ],
+      });
+
+      // Record delivery for the duplicate-send guard
+      const { error: reportErr } = await supabaseAdmin.from("reports").insert({
+        user_id:      job.subscriber_id,
+        type:         "daily",
+        status:       "delivered",
+        subject,
+        generated_at: new Date().toISOString(),
+        pdf_url:      null,
+      });
+      if (reportErr) {
+        log(
+          "ERROR",
+          `[Delivery] Failed to record delivery for job ${job.id}: ${reportErr.message} — ` +
+            "brief was sent but duplicate guard may not fire next cycle."
+        );
+      }
+
+      await supabaseAdmin
+        .from("brief_jobs")
+        .update({ status: "delivered", updated_at: new Date().toISOString() })
+        .eq("id", job.id);
+
+      log("INFO", `[Delivery] Job ${job.id} delivered to ${sub.email}.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log("ERROR", `[Delivery] Job ${job.id} failed: ${message}`);
+
+      await supabaseAdmin
+        .from("brief_jobs")
+        .update({
+          status:     "error",
+          error:      message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Email HTML builder — shared by dispatchBrief, processJobQueue JET mode,
+// and deliveryLoop so we never duplicate this template.
+// ---------------------------------------------------------------------------
+
+function buildBriefEmailHtml(fullName: string, dateStr: string): string {
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
+        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
+      </div>
+      <div style="padding:24px 0;">
+        <p style="font-size:15px;line-height:1.6;">Hi ${fullName || "there"},</p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
+          and covers the latest developments relevant to your profile.
+        </p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Open the attached PDF for the full analysis.
+        </p>
+      </div>
+      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+        IQsea Intel Engine &middot; Confidential
+      </div>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch pipeline (Engine → PDF → Email → Report record)
+// Used by scan() for legacy immediate-dispatch path.
 // ---------------------------------------------------------------------------
 
 async function dispatchBrief(subscriber: {
@@ -343,33 +655,11 @@ async function dispatchBrief(subscriber: {
   const subject = `Your IQsea Intel Brief - ${dateStr}`;
   const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-  const htmlBody = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
-        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
-      </div>
-      <div style="padding:24px 0;">
-        <p style="font-size:15px;line-height:1.6;">Hi ${subscriber.fullName || "there"},</p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
-          and covers the latest developments relevant to your profile.
-        </p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Open the attached PDF for the full analysis.
-        </p>
-      </div>
-      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
-        IQsea Intel Engine &middot; Confidential
-      </div>
-    </div>
-  `;
-
   try {
     await sendViaGraph({
       to: subscriber.email,
       subject,
-      htmlBody,
+      htmlBody: buildBriefEmailHtml(subscriber.fullName, dateStr),
       attachments: [
         {
           filename: pdfFilename,
@@ -408,7 +698,9 @@ async function dispatchBrief(subscriber: {
 // Remote Worker — poll brief_jobs for pending requests from the website
 // ---------------------------------------------------------------------------
 
-const JOB_POLL_INTERVAL_MS = 5_000; // 5 seconds
+const JOB_POLL_INTERVAL_MS        =      5_000; // 5 seconds
+const DELIVERY_LOOP_INTERVAL_MS   =     30_000; // 30 seconds — check ready_to_send jobs
+const PRE_GENERATE_WINDOW_MS      = 30 * 60_000; // 30 minutes before delivery
 
 /**
  * Scan the brief_jobs table for rows with status "pending".
@@ -421,7 +713,7 @@ const JOB_POLL_INTERVAL_MS = 5_000; // 5 seconds
 async function processJobQueue(): Promise<void> {
   const { data: pendingJobs, error: fetchErr } = await supabase
     .from("brief_jobs")
-    .select("id, subscriber_id, dispatch_now, job_type, preview_subject")
+    .select("id, subscriber_id, dispatch_now, job_type, preview_subject, scheduled_delivery_at")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -463,8 +755,25 @@ async function processJobQueue(): Promise<void> {
       const rawBrief = await generateBrief(job.subscriber_id);
       const brief = validateBriefUrls(rawBrief);
 
-      if (job.dispatch_now) {
-        // JET mode: full pipeline — generate + PDF + email delivery
+      if (job.scheduled_delivery_at) {
+        // Pre-generation mode: brief is ready; delivery loop will send the email
+        // when scheduled_delivery_at arrives (within the next 30s delivery tick).
+        await supabase
+          .from("brief_jobs")
+          .update({
+            status: "ready_to_send",
+            result: brief,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+
+        log(
+          "INFO",
+          `Job ${job.id} pre-generated — ready_to_send at ${job.scheduled_delivery_at}.`
+        );
+      } else if (job.dispatch_now) {
+        // JET mode (legacy — dispatch_now without scheduled_delivery_at):
+        // full pipeline — generate + PDF + email delivery in one shot.
         log("INFO", `Job ${job.id} — rendering PDF...`);
 
         // Look up subscriber email + name for delivery
@@ -489,27 +798,7 @@ async function processJobQueue(): Promise<void> {
         const subject = `Your IQsea Intel Brief - ${dateStr}`;
         const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-        const htmlBody = `
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-            <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
-              <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-              <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
-            </div>
-            <div style="padding:24px 0;">
-              <p style="font-size:15px;line-height:1.6;">Hi ${sub.fullName || "there"},</p>
-              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-                Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
-                and covers the latest developments relevant to your profile.
-              </p>
-              <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-                Open the attached PDF for the full analysis.
-              </p>
-            </div>
-            <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
-              IQsea Intel Engine &middot; Confidential
-            </div>
-          </div>
-        `;
+        const htmlBody = buildBriefEmailHtml(sub.fullName, dateStr);
 
         log("INFO", `Job ${job.id} — Postman delivering to ${sub.email}...`);
 
@@ -588,9 +877,24 @@ async function processJobQueue(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Main scan (scheduled subscriber dispatches)
+// Main scan — pre-generates briefs within the 30-minute delivery window
 // ---------------------------------------------------------------------------
 
+/**
+ * For each subscriber whose next delivery time is within the next 30 minutes,
+ * inserts a brief_jobs row (status="pending", scheduled_delivery_at=computed UTC)
+ * so processJobQueue() can generate the brief immediately.  The delivery loop
+ * then sends the email once scheduled_delivery_at arrives.
+ *
+ * Dedup guard: alreadyScheduledForDelivery() checks for an existing job within
+ * ±4 hours of the computed delivery time — scan() runs every 5 minutes, so
+ * without the guard it would create ~6 duplicate jobs per delivery slot.
+ *
+ * Timing:
+ *   scan interval:           5 min   (default)
+ *   pre-generate window:    30 min   before scheduled_delivery_at
+ *   delivery loop interval: 30 s     — email sent within 30 s of the target time
+ */
 async function scan(): Promise<void> {
   // Master switch
   if (process.env.ENABLE_AUTO_DISPATCH !== "true") {
@@ -610,54 +914,84 @@ async function scan(): Promise<void> {
     return;
   }
 
-  log("INFO", `Found ${subscribers.length} subscriber(s). Evaluating schedules...`);
+  log("INFO", `Found ${subscribers.length} subscriber(s). Evaluating pre-generation windows...`);
 
-  let dispatched = 0;
-  let skipped = 0;
+  let scheduled = 0;
+  let skipped   = 0;
+  const now     = Date.now();
 
   for (const sub of subscribers) {
-    const tz = sub.timezone || "UTC";
-    const deliveryHour = parseInt((sub.deliveryTime || "09:00").split(":")[0], 10);
-    const currentHour = currentHourInTz(tz);
-    const frequency = sub.frequency || "daily";
+    const tz              = sub.timezone     || "UTC";
+    const deliveryTimeStr = sub.deliveryTime || "09:00";
+    const frequency       = sub.frequency   || "daily";
 
-    // Gate 1: Is it the right hour?
-    if (currentHour !== deliveryHour) {
+    // Compute when this subscriber's next brief is due (in UTC)
+    const nextDelivery     = nextDeliveryUtc(tz, deliveryTimeStr, frequency);
+    const msUntilDelivery  = nextDelivery.getTime() - now;
+
+    // Gate 1: Is the delivery within the 30-minute pre-generation window?
+    // (msUntilDelivery < 0 means the window has passed but the brief hasn't
+    //  been sent yet — still schedule so the delivery loop can catch up.)
+    if (msUntilDelivery > PRE_GENERATE_WINDOW_MS) {
       skipped++;
       continue;
     }
 
-    // Gate 2: Is today a valid delivery day for this frequency?
+    // Gate 2: Is today even a valid delivery day for this frequency?
+    // (nextDeliveryUtc already picks the next valid day, but if it returned
+    //  a future-week day and we're checking early, guard here.)
     if (!isDeliveryDay(frequency, tz)) {
       log("INFO", `Skipping ${sub.fullName} — not a ${frequency} delivery day.`);
       skipped++;
       continue;
     }
 
-    // Gate 3: Has a brief already been sent today?
+    // Gate 3: Already sent today? (covers the case where delivery loop ran
+    //  earlier the same day and a late scan() fires again)
     if (await alreadySentToday(sub.id, "daily", tz)) {
-      log("INFO", `Skipping ${sub.fullName} — already sent today.`);
+      log("INFO", `Skipping ${sub.fullName} — brief already delivered today.`);
       skipped++;
       continue;
     }
 
-    // All gates passed — dispatch
-    try {
-      await dispatchBrief({
-        id: sub.id,
-        email: sub.email,
-        fullName: sub.fullName,
+    // Gate 4: Already a job in the queue for this delivery slot?
+    if (await alreadyScheduledForDelivery(sub.id, nextDelivery)) {
+      log(
+        "INFO",
+        `Skipping ${sub.fullName} — job already scheduled for ${nextDelivery.toISOString()}.`
+      );
+      skipped++;
+      continue;
+    }
+
+    // All gates passed — create pre-generation job
+    const { error: insertErr } = await supabaseAdmin
+      .from("brief_jobs")
+      .insert({
+        subscriber_id:          sub.id,
+        status:                 "pending",
+        scheduled_delivery_at:  nextDelivery.toISOString(),
       });
-      dispatched++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log("ERROR", `Failed to dispatch for ${sub.fullName} (${sub.id}): ${msg}`);
+
+    if (insertErr) {
+      log(
+        "ERROR",
+        `Failed to schedule job for ${sub.fullName} (${sub.id}): ${insertErr.message}`
+      );
+    } else {
+      const minUntil = Math.round(msUntilDelivery / 60_000);
+      log(
+        "INFO",
+        `Scheduled pre-generation for ${sub.fullName} — delivery at ` +
+          `${nextDelivery.toISOString()} (T-${minUntil} min)`
+      );
+      scheduled++;
     }
   }
 
   log(
     "INFO",
-    `Scan complete. Dispatched: ${dispatched}, Skipped: ${skipped}, Total: ${subscribers.length}`
+    `Scan complete. Scheduled: ${scheduled}, Skipped: ${skipped}, Total: ${subscribers.length}`
   );
 }
 
@@ -718,6 +1052,7 @@ async function main(): Promise<void> {
   log(
     "INFO",
     `Warden loop mode — scan every ${intervalMin}m, job queue every ${JOB_POLL_INTERVAL_MS / 1000}s, ` +
+      `delivery loop every ${DELIVERY_LOOP_INTERVAL_MS / 1000}s, ` +
       `ingestion every ${INGESTION_INTERVAL_MS / 60_000}m, extraction every ${EXTRACTION_INTERVAL_MS / 1000}s, ` +
       `embedding every ${EMBEDDING_INTERVAL_MS / 1000}s.`
   );
@@ -726,6 +1061,7 @@ async function main(): Promise<void> {
   let lastIngestionRun  = 0;          // Start at 0 so ingestion fires on the first loop tick
   let lastExtractionRun = 0;          // Start at 0 so extraction fires on the first loop tick
   let lastEmbeddingRun  = 0;          // Start at 0 so embedding fires on the first loop tick
+  let lastDeliveryCheck = 0;          // Start at 0 so delivery loop fires on the first tick
 
   while (true) {
     const now = Date.now();
@@ -736,6 +1072,17 @@ async function main(): Promise<void> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log("ERROR", `Unhandled error during job queue poll: ${msg}`);
+    }
+
+    // Delivery loop — check ready_to_send jobs every 30 s
+    if (now - lastDeliveryCheck >= DELIVERY_LOOP_INTERVAL_MS) {
+      lastDeliveryCheck = Date.now();
+      try {
+        await deliveryLoop();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("ERROR", `Unhandled error during delivery loop: ${msg}`);
+      }
     }
 
     // Subscriber scan on the slow interval (default 5 min)
