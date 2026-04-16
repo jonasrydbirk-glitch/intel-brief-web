@@ -21,7 +21,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
 import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
-import { sendViaGraph } from "../lib/postman";
+import { sendEmail } from "../lib/email";
 // RSS / intelligence ingestion pipeline (Phase 2 Part A Step 1)
 import { registeredSources } from "./sources/index";
 import { runAllIngestions } from "./sources/runner";
@@ -547,14 +547,21 @@ async function deliveryLoop(): Promise<void> {
       const subject     = `Your IQsea Intel Brief - ${dateStr}`;
       const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-      await sendViaGraph({
-        to:       sub.email,
+      const emailResult = await sendEmail({
+        to:   sub.email,
         subject,
-        htmlBody: buildBriefEmailHtml(sub.fullName, dateStr),
+        html: buildBriefEmailHtml(sub.fullName, dateStr),
         attachments: [
-          { filename: pdfFilename, contentBytes: pdfBase64, contentType: "application/pdf" },
+          { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
         ],
       });
+      if (!emailResult.success) {
+        throw new Error(
+          `Email delivery failed (${emailResult.provider ?? "unknown"}): ` +
+            (emailResult.error ?? "unknown error")
+        );
+      }
+      log("INFO", `[Delivery] Email sent via ${emailResult.provider}${emailResult.messageId ? ` (id: ${emailResult.messageId})` : ""}.`);
 
       // Record delivery for the duplicate-send guard
       const { error: reportErr } = await supabaseAdmin.from("reports").insert({
@@ -655,23 +662,20 @@ async function dispatchBrief(subscriber: {
   const subject = `Your IQsea Intel Brief - ${dateStr}`;
   const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-  try {
-    await sendViaGraph({
-      to: subscriber.email,
-      subject,
-      htmlBody: buildBriefEmailHtml(subscriber.fullName, dateStr),
-      attachments: [
-        {
-          filename: pdfFilename,
-          contentBytes: pdfBase64,
-          contentType: "application/pdf",
-        },
-      ],
-    });
-  } catch (mailErr) {
-    const detail = mailErr instanceof Error ? mailErr.message : String(mailErr);
-    log("ERROR", `Postman failed for ${subscriber.email}: ${detail}`);
-    throw mailErr;
+  const emailResult = await sendEmail({
+    to:   subscriber.email,
+    subject,
+    html: buildBriefEmailHtml(subscriber.fullName, dateStr),
+    attachments: [
+      { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
+    ],
+  });
+  if (!emailResult.success) {
+    const detail =
+      `Email delivery failed (${emailResult.provider ?? "unknown"}): ` +
+      (emailResult.error ?? "unknown error");
+    log("ERROR", `${detail} — recipient: ${subscriber.email}`);
+    throw new Error(detail);
   }
 
   // Stage 4: Record delivery
@@ -691,7 +695,7 @@ async function dispatchBrief(subscriber: {
     // Don't throw — brief was already delivered, just log the tracking failure
   }
 
-  log("INFO", `Brief delivered to ${subscriber.email} via Graph API`);
+  log("INFO", `Brief delivered to ${subscriber.email} via ${emailResult.provider ?? "email"}.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -800,25 +804,22 @@ async function processJobQueue(): Promise<void> {
 
         const htmlBody = buildBriefEmailHtml(sub.fullName, dateStr);
 
-        log("INFO", `Job ${job.id} — Postman delivering to ${sub.email}...`);
+        log("INFO", `Job ${job.id} — delivering to ${sub.email}...`);
 
-        try {
-          await sendViaGraph({
-            to: sub.email,
-            subject,
-            htmlBody,
-            attachments: [
-              {
-                filename: pdfFilename,
-                contentBytes: pdfBase64,
-                contentType: "application/pdf",
-              },
-            ],
-          });
-        } catch (mailErr) {
-          const detail = mailErr instanceof Error ? mailErr.message : String(mailErr);
-          log("ERROR", `Postman failed for ${sub.email}: ${detail}`);
-          throw mailErr;
+        const emailResult = await sendEmail({
+          to:   sub.email,
+          subject,
+          html: htmlBody,
+          attachments: [
+            { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
+          ],
+        });
+        if (!emailResult.success) {
+          const detail =
+            `Email delivery failed (${emailResult.provider ?? "unknown"}): ` +
+            (emailResult.error ?? "unknown error");
+          log("ERROR", `Job ${job.id} — ${detail}`);
+          throw new Error(detail);
         }
 
         // Record delivery in reports table
