@@ -2,89 +2,20 @@
  * IQsea Preview Story Generator
  *
  * Generates a single IntelItem for the onboarding preview flow.
- * Skips Scout; uses a two-tier Sonar search (fresh first, fallback)
+ * Skips Scout; uses the library-first retriever (pgvector + Tavily gap-fill)
  * then synthesises via a trimmed Architect call.
  *
  * Return shape: { item, isFresh, publishedDate? }
+ *
+ * Phase 2 Step 4: Sonar (Perplexity) replaced with unified retriever.
+ * To revert: git revert HEAD~1
  */
 
 import { IntelItem, SearchHit } from "./brief-generator";
+import { retrieveForQuery } from "./search/retriever";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
-
-// ---------------------------------------------------------------------------
-// Single-query Sonar search (accepts a fully-formed query string)
-// ---------------------------------------------------------------------------
-
-async function previewSearch(query: string): Promise<SearchHit[]> {
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "perplexity/sonar-pro",
-      messages: [
-        {
-          role: "system",
-          content: `You are a maritime news search engine. Return the most relevant recent news article you find.
-For EVERY result you MUST include:
-1. The exact article title
-2. A 1-2 sentence snippet of the article content
-3. The full, direct URL to the specific article (NOT a homepage)
-
-Format each result as:
-TITLE: <exact article title>
-SNIPPET: <1-2 sentence summary>
-URL: <full direct URL>
----
-
-Return up to 2 results. Only include results with real, direct article URLs.`,
-        },
-        {
-          role: "user",
-          content: `Find news articles for: ${query}`,
-        },
-      ],
-      max_tokens: 1024,
-      temperature: 0.1,
-    }),
-  });
-
-  if (!response.ok) {
-    return [];
-  }
-
-  const data = await response.json();
-  const rawContent: string = data.choices?.[0]?.message?.content ?? "";
-  const citations: string[] = data.citations ?? [];
-
-  const hits: SearchHit[] = [];
-  const blocks = rawContent.split(/---+/).filter((b: string) => b.trim());
-
-  for (const block of blocks) {
-    const titleMatch = block.match(/TITLE:\s*(.+)/i);
-    const snippetMatch = block.match(/SNIPPET:\s*(.+)/i);
-    const urlMatch = block.match(/URL:\s*(https?:\/\/\S+)/i);
-    if (titleMatch && urlMatch) {
-      hits.push({
-        title: titleMatch[1].trim(),
-        snippet: snippetMatch ? snippetMatch[1].trim() : "",
-        url: urlMatch[1].trim(),
-      });
-    }
-  }
-
-  for (const citationUrl of citations) {
-    if (!hits.some((h) => h.url === citationUrl)) {
-      hits.push({ title: "", snippet: "", url: citationUrl });
-    }
-  }
-
-  return hits;
-}
 
 // ---------------------------------------------------------------------------
 // Trimmed Architect — produce one IntelItem
@@ -209,27 +140,41 @@ export async function generatePreviewStory(
 ): Promise<{ item: IntelItem; isFresh: boolean; publishedDate?: string }> {
   const todayISO = new Date().toISOString().slice(0, 10);
 
-  // --- Tier 1: FRESH — last 7 days only ---
-  const freshQuery = `${subject} — published in the last 7 days, today is ${todayISO}. Only return articles from the last 7 days.`;
-  const freshHits = await previewSearch(freshQuery);
-  const freshItem = await synthesiseStory(subject, freshHits, true, todayISO);
-  if (isUsable(freshItem)) {
-    return {
-      item: freshItem,
-      isFresh: true,
-      publishedDate: extractPublishedDate(freshHits),
-    };
+  // --- Tier 1: library-first retrieval with 7-day freshness window ---
+  const { hits: freshHits, isFresh } = await retrieveForQuery(subject, {
+    freshDays:        7,
+    gapFillThreshold: 1,   // for preview, any single hit is enough to try
+    libraryLimit:     3,
+    tavilyLimit:      3,
+  });
+
+  if (freshHits.length > 0) {
+    const item = await synthesiseStory(subject, freshHits, isFresh, todayISO);
+    if (isUsable(item)) {
+      return {
+        item,
+        isFresh,
+        publishedDate: extractPublishedDate(freshHits),
+      };
+    }
   }
 
-  // --- Tier 2: FALLBACK — most recent available, no date constraint ---
-  const fallbackQuery = `${subject} — most recent news available`;
-  const fallbackHits = await previewSearch(fallbackQuery);
-  const fallbackItem = await synthesiseStory(subject, fallbackHits, false, todayISO);
-  if (isUsable(fallbackItem)) {
+  // --- Tier 2: stale fallback — library without date constraint ---
+  // retrieveForQuery already falls back to stale content internally, but if
+  // the synthesis step above rejected all fresh hits (quality check), we do
+  // an explicit stale-only retry so the preview never shows an empty screen.
+  const { hits: staleHits } = await retrieveForQuery(subject, {
+    freshDays:        365,  // effectively no date filter
+    gapFillThreshold: 999,  // never call Tavily in fallback — keep it cheap
+    libraryLimit:     5,
+  });
+
+  const staleItem = await synthesiseStory(subject, staleHits, false, todayISO);
+  if (isUsable(staleItem)) {
     return {
-      item: fallbackItem,
-      isFresh: false,
-      publishedDate: extractPublishedDate(fallbackHits),
+      item:          staleItem,
+      isFresh:       false,
+      publishedDate: extractPublishedDate(staleHits),
     };
   }
 
