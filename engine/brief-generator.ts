@@ -14,6 +14,7 @@ import * as path from "path";
 import { stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
 import { retrieveForQuery } from "./search/retriever";
 import type { SearchHit } from "./search/types";
+import { verifyBriefUrls } from "./verification/runner";
 
 // ---------------------------------------------------------------------------
 // Raw-dump logger — writes first 500 chars of AI response to warden.log
@@ -44,6 +45,13 @@ const SUPABASE_KEY =
   process.env.SUPABASE_ANON_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
   "";
+// Service-role key for writes that bypass RLS (sent_articles dedup log).
+// Falls back to anon key so the engine still works in environments where
+// only SUPABASE_ANON_KEY is set (e.g. CI, local dev).
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_KEY ??
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  SUPABASE_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY ?? "";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -54,6 +62,8 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Admin client — uses service key so RLS is bypassed for cross-table writes
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,6 +141,9 @@ export interface IntelItem {
   commentary: string;
   relevance: string;
   source: string;
+  /** Verbatim pull-quote from the source article. Optional — may be omitted if
+   *  no clean quotable sentence exists. Must be copied exactly — no paraphrase. */
+  quote?: string;
 }
 
 export interface MarketPulseEntry {
@@ -438,6 +451,17 @@ KEEP IT BRIEF (ABSOLUTE, NON-NEGOTIABLE):
 - Commentary: 1-2 sentences max. The Marine Engineer's sharp take on what this means for the subscriber.
 - The entire JSON response must stay compact. If in doubt, cut. Brevity is a hard constraint — exceeding it risks truncation.
 
+═══════════════════════════════════════════════════════════════════
+VERBATIM QUOTE REQUIREMENT (MANDATORY when available)
+═══════════════════════════════════════════════════════════════════
+
+Each intelligence item MAY include a "quote" field — a single verbatim sentence pulled directly from the source article (SNIPPET or title text). Rules:
+- VERBATIM ONLY: copy the exact words. Do NOT paraphrase, summarise, or rewrite.
+- ONE SENTENCE MAX: extract the single most impactful sentence from the snippet. If the snippet contains no clean standalone sentence, omit the quote field entirely.
+- NO FABRICATION: if you cannot find a directly quotable sentence in the provided snippet, leave "quote" out. An absent quote is better than an invented one.
+- The "quote" field is optional: omit it rather than fabricate. It is present only when a clean verbatim lift exists in the search metadata.
+- Off-Duty, Market Pulse, and Regulatory Countdown items: omit "quote" for these — verbatim quotes from those sources rarely add value.
+
 FRESHNESS GATE (STRICT):
 - Include stories from the last 7 days. Reject anything older than 7 days unless it is a major ongoing regulatory shift (e.g. new IMO regulation, classification society rule change).
 - Quality over quantity: include the top 3 high-impact items per section. Cut filler ruthlessly.
@@ -591,7 +615,7 @@ Produce the intelligence brief as a JSON object with this exact shape:
   "companyName": "${profile.companyName}",
   "generatedAt": "<ISO timestamp>",
   "sections": [
-    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "commentary": "...", "relevance": "...", "source": "..." }] }
+    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "commentary": "...", "relevance": "...", "source": "...", "quote": "<verbatim sentence from snippet — omit field if none>" }] }
   ],
   "tenderSection": <array of items or null>,
   "prospectSection": ${profile.modules.prospects.enabled ? "<REQUIRED array of " + (profile.modules.prospects.perReport || 3) + " prospect items — NOT null>" : "<null>"},
@@ -812,11 +836,85 @@ export async function generateBrief(
 
   dumpRaw("Pipeline", `Scout produced ${scoutResult.queries.length} queries, retriever returned ${allHits.length} deduplicated hits`);
 
+  // Stage 1.6: Cross-day dedup — filter out URLs already sent to this subscriber
+  // within the last 7 days. Best-effort: a query failure does NOT abort the brief.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000).toISOString();
+  let dedupFilteredCount = 0;
+  try {
+    const { data: sentRows } = await supabaseAdmin
+      .from("sent_articles")
+      .select("url")
+      .eq("subscriber_id", subscriberId)
+      .gte("sent_at", sevenDaysAgo);
+
+    if (sentRows && sentRows.length > 0) {
+      const sentUrls = new Set(sentRows.map((r: { url: string }) => r.url));
+      const beforeCount = scoutResult.searchHits.length;
+      scoutResult.searchHits = scoutResult.searchHits.filter(
+        (h) => !sentUrls.has(h.url)
+      );
+      dedupFilteredCount = beforeCount - scoutResult.searchHits.length;
+      dumpRaw(
+        "Dedup",
+        `Dedup: ${dedupFilteredCount} hits filtered (seen in last 7d), ${scoutResult.searchHits.length} remain`
+      );
+    }
+  } catch (err) {
+    dumpRaw("Dedup", `Dedup query failed (non-fatal): ${String(err)}`);
+  }
+
   // Stage 2: Architect synthesises brief from search metadata ONLY
   const rawBrief = await architectStage(profile, scoutResult);
 
+  // Stage 2.5: URL verification — remove dead links before Scribe
+  const { brief: verifiedBrief, summary: verifySummary } = await verifyBriefUrls(rawBrief, {
+    db: supabaseAdmin,
+    timeoutMs: 8_000,
+    concurrency: 8,
+  });
+  dumpRaw(
+    "URLVerify",
+    `Checked ${verifySummary.checked} URLs — dead=${verifySummary.dead} skipped=${verifySummary.skipped} errors=${verifySummary.errors}`
+  );
+
   // Stage 3: Scribe normalises and cleans
-  const brief = scribeStage(rawBrief);
+  const brief = scribeStage(verifiedBrief);
+
+  // Stage 3.5: Record sent URLs so cross-day dedup can filter them next time.
+  // Collect all source URLs from every section of the brief. Upsert so
+  // re-runs don't insert duplicates (sent_at updates to latest delivery).
+  try {
+    const sentUrls: { subscriber_id: string; url: string; sent_at: string }[] = [];
+    const nowISO = new Date().toISOString();
+    const addUrl = (url: string | undefined) => {
+      if (url && /^https?:\/\/.+/.test(url)) {
+        sentUrls.push({ subscriber_id: subscriberId, url, sent_at: nowISO });
+      }
+    };
+
+    brief.sections.forEach((sec) => sec.items.forEach((item) => addUrl(item.source)));
+    brief.tenderSection?.forEach((item) => addUrl(item.source));
+    brief.prospectSection?.forEach((item) => addUrl(item.source));
+    brief.offDutySection?.forEach((item) => addUrl(item.source));
+    brief.competitorTrackerSection?.forEach((item) => addUrl(item.source));
+    brief.safetySection?.forEach((item) => addUrl(item.source));
+    brief.monthlyProspectRollup?.forEach((item) => addUrl(item.source));
+    brief.marketPulseSection?.forEach((entry) => addUrl((entry as { source?: string }).source));
+
+    if (sentUrls.length > 0) {
+      // Deduplicate within this brief (same URL can appear in multiple sections)
+      const uniqueSent = Array.from(
+        new Map(sentUrls.map((r) => [r.url, r])).values()
+      );
+      await supabaseAdmin
+        .from("sent_articles")
+        .upsert(uniqueSent, { onConflict: "subscriber_id,url" });
+      dumpRaw("Dedup", `Recorded ${uniqueSent.length} sent URLs for subscriber ${subscriberId}`);
+    }
+  } catch (err) {
+    dumpRaw("Dedup", `sent_articles insert failed (non-fatal): ${String(err)}`);
+  }
+
   return brief;
 }
 
