@@ -140,14 +140,27 @@ export async function extractMissingTextBatch(
   failed: number;
   skipped: number;
 }> {
-  // Fetch only extractable items — exclude headline_only at the DB level so
-  // paywalled items never consume batch slots. Fetch 3× batch to account for
-  // JS-side cool-down and max-attempts filtering still needed.
+  // Fetch only extractable items. Fetch 3× batch to account for JS-side
+  // cool-down and max-attempts filtering still needed.
+  //
+  // IMPORTANT — why we use .or() instead of .not() to exclude headline_only:
+  //
+  // PostgreSQL NULL semantics mean that:
+  //   NOT (metadata->>'contentTier' = 'headline_only')
+  // evaluates to NULL (not TRUE) when the contentTier key is absent from the
+  // metadata JSON object — and PostgreSQL treats NULL as falsy in WHERE
+  // clauses. Using .not("metadata->>contentTier", "eq", "headline_only")
+  // therefore EXCLUDES every item that doesn't have an explicit contentTier
+  // field, which is the vast majority of the library. This silently returns
+  // zero rows and stalls extraction entirely.
+  //
+  // The correct predicate is: contentTier IS NULL OR contentTier != 'headline_only'
+  // which correctly passes through items without the field.
   const { data, error: queryError } = await db
     .from("intelligence_items")
     .select("id, url, title, ingested_at, metadata")
     .is("raw_text", null)
-    .not("metadata->>contentTier", "eq", "headline_only")
+    .or("metadata->>contentTier.is.null,metadata->>contentTier.neq.headline_only")
     .order("ingested_at", { ascending: false })
     .limit(EXTRACTION_BATCH_SIZE * 3);
 
@@ -177,10 +190,10 @@ export async function extractMissingTextBatch(
   for (const row of rows) {
     const meta = row.metadata ?? {};
 
-    // Defence-in-depth: headline_only items should be excluded by the DB query
-    // (.not("metadata->>contentTier", "eq", "headline_only")), but guard here
-    // too in case of metadata format variation (e.g. contentTier stored as a
-    // number or boolean due to an old ingester bug).
+    // Defence-in-depth: headline_only items are excluded by the DB query
+    // (.or("...contentTier.is.null,...contentTier.neq.headline_only")), but
+    // guard here too in case of metadata format variation (e.g. contentTier
+    // stored as a number or boolean due to an old ingester bug).
     if (meta.contentTier === "headline_only") {
       hlSkipped++;
       skipped++;
