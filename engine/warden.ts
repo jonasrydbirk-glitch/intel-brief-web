@@ -15,7 +15,8 @@
  */
 
 import "dotenv/config";
-import * as fs from "fs";
+import * as fs   from "fs";
+import * as http from "http";
 import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
 import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
@@ -78,6 +79,24 @@ const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap 
 const EXTRACTION_INTERVAL_MS =      30 * 1_000; // 30 seconds — Jina article text extraction (was 60s)
 const EMBEDDING_INTERVAL_MS  =  2 * 60 * 1_000; //  2 minutes — OpenAI vector embeddings
 const HEARTBEAT_INTERVAL_MS  =  5 * 60 * 1_000; //  5 minutes — Supabase liveness heartbeat
+
+// ---------------------------------------------------------------------------
+// Self-restart HTTP endpoint
+// ---------------------------------------------------------------------------
+// Warden may run in an elevated (Admin) pm2 process. Non-elevated sessions
+// (e.g. Claude Code) cannot kill an elevated process via Stop-Process or
+// taskkill — Windows UAC blocks cross-elevation signals.
+//
+// The restart endpoint works around this: it's a plain TCP connection on
+// localhost, which Windows allows across elevation boundaries. The caller
+// POSTs to http://127.0.0.1:RESTART_PORT/restart and Warden exits cleanly
+// so pm2 auto-restarts it.
+//
+// Port is configurable via WARDEN_RESTART_PORT env var (default 9099).
+// Auth via WARDEN_RESTART_SECRET header — optional but recommended.
+
+const RESTART_PORT   = parseInt(process.env.WARDEN_RESTART_PORT   ?? "9099", 10);
+const RESTART_SECRET = process.env.WARDEN_RESTART_SECRET ?? "";
 
 const LOG_PATH = path.join(__dirname, "warden.log");
 
@@ -1056,6 +1075,36 @@ async function main(): Promise<void> {
 
   // Startup heartbeat — signals to /api/health that Warden is alive
   await writeHeartbeat();
+
+  // ── Self-restart HTTP server ─────────────────────────────────────────────
+  // Listens on localhost only. Accepts POST /restart, verifies optional secret
+  // header, then exits cleanly so pm2 can auto-restart the process.
+  // This works across UAC elevation boundaries where process signals cannot.
+  http
+    .createServer((req, res) => {
+      if (req.method !== "POST" || req.url !== "/restart") {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+      if (RESTART_SECRET) {
+        const provided = req.headers["x-restart-secret"] ?? "";
+        if (provided !== RESTART_SECRET) {
+          res.writeHead(403);
+          res.end("Forbidden");
+          log("WARN", "[RestartServer] Unauthorized restart attempt — wrong secret.");
+          return;
+        }
+      }
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("OK — restarting");
+      log("INFO", "[RestartServer] Restart request accepted — exiting for pm2 restart...");
+      // Brief delay lets the response flush before we exit
+      setTimeout(() => process.exit(0), 250);
+    })
+    .listen(RESTART_PORT, "127.0.0.1", () => {
+      log("INFO", `[RestartServer] Listening on http://127.0.0.1:${RESTART_PORT}/restart`);
+    });
 
   const args = process.argv.slice(2);
   const oneShot = args.includes("--once");
