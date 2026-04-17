@@ -19,7 +19,7 @@ import * as fs   from "fs";
 import * as http from "http";
 import * as path from "path";
 import { createClient } from "@supabase/supabase-js";
-import { generateBrief, BriefPayload, IntelItem } from "./brief-generator";
+import { generateBrief, generateMonthlyBrief, BriefPayload, IntelItem, MonthlyContext, MarketPulseEntry } from "./brief-generator";
 import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendEmail } from "../lib/email";
@@ -491,6 +491,98 @@ async function alreadyScheduledForDelivery(
 }
 
 // ---------------------------------------------------------------------------
+// Monthly scheduling helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the next UTC delivery time for a monthly review.
+ *
+ * Handles:
+ *   - reviewDay 1-28: straightforward
+ *   - reviewDay 29/30/31: clamps to last day of short months
+ *   - reviewDay "last": always the last calendar day of the month
+ *
+ * Tries current month first; if that date has already passed (or is within
+ * 60 s), falls back to next month.
+ */
+function nextMonthlyDeliveryUtc(
+  tz: string,
+  deliveryTimeStr: string,
+  reviewDay: number | "last"
+): Date {
+  const timeParts = deliveryTimeStr.split(":");
+  const hour   = parseInt(timeParts[0] ?? "9",  10);
+  const minute = parseInt(timeParts[1] ?? "0",  10);
+  const now    = Date.now();
+
+  // Today in the subscriber's timezone
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const [ty, tm] = todayStr.split("-").map(Number);
+
+  for (let offset = 0; offset <= 2; offset++) {
+    // Advance by offset months (handles year rollover)
+    const rawMonth = tm + offset;
+    const year     = rawMonth > 12 ? ty + Math.floor((rawMonth - 1) / 12) : ty;
+    const month    = ((rawMonth - 1) % 12) + 1; // 1-indexed, 1-12
+
+    // Days in this calendar month (JS trick: day-0 of month+1 = last day of month)
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getDate();
+
+    const day = reviewDay === "last"
+      ? daysInMonth
+      : Math.min(reviewDay as number, daysInMonth);
+
+    const dateStr   = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const candidate = tzDeliveryToUtc(dateStr, hour, minute, tz);
+
+    if (candidate.getTime() > now + 60_000) return candidate;
+  }
+
+  // Last-resort fallback: 3 months from now
+  const rawFallback = tm + 3;
+  const yearFb  = rawFallback > 12 ? ty + 1 : ty;
+  const monthFb = ((rawFallback - 1) % 12) + 1;
+  const daysFb  = new Date(Date.UTC(yearFb, monthFb, 0)).getDate();
+  const dayFb   = reviewDay === "last" ? daysFb : Math.min(reviewDay as number, daysFb);
+  const dateFb  = `${yearFb}-${String(monthFb).padStart(2, "0")}-${String(dayFb).padStart(2, "0")}`;
+  return tzDeliveryToUtc(dateFb, hour, minute, tz);
+}
+
+/**
+ * Returns true if a monthly brief_job already exists for this subscriber
+ * in the calendar month that contains the proposed delivery date.
+ *
+ * Uses a UTC month window: YYYY-MM-01T00:00:00Z → YYYY-MM-31T23:59:59Z
+ * (upper bound is intentionally past end of month — DB query handles it).
+ */
+async function alreadyScheduledForMonth(
+  subscriberId: string,
+  scheduledAt: Date
+): Promise<boolean> {
+  const monthStr   = scheduledAt.toISOString().slice(0, 7); // "YYYY-MM"
+  const monthStart = `${monthStr}-01T00:00:00.000Z`;
+  const monthEnd   = `${monthStr}-31T23:59:59.999Z`;
+
+  const { data, error } = await supabaseAdmin
+    .from("brief_jobs")
+    .select("id")
+    .eq("subscriber_id", subscriberId)
+    .eq("job_type", "monthly")
+    .in("status", ["pending", "processing", "ready_to_send", "delivered"])
+    .gte("scheduled_delivery_at", monthStart)
+    .lte("scheduled_delivery_at", monthEnd)
+    .limit(1);
+
+  if (error) {
+    log("WARN", `Monthly dedup check failed for ${subscriberId}: ${error.message}`);
+    return true; // err on the side of caution
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------------------
 // Delivery loop — sends ready_to_send jobs whose scheduled time has arrived
 // ---------------------------------------------------------------------------
 
@@ -510,7 +602,7 @@ async function deliveryLoop(): Promise<void> {
 
   const { data: readyJobs, error } = await supabaseAdmin
     .from("brief_jobs")
-    .select("id, subscriber_id, result, scheduled_delivery_at")
+    .select("id, subscriber_id, result, scheduled_delivery_at, job_type")
     .eq("status", "ready_to_send")
     .lte("scheduled_delivery_at", nowIso)
     .order("scheduled_delivery_at", { ascending: true });
@@ -559,18 +651,39 @@ async function deliveryLoop(): Promise<void> {
       }
 
       // Render PDF — always use today's date so the brief title is current
-      const pdfBuffer   = await renderBriefPdf(brief);
-      const pdfBase64   = pdfBuffer.toString("base64");
-      const dateStr     = new Date().toLocaleDateString("en-GB", {
+      const pdfBuffer = await renderBriefPdf(brief);
+      const pdfBase64 = pdfBuffer.toString("base64");
+
+      // Subject line, filename, and email body vary by job type
+      const isMonthly = (job as { job_type?: string }).job_type === "monthly";
+      const dateStr   = new Date().toLocaleDateString("en-GB", {
         day: "numeric", month: "long", year: "numeric",
       });
-      const subject     = `Your IQsea Intel Brief - ${dateStr}`;
-      const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
+      const monthLabel = new Date().toLocaleDateString("en-GB", {
+        month: "long", year: "numeric",
+      });
+      const periodLabel = brief.monthlyPeriod
+        ? (() => {
+            const s = new Date(brief.monthlyPeriod.start + "T12:00:00Z");
+            const e = new Date(brief.monthlyPeriod.end   + "T12:00:00Z");
+            return `${s.toLocaleDateString("en-GB", { day: "numeric", month: "long" })} — ${e.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`;
+          })()
+        : monthLabel;
+
+      const subject     = isMonthly
+        ? `IQsea Monthly Review — ${monthLabel}`
+        : `Your IQsea Intel Brief - ${dateStr}`;
+      const pdfFilename = isMonthly
+        ? `IQsea-Monthly-Review-${monthLabel.replace(/\s+/g, "-")}.pdf`
+        : `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
+      const emailHtml   = isMonthly
+        ? buildMonthlyEmailHtml(sub.fullName, periodLabel)
+        : buildBriefEmailHtml(sub.fullName, dateStr);
 
       const emailResult = await sendEmail({
         to:   sub.email,
         subject,
-        html: buildBriefEmailHtml(sub.fullName, dateStr),
+        html: emailHtml,
         attachments: [
           { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
         ],
@@ -586,7 +699,7 @@ async function deliveryLoop(): Promise<void> {
       // Record delivery for the duplicate-send guard
       const { error: reportErr } = await supabaseAdmin.from("reports").insert({
         user_id:      job.subscriber_id,
-        type:         "daily",
+        type:         isMonthly ? "monthly" : "daily",
         status:       "delivered",
         subject,
         generated_at: new Date().toISOString(),
@@ -639,6 +752,31 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
           and covers the latest developments relevant to your profile.
+        </p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Open the attached PDF for the full analysis.
+        </p>
+      </div>
+      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+        IQsea Intel Engine &middot; Confidential
+      </div>
+    </div>
+  `;
+}
+
+function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
+  return `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
+      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #53b1c1;">
+        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Monthly Strategic Review</div>
+      </div>
+      <div style="padding:24px 0;">
+        <p style="font-size:15px;line-height:1.6;">Hi ${fullName || "there"},</p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Your Monthly Strategic Review for <strong>${periodLabel}</strong> is attached.
+          This report synthesises the past month's intelligence into strategic themes,
+          prospect rollups, and market trends — tailored to your profile.
         </p>
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Open the attached PDF for the full analysis.
@@ -759,6 +897,82 @@ async function processJobQueue(): Promise<void> {
         .eq("id", job.id);
 
       log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}${job.job_type === "preview" ? " [PREVIEW]" : ""}`);
+
+      // ── Monthly review jobs ───────────────────────────────────────────────
+      if (job.job_type === "monthly") {
+        log("INFO", `[Monthly] Processing review job ${job.id} for subscriber ${job.subscriber_id}`);
+
+        // Determine the review period: previous calendar month from scheduled delivery
+        const deliveryDate = job.scheduled_delivery_at
+          ? new Date(job.scheduled_delivery_at)
+          : new Date();
+        const deliveryYear  = deliveryDate.getUTCFullYear();
+        const deliveryMonth = deliveryDate.getUTCMonth() + 1; // 1-indexed
+        const prevMonth     = deliveryMonth === 1 ? 12 : deliveryMonth - 1;
+        const prevYear      = deliveryMonth === 1 ? deliveryYear - 1 : deliveryYear;
+        const daysInPrevMonth = new Date(Date.UTC(prevYear, prevMonth, 0)).getDate();
+        const periodStart   = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`;
+        const periodEnd     = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(daysInPrevMonth).padStart(2, "0")}`;
+
+        // Aggregate data from past 30 days of daily briefs for this subscriber
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000).toISOString();
+        const { data: pastJobs } = await supabaseAdmin
+          .from("brief_jobs")
+          .select("result")
+          .eq("subscriber_id", job.subscriber_id)
+          .in("status", ["delivered", "complete", "ready_to_send"])
+          .not("job_type", "eq", "monthly")
+          .not("job_type", "eq", "preview")
+          .gte("created_at", thirtyDaysAgo)
+          .order("created_at", { ascending: false })
+          .limit(35); // ~5 per week × 7 weeks safety margin
+
+        const prospectItems: IntelItem[]      = [];
+        const tenderItems:   IntelItem[]      = [];
+        const marketPulseEntries: MarketPulseEntry[] = [];
+
+        for (const pastJob of pastJobs ?? []) {
+          const r = pastJob.result as BriefPayload | null;
+          if (!r) continue;
+          r.prospectSection?.forEach((item) => {
+            if (item.headline?.trim()) prospectItems.push(item);
+          });
+          r.tenderSection?.forEach((item) => {
+            if (item.headline?.trim()) tenderItems.push(item);
+          });
+          r.marketPulseSection?.forEach((entry) => {
+            if (entry.metric?.trim()) marketPulseEntries.push(entry);
+          });
+        }
+
+        log(
+          "INFO",
+          `[Monthly] Aggregated from ${pastJobs?.length ?? 0} past jobs: ` +
+            `${prospectItems.length} prospects, ${tenderItems.length} tenders, ${marketPulseEntries.length} market entries`
+        );
+
+        const monthlyContext: MonthlyContext = {
+          prospectItems,
+          tenderItems,
+          marketPulseEntries,
+          periodStart,
+          periodEnd,
+        };
+
+        const monthlyBrief = await generateMonthlyBrief(job.subscriber_id, monthlyContext);
+
+        await supabaseAdmin
+          .from("brief_jobs")
+          .update({
+            status:    "ready_to_send",
+            result:    monthlyBrief,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
+
+        log("INFO", `[Monthly] Job ${job.id} ready_to_send at ${job.scheduled_delivery_at}.`);
+        continue;
+      }
 
       // Preview jobs: single-story fast path — skip full brief pipeline
       if (job.job_type === "preview") {
@@ -927,7 +1141,7 @@ async function scan(): Promise<void> {
 
   const { data: subscribers, error } = await supabase
     .from("subscribers")
-    .select("id, email, fullName, frequency, timezone, deliveryTime")
+    .select("id, email, fullName, frequency, timezone, deliveryTime, monthlyReviewDay, monthlyReviewTime")
     .eq("onboarding_complete", true);
 
   if (error || !subscribers) {
@@ -1012,8 +1226,69 @@ async function scan(): Promise<void> {
 
   log(
     "INFO",
-    `Scan complete. Scheduled: ${scheduled}, Skipped: ${skipped}, Total: ${subscribers.length}`
+    `Scan complete (daily). Scheduled: ${scheduled}, Skipped: ${skipped}, Total: ${subscribers.length}`
   );
+
+  // ── Monthly scheduling ────────────────────────────────────────────────
+  // Only process subscribers who have configured a monthlyReviewDay.
+  const monthlyEligible = subscribers.filter(
+    (s) => s.monthlyReviewDay !== null && s.monthlyReviewDay !== undefined
+  );
+
+  if (monthlyEligible.length === 0) return;
+
+  let monthlyScheduled = 0;
+  let monthlySkipped   = 0;
+
+  for (const sub of monthlyEligible) {
+    const tz         = sub.timezone     || "UTC";
+    const reviewTime = sub.monthlyReviewTime || sub.deliveryTime || "09:00";
+    const reviewDay  = sub.monthlyReviewDay as number | "last";
+
+    const nextMonthly    = nextMonthlyDeliveryUtc(tz, reviewTime, reviewDay);
+    const msUntilMonthly = nextMonthly.getTime() - now;
+
+    // Only schedule within the 30-minute pre-generation window
+    if (msUntilMonthly > PRE_GENERATE_WINDOW_MS) {
+      monthlySkipped++;
+      continue;
+    }
+
+    // Already scheduled for this calendar month?
+    if (await alreadyScheduledForMonth(sub.id, nextMonthly)) {
+      log("INFO", `[Monthly] Skipping ${sub.fullName} — already scheduled this month.`);
+      monthlySkipped++;
+      continue;
+    }
+
+    const { error: insertErr } = await supabaseAdmin
+      .from("brief_jobs")
+      .insert({
+        subscriber_id:         sub.id,
+        status:                "pending",
+        job_type:              "monthly",
+        scheduled_delivery_at: nextMonthly.toISOString(),
+      });
+
+    if (insertErr) {
+      log("ERROR", `[Monthly] Failed to schedule for ${sub.fullName}: ${insertErr.message}`);
+    } else {
+      const minUntil = Math.round(msUntilMonthly / 60_000);
+      log(
+        "INFO",
+        `[Monthly] Scheduled review for ${sub.fullName} — delivery at ` +
+          `${nextMonthly.toISOString()} (T-${minUntil} min)`
+      );
+      monthlyScheduled++;
+    }
+  }
+
+  if (monthlyEligible.length > 0) {
+    log(
+      "INFO",
+      `[Monthly] Scheduling complete. Scheduled: ${monthlyScheduled}, Skipped: ${monthlySkipped}, Eligible: ${monthlyEligible.length}`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
