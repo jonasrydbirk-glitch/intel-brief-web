@@ -7,6 +7,7 @@ import { IQseaLogoSmall } from "../../components/iqsea-logo";
 import { LogoutButton } from "../../components/logout-button";
 import { HelpTooltip } from "../../components/help-tooltip";
 import { PasswordInput } from "../../components/password-input";
+import { DepthPreview } from "../../components/depth-preview";
 
 /* ────── types ────── */
 
@@ -1179,6 +1180,7 @@ export default function ReportSettingsPage() {
                 description="Just the headlines and source links."
               />
             </div>
+            <DepthPreview depth={form.depth || "deep"} />
             <p className="text-xs text-[var(--muted-foreground)] mt-3 leading-relaxed italic">
               Note: Selecting Daily + Deep Dive produces 7 comprehensive reports
               per week. Consider starting with Business Days for a better balance
