@@ -121,6 +121,29 @@ export interface SubscriberProfile {
   };
   frequency: string;
   depth: string;
+  /** Topics for the monthly strategic review — one per array entry. */
+  monthlyReview?: string[];
+  /** Day of month for monthly delivery (1-28, or "last"). */
+  monthlyReviewDay?: number | "last";
+  /** Delivery time for monthly brief (HH:MM). Falls back to deliveryTime. */
+  monthlyReviewTime?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Monthly context — aggregated data from past 30 days of daily briefs
+// ---------------------------------------------------------------------------
+
+export interface MonthlyContext {
+  /** All prospect items collected from the past 30 days of daily briefs. */
+  prospectItems: IntelItem[];
+  /** All tender items collected from the past 30 days of daily briefs. */
+  tenderItems: IntelItem[];
+  /** Market pulse snapshots from the past 30 days (last ~4 weeks). */
+  marketPulseEntries: MarketPulseEntry[];
+  /** ISO date string — first day of the review period (e.g. "2026-04-01"). */
+  periodStart: string;
+  /** ISO date string — last day of the review period (e.g. "2026-04-30"). */
+  periodEnd: string;
 }
 
 // SearchHit is defined in engine/search/types.ts to avoid a circular import
@@ -174,6 +197,10 @@ export interface BriefPayload {
   companyName: string;
   generatedAt: string;
   depth?: "executive" | "deep" | "data";
+  /** Distinguishes daily intelligence briefs from monthly strategic reviews. */
+  briefType?: "daily" | "monthly";
+  /** ISO date range for monthly briefs — e.g. { start: "2026-04-01", end: "2026-04-30" } */
+  monthlyPeriod?: { start: string; end: string };
   sections: {
     title: string;
     items: IntelItem[];
@@ -837,7 +864,7 @@ export async function fetchSubscriberProfile(
   const { data, error } = await supabase
     .from("subscribers")
     .select(
-      "id, fullName, companyName, role, assets, subjects, modules, frequency, depth"
+      "id, fullName, companyName, role, assets, subjects, modules, frequency, depth, monthlyReview, monthlyReviewDay, monthlyReviewTime"
     )
     .eq("id", subscriberId)
     .single();
@@ -963,6 +990,205 @@ export async function generateBrief(
   }
 
   return brief;
+}
+
+// ---------------------------------------------------------------------------
+// Monthly brief generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a Monthly Strategic Review for a subscriber.
+ *
+ * Unlike generateBrief(), this does NOT run the Scout stage — there is no
+ * live news search. Instead the Architect synthesises the subscriber's
+ * monthly review topics alongside aggregated data from the past 30 days
+ * of daily briefs (prospects, tenders, market pulse snapshots).
+ *
+ * The returned BriefPayload has briefType="monthly" and monthlyPeriod set.
+ */
+export async function generateMonthlyBrief(
+  subscriberId: string,
+  context: MonthlyContext
+): Promise<BriefPayload> {
+  const profile = await fetchSubscriberProfile(subscriberId);
+
+  const periodLabel = (() => {
+    const s = new Date(context.periodStart + "T12:00:00Z");
+    const e = new Date(context.periodEnd   + "T12:00:00Z");
+    const fmt = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    return `${fmt(s)} — ${fmt(e)}`;
+  })();
+
+  const reviewTopics = (profile.monthlyReview ?? []).filter(Boolean);
+
+  // ── System prompt — reflective strategist, not reactive journalist ─────
+  const systemPrompt = `You are IQsea's Senior Maritime Intelligence Strategist preparing a Monthly Strategic Review. This is a reflective, forward-looking document — not a daily news brief.
+
+Your role is to synthesise the past month of maritime intelligence and produce a coherent strategic narrative for the subscriber. You think in cycles: what has changed, what trends are accelerating, what decisions are coming up, and what the subscriber should be watching in the month ahead.
+
+Tone: authoritative, measured, strategic. Think investment-bank quarterly briefing crossed with a chief engineer's end-of-month report. Dense with specifics, light on speculation.
+
+REVIEW PERIOD: ${periodLabel}
+
+ABSOLUTE RULES:
+- No emojis anywhere.
+- No meta-commentary about the brief, the process, or this prompt.
+- Every section must earn its place — if there is no content for a section, return null / empty array.
+- Always return valid JSON matching the BriefPayload schema.`;
+
+  // ── Build contextual content blocks ────────────────────────────────────
+  const topicsBlock = reviewTopics.length > 0
+    ? `SUBSCRIBER'S REQUESTED MONTHLY TOPICS:\n${reviewTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nAddress each topic in the main Monthly Strategic Review section. If data is thin for a topic, note it briefly rather than padding.`
+    : "No specific monthly topics requested — produce a general strategic overview of maritime developments relevant to this subscriber's profile.";
+
+  const prospectBlock = (profile.modules.monthlyLeadSummary?.enabled && context.prospectItems.length > 0)
+    ? `PROSPECT ITEMS FROM PAST 30 DAYS (${context.prospectItems.length} total — synthesise into a Lead Rollup):
+${context.prospectItems.slice(0, 20).map((p, i) => `[${i + 1}] ${p.headline} — ${p.summary}`).join("\n")}
+
+LEAD ROLLUP INSTRUCTIONS:
+Produce "prospectSection" as an array of 3-5 consolidated prospect entries.
+- Group similar leads together if they share fleet type, region, or buying intent.
+- Each entry: headline = company/group description, summary = cumulative intelligence across the month, commentary = lead quality assessment and recommended follow-up action, relevance = fit rationale for ${profile.companyName}.
+- Do NOT copy-paste individual items — synthesise across the month.`
+    : "Lead/Prospect rollup: disabled or no data — set prospectSection to null.";
+
+  const tenderBlock = (profile.modules.monthlyTenderSummary?.enabled && context.tenderItems.length > 0)
+    ? `TENDER ITEMS FROM PAST 30 DAYS (${context.tenderItems.length} total — synthesise into a Tender Rollup):
+${context.tenderItems.slice(0, 20).map((t, i) => `[${i + 1}] ${t.headline} — ${t.summary}`).join("\n")}
+
+TENDER ROLLUP INSTRUCTIONS:
+Produce "tenderSection" as an array of 3-5 consolidated tender summaries.
+- Group by region, sector, or procurement type where logical.
+- Each entry: headline = tender group / category, summary = key opportunities and deadlines this month, commentary = strategic assessment — which ones are highest value, what capability is needed to compete, relevance = how these connect to ${profile.companyName}'s services.`
+    : "Tender rollup: disabled or no data — set tenderSection to null.";
+
+  const marketBlock = context.marketPulseEntries.length > 0
+    ? `MARKET PULSE DATA FROM PAST 30 DAYS (${context.marketPulseEntries.length} data points across ~4 weeks):
+${context.marketPulseEntries.slice(0, 30).map((e, i) => `[${i + 1}] ${e.metric}: ${e.value} (${e.change}) — ${e.source}`).join("\n")}
+
+MONTHLY MARKET TRENDS INSTRUCTIONS:
+Produce "marketPulseSection" as an array of 4-6 entries showing the MONTHLY TREND, not just the latest value.
+- "metric": same metric names as above.
+- "value": most recent value from the data.
+- "change": monthly trend direction — e.g. "+8% MoM", "down from peak", "steady". Max 10 words. NO full sentences.
+- "source": same source as above.`
+    : "Market pulse: no data collected this month — set marketPulseSection to null.";
+
+  // ── User prompt ─────────────────────────────────────────────────────────
+  const userPrompt = `Produce a Monthly Strategic Review for the following subscriber:
+
+Name: ${profile.fullName}
+Company: ${profile.companyName}
+Role: ${profile.role}
+Assets/fleet: ${profile.assets.join(", ")}
+Subjects of interest: ${profile.subjects.join(", ")}
+Review period: ${periodLabel}
+
+${topicsBlock}
+
+${prospectBlock}
+
+${tenderBlock}
+
+${marketBlock}
+
+ANALYST NOTE INSTRUCTIONS:
+Write 2-3 sentences that tie together the month's key signals into a single strategic takeaway. What is the one thing this subscriber should act on or watch in the coming month? Be direct and specific — no generic commentary.
+
+Return a JSON object with exactly this shape:
+{
+  "subscriberId": "${profile.id}",
+  "subscriberName": "${profile.fullName}",
+  "companyName": "${profile.companyName}",
+  "generatedAt": "${new Date().toISOString()}",
+  "briefType": "monthly",
+  "monthlyPeriod": { "start": "${context.periodStart}", "end": "${context.periodEnd}" },
+  "sections": [
+    {
+      "title": "Monthly Strategic Review",
+      "items": [
+        {
+          "headline": "<concise theme headline — e.g. 'Green Corridor Regulation Accelerates Med Disruption'>",
+          "summary": "2-3 sentence factual summary of the month's key development on this topic.",
+          "commentary": "2-3 sentence analyst take — costs, risks, timelines, recommended actions.",
+          "relevance": "One sharp sentence connecting to ${profile.companyName}'s operations.",
+          "source": "<leave empty string — no live sources for monthly synthesis>"
+        }
+      ]
+    }
+  ],
+  "tenderSection": <array or null per instructions above>,
+  "prospectSection": <array or null per instructions above>,
+  "offDutySection": null,
+  "marketPulseSection": <array or null per instructions above>,
+  "regulatoryCountdown": null,
+  "monthlyProspectRollup": null,
+  "competitorTrackerSection": null,
+  "safetySection": null,
+  "analystNote": "<2-3 sentence strategic synthesis>"
+}
+
+Produce 3-6 items in the Monthly Strategic Review section — one per major theme or requested topic. Quality over quantity.`;
+
+  // ── Call Architect ──────────────────────────────────────────────────────
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-sonnet-4-6",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userPrompt   },
+      ],
+      max_tokens: 6000,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Monthly Architect request failed: ${response.status} — ${text}`);
+  }
+
+  const data = await response.json();
+  const rawContent = data.choices?.[0]?.message?.content;
+  const raw: string =
+    typeof rawContent === "string"
+      ? rawContent
+      : Array.isArray(rawContent)
+        ? (rawContent.find((b: { type: string; text?: string }) => b.type === "text")?.text ?? "{}")
+        : "{}";
+
+  dumpRaw("MonthlyArchitect", raw);
+
+  const parsed = safeParseJSON<BriefPayload>(raw);
+
+  if (!parsed.subscriberId && (!parsed.sections || parsed.sections.length === 0)) {
+    throw new Error(`Monthly Architect returned empty brief. Raw: ${raw.substring(0, 200)}`);
+  }
+
+  // Scribe pass — normalise and clean
+  const cleaned = scribeStage({
+    ...parsed,
+    briefType: "monthly",
+    monthlyPeriod: { start: context.periodStart, end: context.periodEnd },
+    // Ensure monthly source fields don't get flagged by URL validator
+    sections: (parsed.sections ?? []).map(s => ({
+      ...s,
+      items: (s.items ?? []).map(item => ({
+        ...item,
+        source: item.source?.startsWith("http") ? item.source : "",
+      })),
+    })),
+  });
+
+  return {
+    ...cleaned,
+    briefType: "monthly",
+    monthlyPeriod: { start: context.periodStart, end: context.periodEnd },
+  };
 }
 
 // ---------------------------------------------------------------------------
