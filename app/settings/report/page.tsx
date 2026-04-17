@@ -1155,7 +1155,7 @@ export default function ReportSettingsPage() {
                 examples={[
                   'Executive Summary — 3-5 bullet points per topic, key headlines only. "IMO approved CII tightening — your B-rated bulkers may slip to C by 2027."',
                   "Deep Dive — full paragraphs with context, analysis, and source links. Covers background, implications, and recommended actions for each story.",
-                  "Data Only — pure tables and numbers: charter rates, bunker prices, index movements. No narrative, just the data you need for dashboards and models.",
+                  "Headlines Only — source-linked headline per story, no narrative. Click through to read what matters.",
                 ]}
               />
             </label>
@@ -1175,8 +1175,8 @@ export default function ReportSettingsPage() {
               <OptionCard
                 selected={form.depth === "data"}
                 onClick={() => update({ depth: "data" })}
-                title="Data Only"
-                description="Numbers & tables"
+                title="Headlines Only"
+                description="Just the headlines and source links."
               />
             </div>
             <p className="text-xs text-[var(--muted-foreground)] mt-3 leading-relaxed italic">

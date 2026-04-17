@@ -939,7 +939,7 @@ function Step4({
             examples={[
               "Executive Summary — fast scan before a call",
               "Deep Dive — full context and analyst commentary",
-              "Data Only — numbers and tables, no narrative",
+              "Headlines Only — source links only, click through to read",
             ]}
           />
         </label>
@@ -959,8 +959,8 @@ function Step4({
           <OptionCard
             selected={data.depth === "data"}
             onClick={() => update({ depth: "data" })}
-            title="Data Only"
-            description="Numbers & tables"
+            title="Headlines Only"
+            description="Just the headlines and source links."
           />
         </div>
       </div>

@@ -22,7 +22,7 @@ import { renderBriefHtml } from "@/lib/brief-html";
  */
 export async function renderBriefPdf(brief: BriefPayload): Promise<Buffer> {
   // Step 1: Generate HTML in-process — no fetch required
-  const html = renderBriefHtml(brief);
+  const html = renderBriefHtml(brief, brief.depth);
 
   // Step 2: Launch headless browser
   // On the Beelink (Windows/local), use the Puppeteer-managed Chrome install.

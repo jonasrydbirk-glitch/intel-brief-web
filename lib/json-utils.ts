@@ -95,6 +95,11 @@ export interface IntelItem {
   commentary: string;
   relevance: string;
   source: string;
+  /**
+   * Secondary source URL — populated when this item draws content from two
+   * different search results. Both URLs must appear in the search metadata.
+   */
+  secondarySource?: string;
   /** Verbatim pull-quote from the source article. Optional — preserved as-is
    *  (no emoji stripping) so the exact words from the original source are kept. */
   quote?: string;
@@ -110,6 +115,8 @@ export function sanitiseItem(item: IntelItem): IntelItem {
     commentary: stripEmojis(item.commentary ?? ""),
     relevance: stripEmojis(item.relevance ?? ""),
     source: stripEmojis(item.source ?? ""),
+    // Preserve optional fields only when present
+    ...(item.secondarySource?.trim() ? { secondarySource: item.secondarySource.trim() } : {}),
     ...(item.quote?.trim() ? { quote: item.quote.trim() } : {}),
   };
 }

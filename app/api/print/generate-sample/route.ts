@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const html = renderBriefHtml(brief);
+    const html = renderBriefHtml(brief, brief.depth);
 
     return new Response(html, {
       status: 200,
@@ -147,7 +147,7 @@ export async function GET() {
       "The CII correction-factor update is the headline this cycle — fleets with ice-class or STS exposure should re-run their 2026 projections before Q3 reporting.",
   };
 
-  const html = renderBriefHtml(sampleBrief);
+  const html = renderBriefHtml(sampleBrief, "deep");
 
   return new Response(html, {
     status: 200,
