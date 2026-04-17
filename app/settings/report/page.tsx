@@ -1156,7 +1156,7 @@ export default function ReportSettingsPage() {
                 examples={[
                   'Executive Summary — 3-5 bullet points per topic, key headlines only. "IMO approved CII tightening — your B-rated bulkers may slip to C by 2027."',
                   "Deep Dive — full paragraphs with context, analysis, and source links. Covers background, implications, and recommended actions for each story.",
-                  "Headlines Only — source-linked headline per story, no narrative. Click through to read what matters.",
+                  "Weekly Digest — your 2 most important stories of the week. Full narrative, analyst commentary, and why it matters.",
                 ]}
               />
             </label>
@@ -1176,16 +1176,11 @@ export default function ReportSettingsPage() {
               <OptionCard
                 selected={form.depth === "data"}
                 onClick={() => update({ depth: "data" })}
-                title="Headlines Only"
-                description="Just the headlines and source links."
+                title="Weekly Digest"
+                description="Your week's 2 most important stories. Full narrative, analyst commentary, and why it matters."
               />
             </div>
             <DepthPreview depth={form.depth || "deep"} />
-            <p className="text-xs text-[var(--muted-foreground)] mt-3 leading-relaxed italic">
-              Note: Selecting Daily + Deep Dive produces 7 comprehensive reports
-              per week. Consider starting with Business Days for a better balance
-              of coverage and volume.
-            </p>
           </div>
 
           <div>

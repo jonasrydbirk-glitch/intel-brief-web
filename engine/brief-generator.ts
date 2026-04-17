@@ -366,12 +366,17 @@ export async function architectStage(
 - Analyst Note: 1 sentence maximum.
 - Target length: 1-2 pages when printed.`
     : profile.depth === "data"
-    ? `DEPTH MODE: HEADLINES ONLY (NON-NEGOTIABLE)
-- Set "summary" to "" (empty string) for every item. Set "commentary" to "". Omit "quote".
-- "relevance": one short noun phrase, not a full sentence.
-- Maximum 6 items per section.
-- Analyst Note: set to "" (empty string).
-- Target length: a single compact page.`
+    ? `DEPTH MODE: WEEKLY DIGEST (NON-NEGOTIABLE)
+- Include EXACTLY 2 items total. Pick the 2 highest-impact stories from the past 7 days for this subscriber.
+- Place both items in a single section. Title the section "This Week's Stories".
+- Omit all other sections (tender, safety, off-duty, regulatory, prospects). Return empty arrays for those.
+- Summary: 100-150 word narrative paragraph. Maritime journalist voice — vivid, specific, active tense. No bullet points.
+- Commentary: 2-3 sentences of analyst-grade insight. Italic editorial voice. Connect story to broader industry trends and implications beyond the immediate headline.
+- Relevance: 50-80 word "Why it matters" paragraph. Specific to this subscriber's fleet type, region, and role.
+- Quote: include a verbatim sentence if a strong one exists in the source material. Otherwise omit.
+- Market Pulse: 3-4 rows only. Week-on-week changes, 10-word description rule.
+- Analyst Note: 2-3 sentences of strategic synthesis tying both stories together.
+- Tone: magazine editorial / Saturday morning maritime newsletter. No jargon for its own sake.`
     : `DEPTH MODE: DEEP DIVE
 - Up to 5 items per section where strong, relevant content exists.
 - Summary: 2-3 sentences — key fact first, then supporting context.

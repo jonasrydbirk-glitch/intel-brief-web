@@ -119,11 +119,27 @@ function renderItem(
 ): string {
   const sourceHtml = renderItemSource(item);
 
-  // ── Headlines Only ──────────────────────────────────────────────────────
+  // ── Weekly Digest — rich narrative card ─────────────────────────────────
   if (depth === "data") {
-    return `<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid ${C.borderFaint};">
-      <span style="font-size:13px;font-weight:600;color:${C.navy};line-height:1.4;flex:1;">${esc(item.headline)}</span>
-      ${sourceHtml ? `<span style="flex-shrink:0;">${sourceHtml}</span>` : ""}
+    const summaryHtml = item.summary?.trim()
+      ? `<div style="font-size:14px;color:${C.body};line-height:1.7;margin-bottom:14px;">${esc(item.summary)}</div>`
+      : "";
+    const commentaryHtml = item.commentary?.trim()
+      ? `<div style="font-size:13px;color:${C.body};font-style:italic;line-height:1.6;padding:12px 16px;background:#f0f9fa;border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:14px;">${esc(item.commentary)}</div>`
+      : "";
+    const relevanceHtml = item.relevance?.trim()
+      ? `<div style="font-size:13px;color:${C.body};line-height:1.6;margin-bottom:12px;"><strong style="color:${C.navy};">Why it matters:</strong> ${esc(item.relevance)}</div>`
+      : "";
+    const quoteHtml = item.quote?.trim()
+      ? `<blockquote style="margin:0 0 12px;padding:8px 12px;border-left:2px solid ${C.teal};background:${C.bg};border-radius:0 4px 4px 0;font-size:13px;color:${C.body};font-style:italic;line-height:1.5;">&ldquo;${esc(item.quote.trim())}&rdquo;</blockquote>`
+      : "";
+    return `<div style="margin-bottom:28px;padding:20px 22px;background:#f8fafc;border-radius:8px;border-left:3px solid ${C.teal};">
+      <h2 style="font-size:17px;font-weight:700;color:${C.navy};line-height:1.3;margin:0 0 14px;">${esc(item.headline)}</h2>
+      ${summaryHtml}
+      ${commentaryHtml}
+      ${relevanceHtml}
+      ${quoteHtml}
+      ${sourceHtml ? `<div style="font-size:11px;color:${C.faint};">${sourceHtml}</div>` : ""}
     </div>`;
   }
 
@@ -172,7 +188,7 @@ function renderItem(
  */
 function renderProspectItem(item: IntelItem, depth: string = "deep"): string {
   if (depth === "data") {
-    // Headlines Only: just headline, no source
+    // Weekly Digest: prospects section is omitted by AI instructions; fallback to slim headline row
     return `<div style="padding:7px 0;border-bottom:1px solid ${C.borderFaint};">
       <span style="font-size:13px;font-weight:600;color:${C.navy};line-height:1.4;">${esc(item.headline)}</span>
     </div>`;
@@ -329,7 +345,7 @@ function renderMarketPulseSection(entries: MarketPulseEntry[], depth: string = "
       const isNegative = /^-/.test(change) || /\bdown\b/i.test(change);
       const changeColor = isPositive ? C.green : isNegative ? C.red : C.muted;
 
-      // Headlines Only: hide source column
+      // Weekly Digest: hide source column in market pulse (keep it compact)
       const sourceCell = depth !== "data"
         ? `<td style="padding:6px 8px;font-size:11px;color:${C.faint};font-style:italic;border-bottom:1px solid ${C.borderFaint};text-align:right;">${esc(e.source)}</td>`
         : "";
@@ -429,7 +445,7 @@ export function renderBriefHtml(
     effectiveDepth === "executive"
       ? "Executive Summary"
       : effectiveDepth === "data"
-      ? "Headlines Only"
+      ? "Weekly Digest"
       : "Deep Dive";
 
   // Build section HTML
