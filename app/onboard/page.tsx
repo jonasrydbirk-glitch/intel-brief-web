@@ -940,7 +940,7 @@ function Step4({
             examples={[
               "Executive Summary — fast scan before a call",
               "Deep Dive — full context and analyst commentary",
-              "Headlines Only — source links only, click through to read",
+              "Weekly Digest — your 2 most important stories of the week. Full narrative, analyst commentary, and why it matters.",
             ]}
           />
         </label>
@@ -960,8 +960,8 @@ function Step4({
           <OptionCard
             selected={data.depth === "data"}
             onClick={() => update({ depth: "data" })}
-            title="Headlines Only"
-            description="Just the headlines and source links."
+            title="Weekly Digest"
+            description="Your week's 2 most important stories. Full narrative, analyst commentary, and why it matters."
           />
         </div>
         <DepthPreview depth={data.depth || "deep"} />
