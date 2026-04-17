@@ -19,8 +19,7 @@ const MUTED = "#6b7280";
 const FAINT = "#9ca3af";
 const TEAL  = "#53b1c1";
 const BG    = "#f9fafb";
-const BORDER       = "#e5e7eb";
-const BORDER_FAINT = "#f3f4f6";
+const BORDER = "#e5e7eb";
 
 // ---------------------------------------------------------------------------
 // Hardcoded sample story
@@ -36,6 +35,10 @@ const SAMPLE = {
   /** Deep-mode summary — 2-3 sentences of full context. */
   deepSummary:
     "A.P. Moller-Maersk has confirmed a new weekly Mediterranean-to-North Europe service loop starting Q3 2026, deploying six 15,000 TEU methanol dual-fuel vessels on the route. The move targets growing intra-European demand and positions Maersk ahead of FuelEU Maritime compliance deadlines.",
+
+  /** Weekly Digest — ~100-word narrative paragraph, maritime journalist voice. */
+  weeklyDigestSummary:
+    "A.P. Moller-Maersk has announced a new weekly Mediterranean-to-North Europe service loop launching Q3 2026, deploying six methanol dual-fuel vessels of 15,000 TEU capacity. The loop connects Valencia, Barcelona, and Genoa directly to Rotterdam, Hamburg, and Antwerp — filling a gap in carbon-neutral capacity on one of Europe's busiest trade lanes. Maersk cited accelerating FuelEU Maritime deadlines and rising shipper demand for scope-3 emissions documentation as core drivers. The vessels are already on order with Hyundai Heavy Industries, delivering from April 2026. Analysts call it the most significant Mediterranean green capacity move since CMA CGM's Normandie conversion.",
 
   quote:
     "This positions us to capture growing demand for sustainable shipping solutions in the Med-North corridor.",
@@ -202,32 +205,73 @@ function DeepDivePreview() {
   );
 }
 
-function HeadlinesOnlyPreview() {
+function WeeklyDigestPreview() {
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        gap: 10,
-        padding: "7px 0",
-        borderBottom: `1px solid ${BORDER_FAINT}`,
+        padding: "20px 22px",
+        background: "#f8fafc",
+        borderRadius: 8,
+        borderLeft: `3px solid ${TEAL}`,
       }}
     >
-      <span
+      {/* Headline */}
+      <div
         style={{
-          fontSize: 13,
-          fontWeight: 600,
+          fontSize: 17,
+          fontWeight: 700,
           color: NAVY,
-          lineHeight: 1.4,
-          flex: 1,
+          lineHeight: 1.3,
+          marginBottom: 14,
         }}
       >
         {SAMPLE.headline}
-      </span>
-      <span style={{ flexShrink: 0 }}>
-        <SourcesLine />
-      </span>
+      </div>
+
+      {/* Narrative summary */}
+      <div
+        style={{
+          fontSize: 14,
+          color: BODY,
+          lineHeight: 1.7,
+          marginBottom: 14,
+        }}
+      >
+        {SAMPLE.weeklyDigestSummary}
+      </div>
+
+      {/* Analyst commentary box */}
+      <div
+        style={{
+          fontSize: 13,
+          color: BODY,
+          fontStyle: "italic",
+          lineHeight: 1.6,
+          padding: "12px 16px",
+          background: "#f0f9fa",
+          borderLeft: `2px solid ${TEAL}`,
+          borderRadius: "0 4px 4px 0",
+          marginBottom: 14,
+        }}
+      >
+        {SAMPLE.commentary}
+      </div>
+
+      {/* Why it matters */}
+      <div
+        style={{
+          fontSize: 13,
+          color: BODY,
+          lineHeight: 1.6,
+          marginBottom: 12,
+        }}
+      >
+        <strong style={{ color: NAVY }}>Why it matters:</strong>{" "}
+        {SAMPLE.relevance}
+      </div>
+
+      {/* Source links */}
+      <SourcesLine />
     </div>
   );
 }
@@ -248,7 +292,7 @@ export function DepthPreview({ depth }: DepthPreviewProps) {
     effective === "executive"
       ? "Executive Summary"
       : effective === "data"
-      ? "Headlines Only"
+      ? "Weekly Digest"
       : "Deep Dive";
 
   return (
@@ -294,14 +338,14 @@ export function DepthPreview({ depth }: DepthPreviewProps) {
       <div
         key={effective}
         style={{
-          padding: effective === "data" ? "14px 14px 8px" : "14px",
+          padding: "14px",
           background: "#ffffff",
           animation: "iqseaDepthFadeIn 0.2s ease-out both",
         }}
       >
         {effective === "executive" && <ExecutivePreview />}
         {effective === "deep"      && <DeepDivePreview />}
-        {effective === "data"      && <HeadlinesOnlyPreview />}
+        {effective === "data"      && <WeeklyDigestPreview />}
       </div>
 
       {/* Keyframe definition — scoped to this component instance */}
