@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HelpTooltip } from "../components/help-tooltip";
 import { PasswordInput } from "../components/password-input";
+import { DepthPreview } from "../components/depth-preview";
 
 /* ────── types ────── */
 
@@ -963,6 +964,7 @@ function Step4({
             description="Just the headlines and source links."
           />
         </div>
+        <DepthPreview depth={data.depth || "deep"} />
       </div>
 
       <div>
