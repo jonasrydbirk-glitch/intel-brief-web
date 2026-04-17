@@ -11,7 +11,7 @@
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import type { BriefPayload } from "@/engine/brief-generator";
-import { renderBriefHtml } from "@/lib/brief-html";
+import { renderBriefHtml, renderMonthlyBriefHtml } from "@/lib/brief-html";
 
 /**
  * Render a BriefPayload to a PDF buffer.
@@ -21,8 +21,10 @@ import { renderBriefHtml } from "@/lib/brief-html";
  * 3. Prints to PDF and returns the buffer.
  */
 export async function renderBriefPdf(brief: BriefPayload): Promise<Buffer> {
-  // Step 1: Generate HTML in-process — no fetch required
-  const html = renderBriefHtml(brief, brief.depth);
+  // Step 1: Generate HTML in-process — route monthly briefs to their own template
+  const html = brief.briefType === "monthly"
+    ? renderMonthlyBriefHtml(brief)
+    : renderBriefHtml(brief, brief.depth);
 
   // Step 2: Launch headless browser
   // On the Beelink (Windows/local), use the Puppeteer-managed Chrome install.
