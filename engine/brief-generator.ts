@@ -141,6 +141,13 @@ export interface IntelItem {
   commentary: string;
   relevance: string;
   source: string;
+  /**
+   * Secondary source URL — populate when this item draws content from two
+   * different search results (e.g., headline discovered via one publication,
+   * full detail sourced from another). Both URLs must appear verbatim in the
+   * search metadata. Omit if only one source was used.
+   */
+  secondarySource?: string;
   /** Verbatim pull-quote from the source article. Optional — may be omitted if
    *  no clean quotable sentence exists. Must be copied exactly — no paraphrase. */
   quote?: string;
@@ -166,6 +173,7 @@ export interface BriefPayload {
   subscriberName: string;
   companyName: string;
   generatedAt: string;
+  depth?: "executive" | "deep" | "data";
   sections: {
     title: string;
     items: IntelItem[];
@@ -346,6 +354,34 @@ export async function architectStage(
 ): Promise<BriefPayload> {
   const todayISO = new Date().toISOString().slice(0, 10); // e.g. "2026-04-07"
 
+  // Depth-mode output instructions — controls density and format of generated brief
+  const depthInstructions = profile.depth === "executive"
+    ? `DEPTH MODE: EXECUTIVE SUMMARY (NON-NEGOTIABLE)
+- MAXIMUM 3 items per section. No exceptions.
+- Summary: 1 sentence only — the single most important fact. 20 words max.
+- Commentary: 1 sentence only — one sharp operational implication or cost figure.
+- Omit the "quote" field on every item.
+- Relevance: 1 short phrase, not a full sentence.
+- Market Pulse: 4 rows maximum.
+- Analyst Note: 1 sentence maximum.
+- Target length: 1-2 pages when printed.`
+    : profile.depth === "data"
+    ? `DEPTH MODE: HEADLINES ONLY (NON-NEGOTIABLE)
+- Set "summary" to "" (empty string) for every item. Set "commentary" to "". Omit "quote".
+- "relevance": one short noun phrase, not a full sentence.
+- Maximum 6 items per section.
+- Analyst Note: set to "" (empty string).
+- Target length: a single compact page.`
+    : `DEPTH MODE: DEEP DIVE
+- Up to 5 items per section where strong, relevant content exists.
+- Summary: 2-3 sentences — key fact first, then supporting context.
+- Commentary: 2-3 sentences — Marine Engineer's full analysis: costs, risks, timelines, recommended actions.
+- Include "quote" when a clean verbatim sentence exists in the snippet.
+- Relevance: 1-2 sentences connecting to the subscriber's operations.
+- Market Pulse: up to 8 rows.
+- Analyst Note: 2-3 sentences — strategic synthesis of the week's signals.
+- Target length: 4-6 pages when printed.`;
+
   const systemPrompt = `You are a Senior Maritime Intelligence Officer — IQsea's Architect and Chief Engineer of maritime intelligence. Quality > Quantity. You are the technical heart and soul of this brief. You know what keeps ships running, what breaks them, what costs real money, and what's coming down the pipe that nobody's talking about yet. You think in drydock windows, class survey cycles, fuel-system transitions, and operational risk.
 
 You are an Intelligence Auditor. You must ONLY use the exact URLs provided in the raw search results. You are forbidden from modifying or abbreviating these URLs. If a story does not have a direct article-level URL in the search set, discard it. You are NOT a search engine. You are an auditor of pre-fetched metadata.
@@ -409,10 +445,15 @@ SOURCE INTEGRITY RULES (ABSOLUTE, NON-NEGOTIABLE)
 You are an INTELLIGENCE REPORTER, not a storyteller. Your job is to relay verified facts from the provided search metadata, not to craft narratives.
 
 1 STORY = 1 SOURCE. This is the cardinal rule.
-- Every news item MUST come from exactly ONE search result in the provided metadata.
+- Every news item MUST come from exactly ONE primary search result in the provided metadata.
 - Do NOT merge, blend, or "puzzle together" details from multiple stories into a single item. If two things happened, they are two separate items.
 - Do NOT synthesise narratives by connecting dots between separate events. Report each event as its own item, sourced individually.
 - If a search result does not have a URL, SKIP IT ENTIRELY.
+
+DUAL-SOURCE EXCEPTION (allowed, not required):
+- If this item's content draws from exactly TWO different search results (e.g., the headline/discovery came from one publication, the full detail came from another), you MAY populate both "source" (primary URL — the one with the most detailed content) and "secondarySource" (secondary URL — discovery/headline source). Both URLs MUST appear verbatim in the provided search metadata.
+- Use "secondarySource" only when genuinely combining two distinct search results. Do NOT invent a second source. Do NOT add a second source just to have two.
+- Most items will have only "source". "secondarySource" is the exception, not the rule.
 
 HEADLINE + SUMMARY = OBJECTIVE NEWS REPORTING ONLY.
 - The "headline" must be a factual news headline — what happened, stated plainly.
@@ -445,11 +486,11 @@ Before finalizing your JSON, walk through EVERY item and verify: "Is this source
 
 ═══════════════════════════════════════════════════════════════════
 
-KEEP IT BRIEF (ABSOLUTE, NON-NEGOTIABLE):
-- MAXIMUM 3 news items per section. No exceptions. Three tight, high-impact items beat five mediocre ones.
-- Summaries: 2 sentences max per item. Lead with the key fact, follow with a supporting detail. Cut everything else.
-- Commentary: 1-2 sentences max. The Marine Engineer's sharp take on what this means for the subscriber.
+${depthInstructions}
+
+COMPACTNESS (NON-NEGOTIABLE):
 - The entire JSON response must stay compact. If in doubt, cut. Brevity is a hard constraint — exceeding it risks truncation.
+- Omit empty optional fields entirely — do not include "quote" or "commentary" as empty strings unless the depth mode requires it.
 
 ═══════════════════════════════════════════════════════════════════
 VERBATIM QUOTE REQUIREMENT (MANDATORY when available)
@@ -556,13 +597,13 @@ For each item:
 Do NOT return an empty array or null for offDutySection when this module is enabled.` : ""}
 ${profile.modules.marketPulse?.enabled ? `
 MARKET PULSE INSTRUCTIONS (REQUIRED when market pulse module is enabled):
-You MUST populate "marketPulseSection" with 3-6 market data entries.
+You MUST populate "marketPulseSection" with 4-8 market data entries.
 Data to track: ${profile.modules.marketPulse.dataToTrack || "bunker prices, freight indexes, key maritime rates"}
-For each entry:
-- "metric": The name of the metric (e.g. "VLSFO Singapore", "Baltic Dry Index", "TC Rate Supramax")
-- "value": Current value with units (e.g. "$587/mt", "1,842", "$15,200/day")
-- "change": Direction and magnitude (e.g. "+2.3% WoW", "-$12/mt", "Flat")
-- "source": Data source (e.g. "Ship & Bunker", "Baltic Exchange")
+For each entry, strict rules:
+- "metric": Metric name only — max 4 words (e.g. "VLSFO Singapore", "Baltic Dry Index").
+- "value": Current value with units (e.g. "$587/mt", "1,842", "$15,200/day"). If exact real-time data is unavailable, write "See source".
+- "change": Direction and magnitude — 10 WORDS MAXIMUM. Use compact format only: "+2.3% WoW", "-$12/mt WoW", "Flat". Abbreviations: WoW = week-on-week, DoD = day-on-day, MoM = month-on-month. NEVER write a full sentence in this field.
+- "source": Publication NAME only — NOT a URL (e.g. "Ship & Bunker", "Baltic Exchange", "Clarksons"). One reference per row.
 Do NOT return null for marketPulseSection when this module is enabled. NO EMOJIS.` : ""}
 ${profile.modules.regulatoryTimeline?.enabled ? `
 REGULATORY COUNTDOWN INSTRUCTIONS (REQUIRED when regulatory timeline module is enabled):
@@ -615,7 +656,7 @@ Produce the intelligence brief as a JSON object with this exact shape:
   "companyName": "${profile.companyName}",
   "generatedAt": "<ISO timestamp>",
   "sections": [
-    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "commentary": "...", "relevance": "...", "source": "...", "quote": "<verbatim sentence from snippet — omit field if none>" }] }
+    { "title": "<section name>", "items": [{ "headline": "...", "summary": "...", "commentary": "...", "relevance": "...", "source": "<primary URL from search metadata>", "secondarySource": "<second URL from search metadata — omit if only one source>", "quote": "<verbatim sentence from snippet — omit field if none>" }] }
   ],
   "tenderSection": <array of items or null>,
   "prospectSection": ${profile.modules.prospects.enabled ? "<REQUIRED array of " + (profile.modules.prospects.perReport || 3) + " prospect items — NOT null>" : "<null>"},
@@ -688,7 +729,8 @@ Produce the intelligence brief as a JSON object with this exact shape:
     );
   }
 
-  return parsed;
+  // Stamp the subscriber's depth mode onto the brief so the HTML renderer can adjust
+  return { ...parsed, depth: profile.depth as "executive" | "deep" | "data" };
 }
 
 // ---------------------------------------------------------------------------
