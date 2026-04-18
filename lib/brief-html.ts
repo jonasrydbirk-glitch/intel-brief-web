@@ -443,7 +443,25 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
  *   - Monthly market trends table
  *   - No regulatory countdown, no off-duty, no safety sections
  */
-export function renderMonthlyBriefHtml(brief: BriefPayload): string {
+function ratingButtons(briefJobId: string | undefined, subscriberId: string | undefined, label: string): string {
+  if (!briefJobId || !subscriberId) return "";
+  const base = `https://iqsea.io/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
+  return `
+  <table width="100%" style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:20px;border-collapse:collapse;">
+    <tr>
+      <td align="center" style="font-size:14px;color:#6b7280;padding-bottom:12px;">${label}</td>
+    </tr>
+    <tr>
+      <td align="center">
+        <a href="${base}&rating=good" style="display:inline-block;padding:8px 20px;margin:0 8px;background:#16a34a;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128077; Useful</a>
+        <a href="${base}&rating=ok"   style="display:inline-block;padding:8px 20px;margin:0 8px;background:#6b7280;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128528; OK</a>
+        <a href="${base}&rating=bad"  style="display:inline-block;padding:8px 20px;margin:0 8px;background:#dc2626;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128078; Not helpful</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?: string; subscriberId?: string }): string {
   const periodLabel = brief.monthlyPeriod
     ? (() => {
         const s = new Date(brief.monthlyPeriod.start + "T12:00:00Z");
@@ -605,6 +623,9 @@ export function renderMonthlyBriefHtml(brief: BriefPayload): string {
     <div style="font-size:13px;color:#422006;line-height:1.55;">${esc(brief.analystNote)}</div>
   </div>` : ""}
 
+  <!-- ── Rating buttons ───────────────────────────────────────────── -->
+  ${ratingButtons(opts?.briefJobId, opts?.subscriberId, "How was this month&apos;s review?")}
+
   <!-- ── Footer ────────────────────────────────────────────────────── -->
   <div style="margin-top:36px;padding-top:14px;border-top:1px solid ${C.border};display:flex;justify-content:space-between;align-items:center;font-size:10px;color:${C.faint};">
     <span>IQsea Intel Engine &middot; Monthly Review &middot; Confidential</span>
@@ -624,7 +645,8 @@ export function renderMonthlyBriefHtml(brief: BriefPayload): string {
 
 export function renderBriefHtml(
   brief: BriefPayload,
-  depth?: "executive" | "deep" | "data"
+  depth?: "executive" | "deep" | "data",
+  opts?: { briefJobId?: string; subscriberId?: string }
 ): string {
   const effectiveDepth = depth ?? brief.depth ?? "deep";
 
@@ -739,6 +761,9 @@ export function renderBriefHtml(
     <div style="font-size:10px;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">IQsea Intelligence Perspective</div>
     <div style="font-size:13px;color:#422006;line-height:1.55;">${esc(brief.analystNote)}</div>
   </div>` : ""}
+
+  <!-- ── Rating buttons ────────────────────────────────────────────── -->
+  ${ratingButtons(opts?.briefJobId, opts?.subscriberId, "How was today&apos;s brief?")}
 
   <!-- ── Footer ──────────────────────────────────────────────────────── -->
   <div style="margin-top:36px;padding-top:14px;border-top:1px solid ${C.border};display:flex;justify-content:space-between;align-items:center;font-size:10px;color:${C.faint};">

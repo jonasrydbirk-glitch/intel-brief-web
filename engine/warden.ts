@@ -651,7 +651,7 @@ async function deliveryLoop(): Promise<void> {
       }
 
       // Render PDF — always use today's date so the brief title is current
-      const pdfBuffer = await renderBriefPdf(brief);
+      const pdfBuffer = await renderBriefPdf(brief, { briefJobId: job.id, subscriberId: job.subscriber_id });
       const pdfBase64 = pdfBuffer.toString("base64");
 
       // Subject line, filename, and email body vary by job type
