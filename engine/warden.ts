@@ -918,7 +918,7 @@ async function processJobQueue(): Promise<void> {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000).toISOString();
         const { data: pastJobs } = await supabaseAdmin
           .from("brief_jobs")
-          .select("result")
+          .select("result, created_at")
           .eq("subscriber_id", job.subscriber_id)
           .in("status", ["delivered", "complete", "ready_to_send"])
           .not("job_type", "eq", "monthly")
@@ -932,7 +932,7 @@ async function processJobQueue(): Promise<void> {
         const marketPulseEntries: MarketPulseEntry[] = [];
 
         for (const pastJob of pastJobs ?? []) {
-          const r = pastJob.result as BriefPayload | null;
+          const r = (pastJob as { result: BriefPayload | null }).result;
           if (!r) continue;
           r.prospectSection?.forEach((item) => {
             if (item.headline?.trim()) prospectItems.push(item);
@@ -945,9 +945,15 @@ async function processJobQueue(): Promise<void> {
           });
         }
 
+        const briefCount = pastJobs?.length ?? 0;
+        // Earliest brief date in the window — used to adjust the period label for sparse data.
+        const dataStart: string | undefined = briefCount > 0
+          ? (pastJobs![pastJobs!.length - 1] as { created_at: string }).created_at.slice(0, 10)
+          : undefined;
+
         log(
           "INFO",
-          `[Monthly] Aggregated from ${pastJobs?.length ?? 0} past jobs: ` +
+          `[Monthly] Aggregated from ${briefCount} past jobs: ` +
             `${prospectItems.length} prospects, ${tenderItems.length} tenders, ${marketPulseEntries.length} market entries`
         );
 
@@ -957,6 +963,8 @@ async function processJobQueue(): Promise<void> {
           marketPulseEntries,
           periodStart,
           periodEnd,
+          briefCount,
+          dataStart,
         };
 
         const monthlyBrief = await generateMonthlyBrief(job.subscriber_id, monthlyContext);

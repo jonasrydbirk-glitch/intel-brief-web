@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       .map((l: string) => l.trim())
       .filter((l: string) => l.length > 0);
   }
-  if (body.monthlyReviewDay !== undefined) updates.monthlyReviewDay = body.monthlyReviewDay;
+  if (body.monthlyReviewDay !== undefined) updates.monthlyReviewDay = String(body.monthlyReviewDay);
   if (body.monthlyReviewTime !== undefined) updates.monthlyReviewTime = body.monthlyReviewTime;
 
   // Module updates
