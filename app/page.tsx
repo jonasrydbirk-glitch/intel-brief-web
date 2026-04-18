@@ -44,25 +44,25 @@ const briefContents = [
     icon: <ChartIcon />,
     title: "Market Intelligence",
     description:
-      "Daily freight rate movements, bunker prices, FFA curves, and S&P activity for your traded segments.",
+      "Freight rates, bunker prices, FFA curves, S&P transactions, newbuild orders, and offshore day rates — for the segments and trade routes you follow.",
   },
   {
     icon: <ShieldIcon />,
-    title: "Regulatory & Compliance",
+    title: "Regulatory & Safety",
     description:
-      "IMO deadlines, sanction list changes, EU ETS updates, and flag state circulars — before they become operational problems.",
+      "IMO deadlines, sanction list updates, EU ETS obligations, port state circulars, and safety alerts — tracked against your operational exposure.",
   },
   {
     icon: <CompassIcon />,
-    title: "Competitor Tracking",
+    title: "Competitor & Prospect Intel",
     description:
-      "Contract wins, fleet acquisitions, and operator news from the specific companies you're watching.",
+      "Contract wins, fleet moves, and operator news from companies you're watching — plus lead signals from the segments you're targeting commercially.",
   },
   {
     icon: <DocumentIcon />,
     title: "Tender Intelligence",
     description:
-      "Public maritime tender alerts filtered by vessel type, region, and contract type.",
+      "Maritime tender opportunities sourced from public procurement notices, filtered by vessel type, service category, and region.",
   },
 ];
 
@@ -96,7 +96,7 @@ export default function LandingPage() {
       <section className="flex-1 flex items-center justify-center px-6 py-24 sm:py-36">
         <div className="max-w-3xl text-center">
           <div className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground mb-8">
-            For charterers, shipowners, and maritime lawyers
+            Built for the maritime industry
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6">
             One brief.
@@ -106,8 +106,10 @@ export default function LandingPage() {
             Every morning.
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Charter rates, regulatory deadlines, competitor moves, and tender
-            alerts — curated to your role and delivered before the market opens.
+            Market rates, regulatory changes, fleet activity, tender
+            opportunities, and sector intelligence — curated to your role,
+            sourced from 21 trade publications, delivered before the market
+            opens.
           </p>
           <Link
             href="/onboard"
@@ -121,9 +123,13 @@ export default function LandingPage() {
       {/* What's in your brief */}
       <section className="px-6 py-20 sm:py-28">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">
             What arrives in your inbox
           </h2>
+          <p className="text-muted-foreground text-center max-w-xl mx-auto mb-14">
+            Every brief draws from 21 authoritative maritime publications. You
+            choose the modules; we filter the signal.
+          </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {briefContents.map((item) => (
               <div
@@ -148,8 +154,8 @@ export default function LandingPage() {
             From this morning&rsquo;s briefs
           </h2>
           <p className="text-muted-foreground text-center max-w-xl mx-auto mb-14">
-            Every brief is specific — to your vessel type, your routes, your
-            regulatory exposure.
+            Every brief is specific — built to your role, your markets, and
+            what you need to know before the workday starts.
           </p>
           <div className="grid md:grid-cols-2 gap-8">
             {/* IMO Regulation Update Card */}
@@ -271,8 +277,7 @@ export default function LandingPage() {
               Login
             </Link>
             <p className="text-xs text-muted-foreground">
-              &copy; {new Date().getFullYear()} IQsea. Maritime intelligence,
-              delivered.
+              &copy; {new Date().getFullYear()} IQsea. Maritime intelligence, delivered.
             </p>
           </div>
         </div>
