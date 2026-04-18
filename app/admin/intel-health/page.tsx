@@ -64,6 +64,15 @@ interface BriefJobErrorRow {
   created_at: string;
 }
 
+interface FeedbackRow {
+  id: string;
+  subscriber_id: string;
+  brief_job_id: string | null;
+  rating: string | null;
+  message: string | null;
+  created_at: string;
+}
+
 type SourceStatus = "green" | "yellow" | "red" | "unknown";
 type OverallStatus = "green" | "yellow" | "red";
 
@@ -172,6 +181,8 @@ async function loadHealthData() {
     sentArticlesRes,
     briefResultsRes,
     heartbeatRes,
+    feedbackRecentRes,
+    feedbackSummaryRes,
   ] = await Promise.all([
     db.from("ingestion_runs")
       .select("source_name, started_at, error, items_new, items_found")
@@ -247,6 +258,17 @@ async function loadHealthData() {
       .select("last_beat, metadata")
       .eq("service", "warden")
       .single(),
+
+    // Recent feedback (last 10)
+    db.from("feedback")
+      .select("id, subscriber_id, brief_job_id, rating, message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(10),
+
+    // Feedback summary last 7d
+    db.from("feedback")
+      .select("rating")
+      .gte("created_at", since7d),
   ]);
 
   // Build per-source latest-run map (first occurrence = most recent, list is DESC)
@@ -310,6 +332,26 @@ async function loadHealthData() {
   const wardenAgeMin     = wardenAgeMs !== null ? Math.floor(wardenAgeMs / 60_000) : null;
   const wardenMeta       = (heartbeat?.metadata ?? {}) as Record<string, unknown>;
 
+  // Feedback — recent rows + 7d summary
+  const recentFeedback = (feedbackRecentRes.data ?? []) as FeedbackRow[];
+  const feedbackSummaryRows = (feedbackSummaryRes.data ?? []) as { rating: string | null }[];
+  const feedbackGood = feedbackSummaryRows.filter((r) => r.rating === "good").length;
+  const feedbackOk   = feedbackSummaryRows.filter((r) => r.rating === "ok").length;
+  const feedbackBad  = feedbackSummaryRows.filter((r) => r.rating === "bad").length;
+
+  // Look up subscriber names for the feedback rows
+  const feedbackSubIds = [...new Set(recentFeedback.map((f) => f.subscriber_id).filter(Boolean))];
+  let subNameMap: Map<string, string> = new Map();
+  if (feedbackSubIds.length > 0) {
+    const { data: subRows } = await db
+      .from("subscribers")
+      .select("id, fullName")
+      .in("id", feedbackSubIds);
+    for (const s of (subRows ?? []) as { id: string; fullName: string }[]) {
+      subNameMap.set(s.id, s.fullName);
+    }
+  }
+
   return {
     latestRuns,
     totalItems,
@@ -339,6 +381,12 @@ async function loadHealthData() {
     wardenLastBeat,
     wardenAgeMin,
     wardenMeta,
+    // Feedback
+    recentFeedback,
+    feedbackGood,
+    feedbackOk,
+    feedbackBad,
+    subNameMap,
   };
 }
 
@@ -1100,6 +1148,80 @@ export default async function IntelHealthPage() {
                     <span className="text-emerald-500">✓</span> No brief job errors in the last 24 hours
                   </div>
                 )}
+
+                {/* ── Recent feedback ───────────────────────────────────────── */}
+                <div>
+                  <div className="text-[10px] tracking-[0.15em] text-[var(--muted-foreground)] mb-3 font-[family-name:var(--font-geist-mono)] flex items-center gap-2">
+                    RECENT FEEDBACK
+                    <InfoTooltip text="Feedback from subscribers via the rating buttons in their daily and monthly briefs. Negative ratings should be followed up with the subscriber directly." />
+                  </div>
+
+                  {/* 7d summary chips */}
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-950/40 border border-emerald-700/40 text-emerald-300 text-xs font-[family-name:var(--font-geist-mono)]">
+                      <span>👍</span>
+                      <span className="font-bold">{data.feedbackGood}</span>
+                      <span className="text-emerald-500/70">good (7d)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/60 border border-slate-700/40 text-slate-300 text-xs font-[family-name:var(--font-geist-mono)]">
+                      <span>😐</span>
+                      <span className="font-bold">{data.feedbackOk}</span>
+                      <span className="text-slate-500/70">ok (7d)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-950/40 border border-red-700/40 text-red-300 text-xs font-[family-name:var(--font-geist-mono)]">
+                      <span>👎</span>
+                      <span className="font-bold">{data.feedbackBad}</span>
+                      <span className="text-red-500/70">bad (7d)</span>
+                    </div>
+                  </div>
+
+                  {data.recentFeedback.length === 0 ? (
+                    <div className="text-center py-6 text-[var(--muted-foreground)] text-xs font-[family-name:var(--font-geist-mono)]">
+                      No feedback received yet
+                    </div>
+                  ) : (
+                    <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg overflow-hidden">
+                      <table className="w-full text-xs font-[family-name:var(--font-geist-mono)]">
+                        <thead>
+                          <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)]">
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">TIME</th>
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">SUBSCRIBER</th>
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">RATING</th>
+                            <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">MESSAGE</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.recentFeedback.map((fb) => {
+                            const ratingColor =
+                              fb.rating === "good" ? "text-emerald-400" :
+                              fb.rating === "bad"  ? "text-red-400"     : "text-slate-400";
+                            const ratingEmoji =
+                              fb.rating === "good" ? "👍" :
+                              fb.rating === "bad"  ? "👎" :
+                              fb.rating === "ok"   ? "😐" : "—";
+                            const subName = data.subNameMap.get(fb.subscriber_id) ?? fb.subscriber_id.slice(0, 10) + "…";
+                            return (
+                              <tr key={fb.id} className="border-t border-[var(--border)] hover:bg-white/[0.02] transition-colors">
+                                <td className="px-4 py-2.5 text-[var(--muted-foreground)] whitespace-nowrap">
+                                  {fmtAge(fb.created_at)}
+                                </td>
+                                <td className="px-4 py-2.5 text-[var(--slate-300)] max-w-[120px] truncate">
+                                  {subName}
+                                </td>
+                                <td className={`px-4 py-2.5 whitespace-nowrap font-medium ${ratingColor}`}>
+                                  {ratingEmoji} {fb.rating ?? "—"}
+                                </td>
+                                <td className="px-4 py-2.5 text-[var(--muted-foreground)] max-w-xs truncate">
+                                  {fb.message ? fb.message.slice(0, 80) + (fb.message.length > 80 ? "…" : "") : <span className="italic opacity-50">no message</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>

@@ -20,11 +20,14 @@ import { renderBriefHtml, renderMonthlyBriefHtml } from "@/lib/brief-html";
  * 2. Opens the HTML in a headless browser.
  * 3. Prints to PDF and returns the buffer.
  */
-export async function renderBriefPdf(brief: BriefPayload): Promise<Buffer> {
+export async function renderBriefPdf(
+  brief: BriefPayload,
+  opts?: { briefJobId?: string; subscriberId?: string }
+): Promise<Buffer> {
   // Step 1: Generate HTML in-process — route monthly briefs to their own template
   const html = brief.briefType === "monthly"
-    ? renderMonthlyBriefHtml(brief)
-    : renderBriefHtml(brief, brief.depth);
+    ? renderMonthlyBriefHtml(brief, opts)
+    : renderBriefHtml(brief, brief.depth, opts);
 
   // Step 2: Launch headless browser
   // On the Beelink (Windows/local), use the Puppeteer-managed Chrome install.
