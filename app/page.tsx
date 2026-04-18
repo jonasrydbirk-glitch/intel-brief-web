@@ -42,27 +42,27 @@ function DocumentIcon() {
 const briefContents = [
   {
     icon: <ChartIcon />,
-    title: "Market Intelligence",
+    title: "Market Pulse",
     description:
-      "Freight rates, bunker prices, FFA curves, S&P transactions, newbuild orders, and offshore day rates — for the segments and trade routes you follow.",
+      "The rates, movements, and deals that matter to your market — at a glance, before you open your email.",
   },
   {
     icon: <ShieldIcon />,
-    title: "Regulatory & Safety",
+    title: "Regulation & Compliance",
     description:
-      "IMO deadlines, sanction list updates, EU ETS obligations, port state circulars, and safety alerts — tracked against your operational exposure.",
+      "Upcoming deadlines, new rules, and what they mean for your operations — so you're never caught off guard.",
   },
   {
     icon: <CompassIcon />,
-    title: "Competitor & Prospect Intel",
+    title: "Competitive Edge",
     description:
-      "Contract wins, fleet moves, and operator news from companies you're watching — plus lead signals from the segments you're targeting commercially.",
+      "What your competitors announced, who's moving into your market, and where the next opportunity is.",
   },
   {
     icon: <DocumentIcon />,
-    title: "Tender Intelligence",
+    title: "Opportunities",
     description:
-      "Maritime tender opportunities sourced from public procurement notices, filtered by vessel type, service category, and region.",
+      "Contract tenders and commercial leads surfaced early — before the rest of the market has seen them.",
   },
 ];
 
@@ -96,7 +96,7 @@ export default function LandingPage() {
       <section className="flex-1 flex items-center justify-center px-6 py-24 sm:py-36">
         <div className="max-w-3xl text-center">
           <div className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-xs text-muted-foreground mb-8">
-            Built for the maritime industry
+            Where shipping professionals start their day
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight mb-6">
             One brief.
@@ -106,16 +106,14 @@ export default function LandingPage() {
             Every morning.
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Market rates, regulatory changes, fleet activity, tender
-            opportunities, and sector intelligence — curated to your role,
-            sourced from 21 trade publications, delivered before the market
-            opens.
+            The news that matters to your desk — sourced from the publications
+            you trust, tailored to your world, in your inbox before work starts.
           </p>
           <Link
             href="/onboard"
             className="inline-block rounded-lg bg-accent px-8 py-3.5 text-base font-semibold text-accent-foreground hover:brightness-110 transition"
           >
-            See a sample brief tailored to your focus →
+            See a sample brief →
           </Link>
         </div>
       </section>
@@ -124,11 +122,10 @@ export default function LandingPage() {
       <section className="px-6 py-20 sm:py-28">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">
-            What arrives in your inbox
+            Intelligence that fits your role
           </h2>
           <p className="text-muted-foreground text-center max-w-xl mx-auto mb-14">
-            Every brief draws from 21 authoritative maritime publications. You
-            choose the modules; we filter the signal.
+            Tailored to your markets, your focus areas, and the depth you prefer.
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {briefContents.map((item) => (
@@ -151,11 +148,10 @@ export default function LandingPage() {
       <section className="px-6 py-20 sm:py-28 bg-card/50">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">
-            From this morning&rsquo;s briefs
+            See what yours looks like
           </h2>
           <p className="text-muted-foreground text-center max-w-xl mx-auto mb-14">
-            Every brief is specific — built to your role, your markets, and
-            what you need to know before the workday starts.
+            Enter your focus area. Get a sample brief built around it — instantly.
           </p>
           <div className="grid md:grid-cols-2 gap-8">
             {/* IMO Regulation Update Card */}
@@ -259,7 +255,7 @@ export default function LandingPage() {
               href="/onboard"
               className="inline-block rounded-lg bg-accent px-8 py-3.5 text-base font-semibold text-accent-foreground hover:brightness-110 transition"
             >
-              Build your own sample brief →
+              Start your mornings with clarity →
             </Link>
           </div>
         </div>
