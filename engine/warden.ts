@@ -78,7 +78,8 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const INGESTION_INTERVAL_MS  = 20 * 60 * 1_000; // 20 minutes — RSS + sitemap polling
 const EXTRACTION_INTERVAL_MS =      30 * 1_000; // 30 seconds — Jina article text extraction (was 60s)
 const EMBEDDING_INTERVAL_MS  =  2 * 60 * 1_000; //  2 minutes — OpenAI vector embeddings
-const HEARTBEAT_INTERVAL_MS  =  5 * 60 * 1_000; //  5 minutes — Supabase liveness heartbeat
+const HEARTBEAT_INTERVAL_MS      =  5 * 60 * 1_000; //  5 minutes — Supabase liveness heartbeat
+const STALE_JOB_RECOVERY_MS      = 15 * 60 * 1_000; // 15 minutes — reset jobs stuck in processing
 
 // ---------------------------------------------------------------------------
 // Self-restart HTTP endpoint
@@ -98,7 +99,7 @@ const HEARTBEAT_INTERVAL_MS  =  5 * 60 * 1_000; //  5 minutes — Supabase liven
 const RESTART_PORT   = parseInt(process.env.WARDEN_RESTART_PORT   ?? "9099", 10);
 const RESTART_SECRET = process.env.WARDEN_RESTART_SECRET ?? "";
 
-const LOG_PATH = path.join(__dirname, "warden.log");
+const LOG_PATH = process.env.WARDEN_LOG_PATH ?? path.join(__dirname, "warden.log");
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -1301,6 +1302,33 @@ async function scan(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Stale job recovery
+// ---------------------------------------------------------------------------
+
+/**
+ * Reset brief_jobs rows that have been stuck in "processing" for >30 minutes.
+ * This handles crashes, OOM kills, or pm2 restarts that interrupted a job
+ * mid-flight. Without this, a crashed job is permanently orphaned.
+ */
+async function recoverStaleJobs(): Promise<void> {
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1_000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("brief_jobs")
+    .update({ status: "pending" })
+    .eq("status", "processing")
+    .lt("updated_at", thirtyMinAgo)
+    .select("id");
+
+  if (error) {
+    log("WARN", `[StaleJobRecovery] Query failed: ${error.message}`);
+    return;
+  }
+  if (data && data.length > 0) {
+    log("INFO", `[StaleJobRecovery] Reset ${data.length} stale job(s) back to pending: ${data.map((r: { id: string }) => r.id).join(", ")}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Heartbeat — Supabase liveness write
 // ---------------------------------------------------------------------------
 
@@ -1436,12 +1464,13 @@ async function main(): Promise<void> {
       `heartbeat every ${HEARTBEAT_INTERVAL_MS / 60_000}m.`
   );
 
-  let lastScanTime      = Date.now(); // Start at now so scan() waits — no immediate subscriber blast on boot
-  let lastIngestionRun  = 0;          // Start at 0 so ingestion fires on the first loop tick
-  let lastExtractionRun = 0;          // Start at 0 so extraction fires on the first loop tick
-  let lastEmbeddingRun  = 0;          // Start at 0 so embedding fires on the first loop tick
-  let lastDeliveryCheck = 0;          // Start at 0 so delivery loop fires on the first tick
-  let lastHeartbeatRun  = Date.now(); // Start at now — startup beat already written above
+  let lastScanTime        = Date.now(); // Start at now so scan() waits — no immediate subscriber blast on boot
+  let lastIngestionRun    = 0;          // Start at 0 so ingestion fires on the first loop tick
+  let lastExtractionRun   = 0;          // Start at 0 so extraction fires on the first loop tick
+  let lastEmbeddingRun    = 0;          // Start at 0 so embedding fires on the first loop tick
+  let lastDeliveryCheck   = 0;          // Start at 0 so delivery loop fires on the first tick
+  let lastHeartbeatRun    = Date.now(); // Start at now — startup beat already written above
+  let lastStaleJobCheck   = 0;          // Start at 0 so recovery fires on the first loop tick
 
   // Track cycle timestamps for heartbeat metadata
   let lastIngestionAt:  string | undefined;
@@ -1532,14 +1561,30 @@ async function main(): Promise<void> {
       }
     }
 
+    // Stale job recovery — reset processing jobs older than 30 min every 15 min
+    if (now - lastStaleJobCheck >= STALE_JOB_RECOVERY_MS) {
+      lastStaleJobCheck = Date.now();
+      try {
+        await recoverStaleJobs();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("WARN", `[StaleJobRecovery] Unexpected error: ${msg}`);
+      }
+    }
+
     // Heartbeat — upsert liveness row every 5 minutes
     if (now - lastHeartbeatRun >= HEARTBEAT_INTERVAL_MS) {
       lastHeartbeatRun = Date.now();
-      await writeHeartbeat({
-        ...(lastIngestionAt  ? { last_ingestion_at:  lastIngestionAt  } : {}),
-        ...(lastExtractionAt ? { last_extraction_at: lastExtractionAt } : {}),
-        ...(lastEmbeddingAt  ? { last_embedding_at:  lastEmbeddingAt  } : {}),
-      });
+      try {
+        await writeHeartbeat({
+          ...(lastIngestionAt  ? { last_ingestion_at:  lastIngestionAt  } : {}),
+          ...(lastExtractionAt ? { last_extraction_at: lastExtractionAt } : {}),
+          ...(lastEmbeddingAt  ? { last_embedding_at:  lastEmbeddingAt  } : {}),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("WARN", `Heartbeat failed (non-fatal): ${msg}`);
+      }
     }
 
     console.log(`[Warden] Loop tick complete — sleeping ${JOB_POLL_INTERVAL_MS / 1000}s...`);
