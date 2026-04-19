@@ -15,7 +15,8 @@ import type { SearchHit } from "./types";
 const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 const DEFAULT_MAX_RESULTS = 5;
 const DEFAULT_TIMEOUT_MS = 15_000;
-const RETRY_DELAY_MS = 2_000;
+// Retry backoff: 2s → 8s → 32s (4x multiplier, capped at 32s)
+const RETRY_DELAYS_MS = [2_000, 8_000, 32_000];
 
 // ---------------------------------------------------------------------------
 // API response shape
@@ -90,29 +91,50 @@ export async function tavilySearch(
     });
 
   // ---------------------------------------------------------------------------
-  // Execute with one retry on transient failures (5xx, 429, network error)
+  // Execute with up to 2 retries using exponential backoff (2s → 8s → 32s).
+  // Respects Retry-After header on 429 responses.
   // ---------------------------------------------------------------------------
-  let resp: Response;
-  try {
-    resp = await doRequest();
+  let resp: Response | undefined;
+  let lastErr: unknown;
 
-    if (resp.status === 429 || resp.status >= 500) {
-      console.warn(`[Tavily] HTTP ${resp.status} — retrying in ${RETRY_DELAY_MS}ms`);
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      resp = await doRequest();
-    }
-  } catch (firstErr) {
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      resp = await doRequest();
-    } catch (retryErr) {
-      console.warn(
-        `[Tavily] Network error for "${query.slice(0, 60)}": ` +
-        `${retryErr instanceof Error ? retryErr.message : String(retryErr)}`
-      );
-      return [];
+      const r = await doRequest();
+
+      if (r.status === 429 || r.status >= 500) {
+        const retryAfterSec = r.headers.get("Retry-After");
+        const delay = retryAfterSec
+          ? parseInt(retryAfterSec, 10) * 1_000
+          : (RETRY_DELAYS_MS[attempt] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]);
+
+        if (attempt < RETRY_DELAYS_MS.length) {
+          console.warn(`[Tavily] HTTP ${r.status} — retrying in ${delay}ms (attempt ${attempt + 1})`);
+          await new Promise((res) => setTimeout(res, delay));
+          continue;
+        }
+        // Exhausted retries — use this response as final
+        resp = r;
+        break;
+      }
+
+      resp = r;
+      break;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        const delay = RETRY_DELAYS_MS[attempt];
+        console.warn(`[Tavily] Network error (attempt ${attempt + 1}) — retrying in ${delay}ms`);
+        await new Promise((res) => setTimeout(res, delay));
+      }
     }
-    void firstErr; // suppressed — retry succeeded
+  }
+
+  if (!resp) {
+    console.warn(
+      `[Tavily] All retries exhausted for "${query.slice(0, 60)}": ` +
+      `${lastErr instanceof Error ? lastErr.message : String(lastErr)}`
+    );
+    return [];
   }
 
   if (!resp.ok) {

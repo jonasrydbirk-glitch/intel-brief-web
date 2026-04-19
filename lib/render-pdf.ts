@@ -34,7 +34,7 @@ export async function renderBriefPdf(
   // On Vercel (serverless), fall back to @sparticuz/chromium.
   const isLocal = !process.env.AWS_LAMBDA_FUNCTION_NAME;
   const executablePath = isLocal
-    ? "C:/Users/Atlas/.cache/puppeteer/chrome/win64-146.0.7680.153/chrome-win64/chrome.exe"
+    ? (process.env.PUPPETEER_EXECUTABLE_PATH ?? undefined)
     : await chromium.executablePath();
 
   const browser = await puppeteer.launch({

@@ -19,6 +19,23 @@ async function verifySessionCookie(
   }
 }
 
+function verifyAdminCookie(request: NextRequest): boolean {
+  const token = request.cookies.get("admin_session")?.value;
+  const secret = process.env.ADMIN_SESSION_SECRET ?? "";
+  if (!token || !secret) return false;
+  // Use length-constant comparison to prevent timing attacks
+  const bufToken  = Buffer.from(token);
+  const bufSecret = Buffer.from(secret);
+  if (bufToken.length !== bufSecret.length) return false;
+  // timingSafeEqual is available in Node.js but not in the Edge runtime.
+  // We use a manual XOR instead so this works in both runtimes.
+  let diff = 0;
+  for (let i = 0; i < bufToken.length; i++) {
+    diff |= bufToken[i] ^ bufSecret[i];
+  }
+  return diff === 0;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -32,8 +49,7 @@ export async function proxy(request: NextRequest) {
 
   // Protect /admin and /api/admin routes with admin_session cookie
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    const adminToken = request.cookies.get("admin_session")?.value;
-    if (adminToken !== "authenticated") {
+    if (!verifyAdminCookie(request)) {
       if (pathname.startsWith("/api/admin")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }

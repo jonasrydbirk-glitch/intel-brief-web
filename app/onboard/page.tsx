@@ -6,6 +6,7 @@ import Link from "next/link";
 import { HelpTooltip } from "../components/help-tooltip";
 import { PasswordInput } from "../components/password-input";
 import { DepthPreview } from "../components/depth-preview";
+import { DELIVERY_TIMES } from "../../lib/constants";
 
 /* ────── types ────── */
 
@@ -990,7 +991,7 @@ function Step4({
       <div>
         <label className="block text-sm font-medium mb-3">Delivery Time</label>
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+          {DELIVERY_TIMES.map(
             (t) => (
               <OptionCard
                 key={t}
@@ -1099,7 +1100,7 @@ function Step5({
               onChange={(e) => update({ monthlyReviewTime: e.target.value })}
               className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-lg px-4 py-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] transition-colors"
             >
-              {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map((t) => (
+              {DELIVERY_TIMES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>

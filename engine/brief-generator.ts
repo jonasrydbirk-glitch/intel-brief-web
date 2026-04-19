@@ -351,7 +351,7 @@ Return a JSON object with a single key "queries" containing an array of query st
 
   // safeParseJSON now handles fence-stripping, brace extraction, and empty input
   const parsed = safeParseJSON<{ queries?: string[] }>(content);
-  if (parsed.queries && parsed.queries.length > 0) {
+  if (parsed?.queries && parsed.queries.length > 0) {
     return { queries: parsed.queries, rawFindings: [], searchHits: [] };
   }
 
@@ -750,15 +750,14 @@ Produce the intelligence brief as a JSON object with this exact shape:
   }
 
   // safeParseJSON handles fence-stripping, brace extraction, empty input,
-  // and falls back to {} instead of throwing
+  // and returns null on unrecoverable failure.
   const parsed = safeParseJSON<BriefPayload>(raw);
 
   // Validate that the Architect actually produced usable content.
-  // Without this check, a parse failure silently passes {} to the Scribe,
-  // which produces a PDF with styled containers but no content.
-  if (!parsed.subscriberId && !parsed.subscriberName && (!parsed.sections || parsed.sections.length === 0)) {
+  // Without this check, a parse failure would silently produce an empty brief.
+  if (!parsed || (!parsed.subscriberId && !parsed.subscriberName && (!parsed.sections || parsed.sections.length === 0))) {
     const preview = raw.substring(0, 200);
-    dumpRaw("Architect PARSE FAIL", `Parsed to empty object. Raw preview: ${preview}`);
+    dumpRaw("Architect PARSE FAIL", `Parsed to empty/null. Raw preview: ${preview}`);
     throw new Error(
       `Architect returned data but parsing produced an empty brief (finish_reason=${finishReason ?? "unknown"}). ` +
       `Raw response starts with: ${raw.substring(0, 100)}`
@@ -1179,7 +1178,7 @@ Produce 3-6 items in the Monthly Strategic Review section — one per major them
 
   const parsed = safeParseJSON<BriefPayload>(raw);
 
-  if (!parsed.subscriberId && (!parsed.sections || parsed.sections.length === 0)) {
+  if (!parsed || (!parsed.subscriberId && (!parsed.sections || parsed.sections.length === 0))) {
     throw new Error(`Monthly Architect returned empty brief. Raw: ${raw.substring(0, 200)}`);
   }
 

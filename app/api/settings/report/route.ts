@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+import { verifySession } from "@/app/lib/session";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const email = searchParams.get("email");
-  if (!email) {
-    return NextResponse.json({ error: "email query param required" }, { status: 400 });
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  process.env.SUPABASE_SERVICE_KEY ?? "",
+  { auth: { persistSession: false } }
+);
+
+export async function GET() {
+  const session = await verifySession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("subscribers")
     .select("*")
-    .eq("email", email)
+    .eq("id", session.userId)
     .single();
 
   if (error || !data) {
@@ -22,14 +28,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const session = await verifySession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
   const id = body.id;
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
+  if (id !== session.userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // Fetch current profile
-  const { data: profile, error: fetchError } = await supabase
+  const { data: profile, error: fetchError } = await supabaseAdmin
     .from("subscribers")
     .select("*")
     .eq("id", id)
@@ -136,7 +151,7 @@ export async function POST(request: Request) {
     updates.modules = modules;
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from("subscribers")
     .update(updates)
     .eq("id", id);

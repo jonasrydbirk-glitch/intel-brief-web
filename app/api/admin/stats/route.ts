@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  process.env.SUPABASE_SERVICE_KEY ?? "",
+  { auth: { persistSession: false } }
+);
 
 export async function GET() {
-  const { data: subscribers, error } = await supabase
+  const { data: subscribers, error } = await supabaseAdmin
     .from("subscribers")
-    .select("*")
+    .select("id, email, fullName, companyName, role, frequency, depth, timezone, deliveryTime, onboarding_complete, created, modules")
     .order("created", { ascending: false });
 
   if (error) {

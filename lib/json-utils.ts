@@ -128,17 +128,20 @@ export function sanitiseItem(item: IntelItem): IntelItem {
 /**
  * Parse a JSON string, attempting repair if the first parse fails.
  *
+ * Returns null on any unrecoverable failure — callers must handle null
+ * explicitly rather than receiving a silent empty object.
+ *
  * Defences:
- *  1. Empty / null / undefined / whitespace-only → returns {} as T
+ *  1. Empty / null / undefined / whitespace-only → returns null
  *  2. Markdown fence stripping (```json ... ```)
  *  3. Brace extraction (find outermost { … })
  *  4. repairJSON() for trailing-comma / truncation / control-char issues
- *  5. Final fallback → returns {} as T instead of throwing
+ *  5. Final fallback → returns null instead of throwing
  */
-export function safeParseJSON<T = unknown>(raw: string): T {
+export function safeParseJSON<T = unknown>(raw: string): T | null {
   // Guard: empty, null, undefined, or whitespace-only input
   if (!raw || !raw.trim()) {
-    return {} as T;
+    return null;
   }
 
   let s = raw.trim();
@@ -170,7 +173,7 @@ export function safeParseJSON<T = unknown>(raw: string): T {
 
   // If we still have nothing parseable, bail early
   if (!s || s === "{" || s === "}") {
-    return {} as T;
+    return null;
   }
 
   // Attempt 1: strict parse
@@ -182,8 +185,7 @@ export function safeParseJSON<T = unknown>(raw: string): T {
       const repaired = repairJSON(s);
       return JSON.parse(repaired) as T;
     } catch {
-      // Final fallback: return empty object rather than crashing the pipeline
-      return {} as T;
+      return null;
     }
   }
 }
