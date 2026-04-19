@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { nanoid } from "nanoid";
 import { verifySession } from "@/app/lib/session";
 import { sendEmail } from "@/lib/delivery";
 
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid rating" }, { status: 400 });
     }
 
-    const id = nanoid();
+    const id = crypto.randomUUID();
     const { error: dbError } = await supabaseAdmin.from("feedback").insert({
       id,
       subscriber_id: subscriberId,
@@ -97,7 +96,7 @@ export async function POST(req: Request) {
   }
 
   const { error: dbError } = await supabaseAdmin.from("feedback").insert({
-    id:            nanoid(),
+    id:            crypto.randomUUID(),
     subscriber_id: session.userId ?? "",
     message,
   });
