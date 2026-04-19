@@ -477,55 +477,76 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     day: "numeric", month: "long", year: "numeric",
   });
 
-  // ── Section rendering — always full-depth for monthly ────────────────
+  // ── Top stories — scannable list, no cards ───────────────────────────
   const sectionsHtml = (brief.sections ?? []).map((s) => {
     if (!s.items?.length) return "";
     const items = s.items.map((item) => {
-      const summaryHtml     = item.summary?.trim()    ? `<div style="font-size:13px;color:${C.body};line-height:1.6;margin-bottom:8px;">${esc(item.summary)}</div>` : "";
-      const commentaryHtml  = item.commentary?.trim() ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;padding:7px 10px;background:#eff6ff;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Analyst take:</strong> ${esc(item.commentary)}</div>` : "";
-      const relevanceHtml   = item.relevance?.trim()  ? `<div style="font-size:11px;color:${C.muted};margin-top:4px;"><strong>Why it matters:</strong> ${esc(item.relevance)}</div>` : "";
-      return `<div style="margin-bottom:18px;padding:13px 14px;background:${C.bg};border-radius:5px;border-left:2px solid ${C.teal};">
-        <div style="font-size:14px;font-weight:600;color:${C.navy};line-height:1.35;margin-bottom:5px;">${esc(item.headline)}</div>
-        ${summaryHtml}${commentaryHtml}${relevanceHtml}
+      const sourceLink = item.source?.startsWith("http")
+        ? `&ensp;<a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:${C.teal};text-decoration:underline;white-space:nowrap;">source ↗</a>`
+        : "";
+      return `<div style="padding:7px 0 7px 12px;border-left:2px solid ${C.teal};margin-bottom:6px;line-height:1.45;">
+        <span style="font-size:13px;font-weight:700;color:${C.navy};">${esc(item.headline)}.</span>${item.summary?.trim() ? `&ensp;<span style="font-size:13px;color:${C.body};">${esc(item.summary)}</span>` : ""}${sourceLink}
       </div>`;
     }).join("");
-    return `<div style="margin-bottom:28px;">
+    return `<div style="margin-bottom:24px;">
       ${sectionHeading(s.title, C.teal)}
       ${items}
     </div>`;
   }).join("");
 
-  // ── Lead rollup ───────────────────────────────────────────────────────
+  // ── Lead rollup — compact table ───────────────────────────────────────
   const leadRollupHtml = brief.prospectSection?.length ? (() => {
-    const items = brief.prospectSection!.map((item) => {
-      const summaryHtml    = item.summary?.trim()    ? `<div style="font-size:13px;color:${C.body};line-height:1.55;margin-bottom:6px;">${esc(item.summary)}</div>` : "";
-      const commentaryHtml = item.commentary?.trim() ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;padding:7px 10px;background:#eff6ff;border-radius:4px;margin-bottom:6px;font-style:italic;"><strong style="font-style:normal;">Fit assessment:</strong> ${esc(item.commentary)}</div>` : "";
-      const relevanceHtml  = item.relevance?.trim()  ? `<div style="font-size:11px;color:${C.muted};margin-top:3px;"><strong>Fit:</strong> ${esc(item.relevance)}</div>` : "";
-      return `<div style="margin-bottom:14px;padding:12px 14px;background:${C.bg};border-radius:5px;border-left:2px solid #16a34a;">
-        <div style="font-size:14px;font-weight:600;color:${C.navy};line-height:1.35;margin-bottom:4px;">${esc(item.headline)}</div>
-        ${summaryHtml}${commentaryHtml}${relevanceHtml}
-      </div>`;
+    const rows = brief.prospectSection!.map((item) => {
+      const sourceCell = item.source?.startsWith("http")
+        ? `<a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:${C.teal};text-decoration:underline;">link ↗</a>`
+        : `<span style="font-size:11px;color:${C.faint};">${esc(item.source || "—")}</span>`;
+      return `<tr>
+        <td style="padding:7px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};">${esc(item.headline)}</td>
+        <td style="padding:7px 8px;font-size:12px;color:${C.muted};border-bottom:1px solid ${C.border};white-space:nowrap;">${esc(item.commentary || "—")}</td>
+        <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
+        <td style="padding:7px 8px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
+      </tr>`;
     }).join("");
     return `<div style="margin-bottom:28px;">
-      ${sectionHeading("30-Day Lead & Prospect Rollup", "#16a34a")}
-      ${items}
+      ${sectionHeading("30-Day Lead Rollup", "#16a34a")}
+      <table width="100%" style="border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f1f5f9;border-bottom:2px solid ${C.teal};">
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Company</th>
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Date</th>
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Fit Assessment</th>
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Source</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>`;
   })() : "";
 
-  // ── Tender rollup ─────────────────────────────────────────────────────
+  // ── Tender rollup — compact table ────────────────────────────────────
   const tenderRollupHtml = brief.tenderSection?.length ? (() => {
-    const items = brief.tenderSection!.map((item) => {
-      const summaryHtml    = item.summary?.trim()    ? `<div style="font-size:13px;color:${C.body};line-height:1.55;margin-bottom:6px;">${esc(item.summary)}</div>` : "";
-      const commentaryHtml = item.commentary?.trim() ? `<div style="font-size:12px;color:#92400e;line-height:1.5;padding:7px 10px;background:#fef3c7;border-radius:4px;margin-bottom:6px;font-style:italic;"><strong style="font-style:normal;">Opportunity assessment:</strong> ${esc(item.commentary)}</div>` : "";
-      const relevanceHtml  = item.relevance?.trim()  ? `<div style="font-size:11px;color:${C.muted};margin-top:3px;">${esc(item.relevance)}</div>` : "";
-      return `<div style="margin-bottom:14px;padding:12px 14px;background:${C.bg};border-radius:5px;border-left:2px solid ${C.amber};">
-        <div style="font-size:14px;font-weight:600;color:${C.navy};line-height:1.35;margin-bottom:4px;">${esc(item.headline)}</div>
-        ${summaryHtml}${commentaryHtml}${relevanceHtml}
-      </div>`;
+    const rows = brief.tenderSection!.map((item) => {
+      const sourceCell = item.source?.startsWith("http")
+        ? `<a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:${C.teal};text-decoration:underline;">link ↗</a>`
+        : `<span style="font-size:11px;color:${C.faint};">${esc(item.source || "—")}</span>`;
+      return `<tr>
+        <td style="padding:7px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};">${esc(item.headline)}</td>
+        <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
+        <td style="padding:7px 8px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
+      </tr>`;
     }).join("");
     return `<div style="margin-bottom:28px;">
       ${sectionHeading("30-Day Tender Rollup", C.amber)}
-      ${items}
+      <table width="100%" style="border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f1f5f9;border-bottom:2px solid ${C.amber};">
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Tender / Contract</th>
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Region &middot; Deadline &middot; Details</th>
+            <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Source</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>`;
   })() : "";
 
@@ -589,7 +610,7 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     <div style="display:flex;justify-content:space-between;align-items:flex-end;">
       <div>
         <div style="font-size:24px;font-weight:800;color:${C.navy};letter-spacing:0.04em;line-height:1;">IQsea</div>
-        <div style="font-size:10px;color:${C.teal};text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;font-weight:700;">Monthly Strategic Review</div>
+        <div style="font-size:10px;color:${C.teal};text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;font-weight:700;">Monthly Catch-Up</div>
       </div>
       <div style="text-align:right;">
         <div style="font-size:12px;font-weight:600;color:${C.navy};">${esc(periodLabel)}</div>
@@ -605,10 +626,7 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     <div><strong style="color:${C.navy};font-weight:600;">Period:</strong> ${esc(periodLabel)}</div>
   </div>
 
-  <!-- ── Monthly Market Trends ─────────────────────────────────────── -->
-  ${marketHtml}
-
-  <!-- ── Strategic Review Sections ────────────────────────────────── -->
+  <!-- ── Top Stories ───────────────────────────────────────────────── -->
   ${sectionsHtml}
 
   <!-- ── Lead Rollup ───────────────────────────────────────────────── -->
@@ -617,12 +635,8 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
   <!-- ── Tender Rollup ─────────────────────────────────────────────── -->
   ${tenderRollupHtml}
 
-  <!-- ── Analyst Note ──────────────────────────────────────────────── -->
-  ${brief.analystNote?.trim() ? `
-  <div style="margin-top:24px;padding:14px 16px;background:#fefce8;border-left:3px solid #eab308;border-radius:5px;">
-    <div style="font-size:10px;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">IQsea Strategic Perspective</div>
-    <div style="font-size:13px;color:#422006;line-height:1.55;">${esc(brief.analystNote)}</div>
-  </div>` : ""}
+  <!-- ── Monthly Market Trends ─────────────────────────────────────── -->
+  ${marketHtml}
 
   <!-- ── Rating buttons ───────────────────────────────────────────── -->
   ${ratingButtons(opts?.briefJobId, opts?.subscriberId, "How was this month&apos;s review?")}

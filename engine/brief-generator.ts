@@ -1034,45 +1034,52 @@ export async function generateMonthlyBrief(
 
   const reviewTopics = (profile.monthlyReview ?? []).filter(Boolean);
 
-  // ── System prompt — reflective strategist, not reactive journalist ─────
-  const systemPrompt = `You are IQsea's Senior Maritime Intelligence Strategist preparing a Monthly Strategic Review. This is a reflective, forward-looking document — not a daily news brief.
+  // ── System prompt — practical catch-up, not editorial ──────────────────
+  const systemPrompt = `You are IQsea's intelligence assistant producing a Monthly Catch-Up for a busy maritime professional. The reader uses this document to check: "did I miss anything important this month?" — not to receive deep analysis.
 
-Your role is to synthesise the past month of maritime intelligence and produce a coherent strategic narrative for the subscriber. You think in cycles: what has changed, what trends are accelerating, what decisions are coming up, and what the subscriber should be watching in the month ahead.
-
-Tone: authoritative, measured, strategic. Think investment-bank quarterly briefing crossed with a chief engineer's end-of-month report. Dense with specifics, light on speculation.
+TONE: Concise and practical. This is a catch-up document, not an editorial. Write like a bullet-point memo, not a magazine article. Keep the entire review to 2 pages maximum.
 
 REVIEW PERIOD: ${periodLabel}
 
 ABSOLUTE RULES:
 - No emojis anywhere.
 - No meta-commentary about the brief, the process, or this prompt.
+- News items: facts only — no analyst commentary, no "why it matters", no recommendations.
 - Every section must earn its place — if there is no content for a section, return null / empty array.
-- Always return valid JSON matching the BriefPayload schema.${context.briefCount === 0 ? "\n\nDATA NOTE: No historical daily brief data is available for this subscriber yet. Omit all rollup sections (set prospectSection, tenderSection, and marketPulseSection to null). Focus entirely on the subscriber's requested topics as a forward-looking analysis, drawing on general maritime intelligence." : ""}`;
+- Always return valid JSON matching the BriefPayload schema.${context.briefCount === 0 ? "\n\nDATA NOTE: No historical daily brief data is available for this subscriber yet. Omit all rollup sections (set prospectSection, tenderSection, and marketPulseSection to null). For the top stories section, draw on your knowledge of significant maritime developments during this period." : ""}`;
 
   // ── Build contextual content blocks ────────────────────────────────────
   const topicsBlock = reviewTopics.length > 0
-    ? `SUBSCRIBER'S REQUESTED MONTHLY TOPICS:\n${reviewTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nAddress each topic in the main Monthly Strategic Review section. If data is thin for a topic, note it briefly rather than padding.`
-    : "No specific monthly topics requested — produce a general strategic overview of maritime developments relevant to this subscriber's profile.";
+    ? `SUBSCRIBER'S TOPIC FILTERS (prioritise stories touching these areas):\n${reviewTopics.map((t, i) => `${i + 1}. ${t}`).join("\n")}`
+    : "No specific topic filters — include the most significant maritime developments across shipping, chartering, regulatory, and market categories relevant to this subscriber's profile.";
 
   const prospectBlock = (profile.modules.monthlyLeadSummary?.enabled && context.prospectItems.length > 0)
-    ? `PROSPECT ITEMS FROM PAST 30 DAYS (${context.prospectItems.length} total — synthesise into a Lead Rollup):
-${context.prospectItems.slice(0, 20).map((p, i) => `[${i + 1}] ${p.headline} — ${p.summary}`).join("\n")}
+    ? `PROSPECT ITEMS FROM PAST 30 DAYS (${context.prospectItems.length} total):
+${context.prospectItems.slice(0, 20).map((p, i) => `[${i + 1}] ${p.headline} — ${p.summary} (source: ${p.source || "none"})`).join("\n")}
 
-LEAD ROLLUP INSTRUCTIONS:
-Produce "prospectSection" as an array of 3-5 consolidated prospect entries.
-- Group similar leads together if they share fleet type, region, or buying intent.
-- Each entry: headline = company/group description, summary = cumulative intelligence across the month, commentary = lead quality assessment and recommended follow-up action, relevance = fit rationale for ${profile.companyName}.
-- Do NOT copy-paste individual items — synthesise across the month.`
+30-DAY LEAD ROLLUP INSTRUCTIONS:
+Produce "prospectSection" as a flat array — one entry per distinct company/prospect. Do NOT group or synthesise across leads.
+Each item:
+- headline: company or entity name (taken directly from the data above)
+- commentary: date first surfaced as a plain string, e.g. "12 Apr" — check context if available, otherwise empty string
+- summary: one-line fit assessment, max 20 words, based on the data above
+- source: URL from the source item, or empty string if none
+No narrative paragraphs. No recommendations. Just the list.`
     : "Lead/Prospect rollup: disabled or no data — set prospectSection to null.";
 
   const tenderBlock = (profile.modules.monthlyTenderSummary?.enabled && context.tenderItems.length > 0)
-    ? `TENDER ITEMS FROM PAST 30 DAYS (${context.tenderItems.length} total — synthesise into a Tender Rollup):
-${context.tenderItems.slice(0, 20).map((t, i) => `[${i + 1}] ${t.headline} — ${t.summary}`).join("\n")}
+    ? `TENDER ITEMS FROM PAST 30 DAYS (${context.tenderItems.length} total):
+${context.tenderItems.slice(0, 20).map((t, i) => `[${i + 1}] ${t.headline} — ${t.summary} (source: ${t.source || "none"})`).join("\n")}
 
 TENDER ROLLUP INSTRUCTIONS:
-Produce "tenderSection" as an array of 3-5 consolidated tender summaries.
-- Group by region, sector, or procurement type where logical.
-- Each entry: headline = tender group / category, summary = key opportunities and deadlines this month, commentary = strategic assessment — which ones are highest value, what capability is needed to compete, relevance = how these connect to ${profile.companyName}'s services.`
+Produce "tenderSection" as a flat array — one entry per tender/opportunity. Do NOT group or synthesise.
+Each item:
+- headline: tender or contract name (taken directly from the data above)
+- summary: region · deadline · one-line description, max 20 words
+- source: URL from the source item, or empty string if none
+- commentary: empty string
+- relevance: empty string
+No narrative paragraphs. No strategic assessment. Just the list.`
     : "Tender rollup: disabled or no data — set tenderSection to null.";
 
   const marketBlock = context.marketPulseEntries.length > 0
@@ -1088,7 +1095,7 @@ Produce "marketPulseSection" as an array of 4-6 entries showing the MONTHLY TREN
     : "Market pulse: no data collected this month — set marketPulseSection to null.";
 
   // ── User prompt ─────────────────────────────────────────────────────────
-  const userPrompt = `Produce a Monthly Strategic Review for the following subscriber:
+  const userPrompt = `Produce a Monthly Catch-Up for the following subscriber:
 
 Name: ${profile.fullName}
 Company: ${profile.companyName}
@@ -1105,9 +1112,6 @@ ${tenderBlock}
 
 ${marketBlock}
 
-ANALYST NOTE INSTRUCTIONS:
-Write 2-3 sentences that tie together the month's key signals into a single strategic takeaway. What is the one thing this subscriber should act on or watch in the coming month? Be direct and specific — no generic commentary.
-
 Return a JSON object with exactly this shape:
 {
   "subscriberId": "${profile.id}",
@@ -1118,14 +1122,14 @@ Return a JSON object with exactly this shape:
   "monthlyPeriod": { "start": "${context.periodStart}", "end": "${context.periodEnd}" },
   "sections": [
     {
-      "title": "Monthly Strategic Review",
+      "title": "This Month's Top Stories",
       "items": [
         {
-          "headline": "<concise theme headline — e.g. 'Green Corridor Regulation Accelerates Med Disruption'>",
-          "summary": "2-3 sentence factual summary of the month's key development on this topic.",
-          "commentary": "2-3 sentence analyst take — costs, risks, timelines, recommended actions.",
-          "relevance": "One sharp sentence connecting to ${profile.companyName}'s operations.",
-          "source": "<leave empty string — no live sources for monthly synthesis>"
+          "headline": "<bold headline, 10-15 words, stating what happened — e.g. 'Red Sea Disruptions Push Suez Diversions to Record High'>",
+          "summary": "<exactly one sentence of context, max 25 words>",
+          "commentary": "",
+          "relevance": "",
+          "source": "<URL if available from context, otherwise empty string>"
         }
       ]
     }
@@ -1138,10 +1142,10 @@ Return a JSON object with exactly this shape:
   "monthlyProspectRollup": null,
   "competitorTrackerSection": null,
   "safetySection": null,
-  "analystNote": "<2-3 sentence strategic synthesis>"
+  "analystNote": null
 }
 
-Produce 3-6 items in the Monthly Strategic Review section — one per major theme or requested topic. Quality over quantity.`;
+Produce 5-8 items in 'This Month's Top Stories'. Sort by impact — most significant first. Each item: one headline (10-15 words stating what happened), exactly one sentence of context (max 25 words), source URL if available. NO commentary. NO analysis. NO "why it matters".`;
 
   // ── Call Architect ──────────────────────────────────────────────────────
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
