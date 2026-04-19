@@ -7,7 +7,7 @@ module.exports = {
       interpreter: 'node',
       cwd: './',
       autorestart: true,
-      max_restarts: 10,
+      max_restarts: 50,
       restart_delay: 5000,
       windowsHide: true,
       env: {

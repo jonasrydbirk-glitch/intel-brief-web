@@ -632,6 +632,9 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     <span>IQsea Intel Engine &middot; Monthly Review &middot; Confidential</span>
     <span>${esc(periodLabel)}</span>
   </div>
+  <div style="margin-top:10px;text-align:center;font-size:10px;color:${C.faint};">
+    <a href="mailto:support@iqsea.io?subject=Unsubscribe" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>
+  </div>
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->
   <div class="no-print" style="text-align:center;margin-top:20px;">
@@ -770,6 +773,9 @@ export function renderBriefHtml(
   <div style="margin-top:36px;padding-top:14px;border-top:1px solid ${C.border};display:flex;justify-content:space-between;align-items:center;font-size:10px;color:${C.faint};">
     <span>IQsea Intel Engine &middot; Confidential</span>
     <span>${esc(date)}</span>
+  </div>
+  <div style="margin-top:10px;text-align:center;font-size:10px;color:${C.faint};">
+    <a href="mailto:support@iqsea.io?subject=Unsubscribe" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>
   </div>
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->

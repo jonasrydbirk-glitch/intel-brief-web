@@ -8,6 +8,7 @@ import { LogoutButton } from "../../components/logout-button";
 import { HelpTooltip } from "../../components/help-tooltip";
 import { PasswordInput } from "../../components/password-input";
 import { DepthPreview } from "../../components/depth-preview";
+import { DELIVERY_TIMES } from "../../../lib/constants";
 
 /* ────── types ────── */
 
@@ -1190,7 +1191,7 @@ export default function ReportSettingsPage() {
               onChange={(e) => update({ deliveryTime: e.target.value })}
               className={inputClass}
             >
-              {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+              {DELIVERY_TIMES.map(
                 (t) => (
                   <option key={t} value={t}>
                     {t}
@@ -1296,7 +1297,7 @@ export default function ReportSettingsPage() {
                   onChange={(e) => update({ monthlyReviewTime: e.target.value })}
                   className={inputClass}
                 >
-                  {["06:00", "07:00", "08:00", "09:00", "12:00", "13:00", "17:00", "18:00"].map(
+                  {DELIVERY_TIMES.map(
                     (t) => (
                       <option key={t} value={t}>
                         {t}
