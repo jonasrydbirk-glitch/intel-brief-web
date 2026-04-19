@@ -165,7 +165,7 @@ export default function AdminTestPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Sidebar — matches Mission Control */}
         <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:block">
           <nav className="space-y-0.5 px-2">
@@ -218,7 +218,7 @@ export default function AdminTestPage() {
         </aside>
 
         {/* Mobile nav */}
-        <div className="md:hidden border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
+        <div className="md:hidden shrink-0 w-full border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.key}
@@ -250,7 +250,7 @@ export default function AdminTestPage() {
         </div>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="max-w-5xl mx-auto">
             {/* Page title */}
             <div className="mb-6">
@@ -294,7 +294,8 @@ export default function AdminTestPage() {
             </div>
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
                 <thead>
                   <tr className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
                     <th className="text-left px-4 py-3">Name</th>
@@ -321,10 +322,10 @@ export default function AdminTestPage() {
                       <td className="px-4 py-3 text-right">
                         {dispatched.has(sub.id) ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] tracking-wide text-[var(--teal-400)] bg-white/[0.03] border border-white/[0.06]">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 opacity-70">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 opacity-70 shrink-0">
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
-                            Intel brief dispatch command accepted. Processing on Beelink…
+                            Dispatched
                           </span>
                         ) : (
                           <button
@@ -350,6 +351,7 @@ export default function AdminTestPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </section>

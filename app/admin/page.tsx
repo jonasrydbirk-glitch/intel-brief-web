@@ -242,13 +242,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* System Status Bar */}
-        <div className="flex items-center gap-4 mb-6 px-3 py-2 bg-[var(--navy-900)] border border-[var(--border)] rounded-lg text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 px-3 py-2 bg-[var(--navy-900)] border border-[var(--border)] rounded-lg text-xs font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
           <span className="flex items-center gap-1.5"><StatusDot status="online" /> SYSTEMS NOMINAL</span>
-          <span className="text-[var(--border)]">|</span>
+          <span className="hidden sm:inline text-[var(--border)]">|</span>
           <span>BRIEF ENGINE: STANDBY</span>
-          <span className="text-[var(--border)]">|</span>
+          <span className="hidden sm:inline text-[var(--border)]">|</span>
           <span>DATA FEEDS: {subscribers.length > 0 ? "ACTIVE" : "AWAITING"}</span>
-          <span className="ml-auto text-[var(--slate-400)]">{new Date().toISOString().replace("T", " ").slice(0, 19)} UTC</span>
+          <span className="sm:ml-auto text-[var(--slate-400)] w-full sm:w-auto">{new Date().toISOString().replace("T", " ").slice(0, 19)} UTC</span>
         </div>
 
         {/* Run System Test Card */}
@@ -462,30 +462,30 @@ export default function AdminDashboard() {
 
         <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg overflow-hidden">
           {/* User header */}
-          <div className="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--muted)] flex items-center justify-center text-sm font-bold text-[var(--teal-400)] font-[family-name:var(--font-geist-mono)]">
+          <div className="px-4 sm:px-5 py-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-[var(--muted)] flex items-center justify-center text-sm font-bold text-[var(--teal-400)] font-[family-name:var(--font-geist-mono)] shrink-0">
                 {(user.email || user.id).charAt(0).toUpperCase()}
               </div>
-              <div>
-                <div className="text-sm font-semibold">{user.email || "No email"}</div>
-                <div className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">{user.id}</div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold truncate">{user.email || "No email"}</div>
+                <div className="text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)] truncate">{user.id}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="px-2 py-1 text-[10px] rounded bg-emerald-500/20 text-emerald-400 font-[family-name:var(--font-geist-mono)] tracking-wider">
                 {user.tier.toUpperCase()}
               </span>
               <Link
                 href={`/profile/${user.id}`}
-                className="px-2 py-1 text-[10px] rounded border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--teal-500)]/40 transition-colors font-[family-name:var(--font-geist-mono)]"
+                className="px-2 py-1.5 text-[10px] rounded border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[var(--teal-500)]/40 transition-colors font-[family-name:var(--font-geist-mono)]"
               >
                 VIEW PROFILE
               </Link>
               <button
                 onClick={() => handleDeleteUser(user.id)}
                 disabled={deleting}
-                className="px-2 py-1 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 disabled:opacity-40 transition-colors font-[family-name:var(--font-geist-mono)]"
+                className="px-2 py-1.5 text-[10px] rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 disabled:opacity-40 transition-colors font-[family-name:var(--font-geist-mono)]"
               >
                 {deleting ? "DELETING..." : "DELETE USER"}
               </button>
@@ -609,7 +609,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:block">
           <nav className="space-y-0.5 px-2">
@@ -665,7 +665,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* Mobile nav */}
-        <div className="md:hidden border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
+        <div className="md:hidden shrink-0 w-full border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.key}
@@ -701,7 +701,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="max-w-5xl mx-auto">
             {/* Page title */}
             <div className="mb-6">

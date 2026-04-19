@@ -559,7 +559,7 @@ export default async function IntelHealthPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* ── Sidebar ──────────────────────────────────────────────────────── */}
         <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:flex md:flex-col">
           <nav className="space-y-0.5 px-2">
@@ -669,12 +669,34 @@ export default async function IntelHealthPage() {
           </div>
         </aside>
 
+        {/* ── Mobile nav ───────────────────────────────────────────────────── */}
+        <nav className="md:hidden shrink-0 w-full border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
+          <Link href="/admin" className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-xs text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Overview
+          </Link>
+          <Link href="/admin/test" className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-xs text-[var(--gold-400)] font-[family-name:var(--font-geist-mono)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18" />
+            </svg>
+            Test Center
+          </Link>
+          <Link href="/admin/intel-health" className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-xs bg-[var(--teal-500)]/10 text-[var(--teal-400)] font-semibold font-[family-name:var(--font-geist-mono)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            Intel Health
+          </Link>
+        </nav>
+
         {/* ── Main ─────────────────────────────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
           <div className="max-w-6xl mx-auto space-y-6">
 
             {/* Page title */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h1 className="text-lg font-bold font-[family-name:var(--font-geist-mono)] tracking-tight">
                   Intel Pipeline Health
@@ -710,19 +732,19 @@ export default async function IntelHealthPage() {
             {data && (
               <>
                 {/* ── Overall status banner ─────────────────────────────────── */}
-                <div className={`rounded-lg border px-5 py-4 flex items-center justify-between ${banner.bg} ${banner.border}`}>
-                  <div className="flex items-center gap-3">
-                    <span className="relative flex h-3 w-3">
+                <div className={`rounded-lg border px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 ${banner.bg} ${banner.border}`}>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="relative flex h-3 w-3 shrink-0">
                       {overall === "green" && (
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
                       )}
                       <span className={`relative inline-flex rounded-full h-3 w-3 ${STATUS_DOT[overall]}`} />
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <span className={`text-sm font-bold font-[family-name:var(--font-geist-mono)] tracking-wider ${banner.text}`}>
                         {banner.label}
                       </span>
-                      <span className={`ml-3 text-xs font-[family-name:var(--font-geist-mono)] opacity-80 ${banner.text}`}>
+                      <span className={`block sm:inline sm:ml-3 text-xs font-[family-name:var(--font-geist-mono)] opacity-80 ${banner.text}`}>
                         {overall === "green"
                           ? `All ${ALL_SOURCES.length} sources reporting · text ${data.textCov}% · embed ${data.embedCov}%`
                           : overall === "yellow"
@@ -731,14 +753,14 @@ export default async function IntelHealthPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
+                  <div className="text-left sm:text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)]">
                     <div>{greenCount} green · {yellowCount} yellow · {redCount} red · {unknownCount} unknown</div>
                     <div className="mt-0.5">{ALL_SOURCES.length} registered sources</div>
                   </div>
                 </div>
 
                 {/* ── Warden Heartbeat ─────────────────────────────────────── */}
-                <div className={`rounded-lg border px-5 py-4 flex items-center justify-between ${
+                <div className={`rounded-lg border px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 ${
                   data.wardenAlive
                     ? "bg-emerald-950/30 border-emerald-700/40"
                     : data.wardenLastBeat
@@ -772,7 +794,7 @@ export default async function IntelHealthPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)] space-y-0.5">
+                  <div className="text-left sm:text-right text-[10px] font-[family-name:var(--font-geist-mono)] text-[var(--muted-foreground)] space-y-0.5">
                     {data.wardenMeta.uptime_seconds != null && (
                       <div>
                         Uptime: <span className="text-[var(--slate-300)]">
@@ -1111,7 +1133,8 @@ export default async function IntelHealthPage() {
                       BRIEF JOB ERRORS (LAST 24H)
                     </div>
                     <div className="bg-[var(--navy-900)] border border-red-900/40 rounded-lg overflow-hidden">
-                      <table className="w-full text-xs font-[family-name:var(--font-geist-mono)]">
+                      <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs font-[family-name:var(--font-geist-mono)]">
                         <thead>
                           <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)]">
                             <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">TIME</th>
@@ -1128,7 +1151,7 @@ export default async function IntelHealthPage() {
                               <td className="px-4 py-2.5 text-[var(--muted-foreground)] whitespace-nowrap">
                                 {fmtAge(err.created_at)}
                               </td>
-                              <td className="px-4 py-2.5 text-[var(--muted-foreground)] font-mono text-[10px]">
+                              <td className="px-4 py-2.5 text-[var(--muted-foreground)] font-mono text-[10px] whitespace-nowrap">
                                 {err.subscriber_id.slice(0, 12)}…
                               </td>
                               <td className="px-4 py-2.5 text-red-400 max-w-xs truncate">
@@ -1138,6 +1161,7 @@ export default async function IntelHealthPage() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1181,7 +1205,8 @@ export default async function IntelHealthPage() {
                     </div>
                   ) : (
                     <div className="bg-[var(--navy-900)] border border-[var(--border)] rounded-lg overflow-hidden">
-                      <table className="w-full text-xs font-[family-name:var(--font-geist-mono)]">
+                      <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs font-[family-name:var(--font-geist-mono)]">
                         <thead>
                           <tr className="border-b border-[var(--border)] text-[var(--muted-foreground)]">
                             <th className="text-left px-4 py-2.5 font-medium tracking-wider text-[10px]">TIME</th>
@@ -1219,6 +1244,7 @@ export default async function IntelHealthPage() {
                           })}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   )}
                 </div>
