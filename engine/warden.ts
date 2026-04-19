@@ -554,16 +554,17 @@ function nextMonthlyDeliveryUtc(
  * Returns true if a monthly brief_job already exists for this subscriber
  * in the calendar month that contains the proposed delivery date.
  *
- * Uses a UTC month window: YYYY-MM-01T00:00:00Z → YYYY-MM-31T23:59:59Z
- * (upper bound is intentionally past end of month — DB query handles it).
+ * Uses an exclusive upper bound (first moment of next month) so the query
+ * works correctly for months with fewer than 31 days (Apr, Jun, Sep, Nov, Feb).
  */
 async function alreadyScheduledForMonth(
   subscriberId: string,
   scheduledAt: Date
 ): Promise<boolean> {
-  const monthStr   = scheduledAt.toISOString().slice(0, 7); // "YYYY-MM"
-  const monthStart = `${monthStr}-01T00:00:00.000Z`;
-  const monthEnd   = `${monthStr}-31T23:59:59.999Z`;
+  const year  = scheduledAt.getUTCFullYear();
+  const month = scheduledAt.getUTCMonth(); // 0-indexed
+  const monthStart = new Date(Date.UTC(year, month, 1)).toISOString();
+  const nextMonth  = new Date(Date.UTC(year, month + 1, 1)).toISOString(); // exclusive upper bound
 
   const { data, error } = await supabaseAdmin
     .from("brief_jobs")
@@ -572,7 +573,7 @@ async function alreadyScheduledForMonth(
     .eq("job_type", "monthly")
     .in("status", ["pending", "processing", "ready_to_send", "delivered"])
     .gte("scheduled_delivery_at", monthStart)
-    .lte("scheduled_delivery_at", monthEnd)
+    .lt("scheduled_delivery_at", nextMonth)
     .limit(1);
 
   if (error) {
