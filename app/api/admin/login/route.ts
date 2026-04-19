@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 
 /** Strip whitespace AND invisible Unicode (BOM, zero-width chars, control chars) */
 function sanitize(s: string): string {
   return s.replace(/[\u200B-\u200D\uFEFF\u00A0\u0000-\u001F\u007F]/g, "").trim();
+}
+
+function safeCompare(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
 }
 
 export async function POST(request: Request) {
@@ -20,25 +29,27 @@ export async function POST(request: Request) {
   const rawOverride = process.env.ADMIN_OVERRIDE ?? "";
   const overridePassword = sanitize(rawOverride);
 
-  const primaryMatch = adminPassword && inputSanitized === adminPassword;
-  const overrideMatch = overridePassword && inputSanitized === overridePassword;
-
   if (!adminPassword && !overridePassword) {
-    return NextResponse.json(
-      { error: "Admin credentials are not configured" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 500 });
   }
+
+  const primaryMatch = safeCompare(inputSanitized, adminPassword);
+  const overrideMatch = safeCompare(inputSanitized, overridePassword);
 
   if (!primaryMatch && !overrideMatch) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  // Set cookie directly on the response object so the Set-Cookie header
-  // is guaranteed to be included (cookies() from next/headers can silently
-  // drop the header when a new NextResponse is returned).
+  // Session token: use ADMIN_SESSION_SECRET (a stable env-var UUID Jonas sets once).
+  // Verified in proxy.ts with timingSafeEqual — not a plain string comparison.
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET ?? "";
+  if (!sessionSecret) {
+    console.error("[admin/login] ADMIN_SESSION_SECRET is not configured");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
   const response = NextResponse.json({ success: true });
-  response.cookies.set("admin_session", "authenticated", {
+  response.cookies.set("admin_session", sessionSecret, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
