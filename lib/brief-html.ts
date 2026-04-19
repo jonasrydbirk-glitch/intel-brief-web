@@ -445,7 +445,8 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
  */
 function ratingButtons(briefJobId: string | undefined, subscriberId: string | undefined, label: string): string {
   if (!briefJobId || !subscriberId) return "";
-  const base = `https://iqsea.io/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
+  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
+  const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
   return `
   <table width="100%" style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:20px;border-collapse:collapse;">
     <tr>

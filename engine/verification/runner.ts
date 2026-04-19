@@ -168,18 +168,22 @@ export async function verifyBriefUrls(
   }
 
   // --- Filter dead links from all sections ---
+  // Sections with no surviving items are removed entirely to avoid blank
+  // section headers rendering in the HTML email and PDF.
   const filteredBrief: BriefPayload = {
     ...brief,
-    sections: brief.sections.map((sec) => ({
-      ...sec,
-      items: (filterItemsByAliveUrls(sec.items, aliveUrls) ?? []),
-    })),
-    tenderSection: filterItemsByAliveUrls(brief.tenderSection, aliveUrls),
-    prospectSection: filterItemsByAliveUrls(brief.prospectSection, aliveUrls),
-    offDutySection: filterItemsByAliveUrls(brief.offDutySection, aliveUrls),
+    sections: brief.sections
+      .map((sec) => ({
+        ...sec,
+        items: (filterItemsByAliveUrls(sec.items, aliveUrls) ?? []),
+      }))
+      .filter((sec) => sec.items.length > 0),
+    tenderSection:            filterItemsByAliveUrls(brief.tenderSection, aliveUrls),
+    prospectSection:          filterItemsByAliveUrls(brief.prospectSection, aliveUrls),
+    offDutySection:           filterItemsByAliveUrls(brief.offDutySection, aliveUrls),
     competitorTrackerSection: filterItemsByAliveUrls(brief.competitorTrackerSection, aliveUrls),
-    safetySection: filterItemsByAliveUrls(brief.safetySection, aliveUrls),
-    monthlyProspectRollup: filterItemsByAliveUrls(brief.monthlyProspectRollup, aliveUrls),
+    safetySection:            filterItemsByAliveUrls(brief.safetySection, aliveUrls),
+    monthlyProspectRollup:    filterItemsByAliveUrls(brief.monthlyProspectRollup, aliveUrls),
     // marketPulseSection and regulatoryCountdown don't use article URLs
   };
 
