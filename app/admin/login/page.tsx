@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-6 py-20">
+      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-10 sm:py-20">
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-border bg-card p-8 sm:p-10">
             <div className="text-center mb-8">
