@@ -31,6 +31,7 @@ import "./sources/sitemap";  // registers TradeWinds (Google News Sitemap)
 import "./sources/lr";       // registers Lloyd's Register (HTML list)
 import "./sources/dnv";      // registers DNV (data-props JSON, maritime-filtered)
 import "./sources/wp-rest";  // registers Safety4Sea (WordPress REST API)
+import "./sources/abs";      // registers ABS (Puppeteer, JS-rendered AEM page)
 // Article text extraction pipeline (Phase 2 Part A Step 2)
 import { extractMissingTextBatch } from "./extractors/runner";
 // Vector embedding pipeline (Phase 2 Part A Step 3)
@@ -904,20 +905,16 @@ async function processJobQueue(): Promise<void> {
       if (job.job_type === "monthly") {
         log("INFO", `[Monthly] Processing review job ${job.id} for subscriber ${job.subscriber_id}`);
 
-        // Determine the review period: previous calendar month from scheduled delivery
-        const deliveryDate = job.scheduled_delivery_at
+        // Determine the review period: rolling 30 days ending on the delivery date
+        const deliveryDate    = job.scheduled_delivery_at
           ? new Date(job.scheduled_delivery_at)
           : new Date();
-        const deliveryYear  = deliveryDate.getUTCFullYear();
-        const deliveryMonth = deliveryDate.getUTCMonth() + 1; // 1-indexed
-        const prevMonth     = deliveryMonth === 1 ? 12 : deliveryMonth - 1;
-        const prevYear      = deliveryMonth === 1 ? deliveryYear - 1 : deliveryYear;
-        const daysInPrevMonth = new Date(Date.UTC(prevYear, prevMonth, 0)).getDate();
-        const periodStart   = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`;
-        const periodEnd     = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(daysInPrevMonth).padStart(2, "0")}`;
+        const periodStartDate = new Date(deliveryDate.getTime() - 30 * 24 * 60 * 60 * 1_000);
+        const periodStart     = periodStartDate.toISOString().slice(0, 10);
+        const periodEnd       = deliveryDate.toISOString().slice(0, 10);
 
-        // Aggregate data from past 30 days of daily briefs for this subscriber
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1_000).toISOString();
+        // Aggregate data from the same 30-day window
+        const thirtyDaysAgo = periodStartDate.toISOString();
         const { data: pastJobs } = await supabaseAdmin
           .from("brief_jobs")
           .select("result, created_at")
@@ -1152,7 +1149,8 @@ async function scan(): Promise<void> {
   const { data: subscribers, error } = await supabase
     .from("subscribers")
     .select("id, email, fullName, frequency, timezone, deliveryTime, monthlyReviewDay, monthlyReviewTime")
-    .eq("onboarding_complete", true);
+    .eq("onboarding_complete", true)
+    .or("paused.is.null,paused.eq.false");
 
   if (error || !subscribers) {
     log("ERROR", `Failed to fetch subscribers: ${error?.message ?? "no data"}`);
