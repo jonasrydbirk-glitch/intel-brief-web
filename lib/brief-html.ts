@@ -462,7 +462,7 @@ function ratingButtons(briefJobId: string | undefined, subscriberId: string | un
   </table>`;
 }
 
-export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?: string; subscriberId?: string }): string {
+export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?: string; subscriberId?: string; siteUrl?: string }): string {
   const periodLabel = brief.monthlyPeriod
     ? (() => {
         const s = new Date(brief.monthlyPeriod.start + "T12:00:00Z");
@@ -647,7 +647,13 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     <span>${esc(periodLabel)}</span>
   </div>
   <div style="margin-top:10px;text-align:center;font-size:10px;color:${C.faint};">
-    <a href="mailto:support@iqsea.io?subject=Unsubscribe" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>
+    ${(() => {
+      const base = opts?.siteUrl ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
+      const href = opts?.subscriberId
+        ? `${base}/unsubscribe?sub=${encodeURIComponent(opts.subscriberId)}`
+        : `mailto:support@iqsea.io?subject=Unsubscribe`;
+      return `<a href="${href}" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>`;
+    })()}
   </div>
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->
@@ -664,7 +670,7 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
 export function renderBriefHtml(
   brief: BriefPayload,
   depth?: "executive" | "deep" | "data",
-  opts?: { briefJobId?: string; subscriberId?: string }
+  opts?: { briefJobId?: string; subscriberId?: string; siteUrl?: string }
 ): string {
   const effectiveDepth = depth ?? brief.depth ?? "deep";
 
@@ -789,7 +795,13 @@ export function renderBriefHtml(
     <span>${esc(date)}</span>
   </div>
   <div style="margin-top:10px;text-align:center;font-size:10px;color:${C.faint};">
-    <a href="mailto:support@iqsea.io?subject=Unsubscribe" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>
+    ${(() => {
+      const base = opts?.siteUrl ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
+      const href = opts?.subscriberId
+        ? `${base}/unsubscribe?sub=${encodeURIComponent(opts.subscriberId)}`
+        : `mailto:support@iqsea.io?subject=Unsubscribe`;
+      return `<a href="${href}" style="color:${C.faint};text-decoration:underline;">Unsubscribe</a>`;
+    })()}
   </div>
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->

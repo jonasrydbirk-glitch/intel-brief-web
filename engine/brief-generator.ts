@@ -1016,9 +1016,10 @@ export async function generateMonthlyBrief(
   const profile = await fetchSubscriberProfile(subscriberId);
 
   const periodLabel = (() => {
-    const fmt = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const fmtStart = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    const fmtEnd   = (d: Date) => d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     // If data starts significantly later than the period start (>5 days), reflect
-    // the actual data window rather than the full calendar month.
+    // the actual data window rather than the full rolling window.
     const effectiveStart = (() => {
       if (!context.dataStart) return context.periodStart;
       const periodDay1 = new Date(context.periodStart + "T12:00:00Z");
@@ -1028,7 +1029,7 @@ export async function generateMonthlyBrief(
     })();
     const s = new Date(effectiveStart   + "T12:00:00Z");
     const e = new Date(context.periodEnd + "T12:00:00Z");
-    const label = `${fmt(s)} — ${fmt(e)}`;
+    const label = `${fmtStart(s)} — ${fmtEnd(e)}`;
     return context.briefCount < 5 ? `${label} (partial — ${context.briefCount} brief${context.briefCount === 1 ? "" : "s"} available)` : label;
   })();
 
