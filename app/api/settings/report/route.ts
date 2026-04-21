@@ -83,6 +83,7 @@ export async function POST(request: Request) {
   }
   if (body.monthlyReviewDay !== undefined) updates.monthlyReviewDay = String(body.monthlyReviewDay);
   if (body.monthlyReviewTime !== undefined) updates.monthlyReviewTime = body.monthlyReviewTime;
+  if (body.paused === true || body.paused === false) updates.paused = body.paused;
 
   // Module updates
   const hasModuleUpdate = [

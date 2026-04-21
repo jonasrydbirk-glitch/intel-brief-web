@@ -551,6 +551,9 @@ export default function ReportSettingsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("profile");
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
+  const [paused, setPaused] = useState(false);
+  const [pauseBusy, setPauseBusy] = useState(false);
+
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -577,9 +580,10 @@ export default function ReportSettingsPage() {
       try {
         const res = await fetch("/api/me");
         if (res.ok) {
-          const profile: ProfileData = await res.json();
+          const profile: ProfileData & { paused?: boolean } = await res.json();
           setProfileId(profile.id);
           setForm(profileToForm(profile));
+          setPaused(profile.paused ?? false);
           setDirty(false);
         }
       } catch {
@@ -617,6 +621,33 @@ export default function ReportSettingsPage() {
       setError("Network error — please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function togglePause() {
+    if (!profileId) return;
+    setPauseBusy(true);
+    const action = paused ? "resume" : "pause";
+    try {
+      if (action === "resume") {
+        const res = await fetch("/api/settings/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: profileId, paused: false }),
+        });
+        if (res.ok) setPaused(false);
+      } else {
+        const res = await fetch("/api/unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscriberId: profileId, action: "pause" }),
+        });
+        if (res.ok) setPaused(true);
+      }
+    } catch {
+      // swallow — UI stays unchanged
+    } finally {
+      setPauseBusy(false);
     }
   }
 
@@ -1386,6 +1417,25 @@ export default function ReportSettingsPage() {
           </div>
 
           <div className="border-t border-[var(--border)] pt-4 mt-2">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-medium">{paused ? "Resume Deliveries" : "Pause Deliveries"}</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {paused ? "Start receiving Intel Briefs again" : "Temporarily stop receiving Intel Briefs"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={togglePause}
+                disabled={pauseBusy}
+                className="flex items-center gap-2 rounded-lg border border-amber-500/30 px-5 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {pauseBusy ? (paused ? "Resuming…" : "Pausing…") : (paused ? "Resume" : "Pause")}
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--border)] pt-4 mt-2">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Sign Out</p>
@@ -1458,6 +1508,29 @@ export default function ReportSettingsPage() {
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto w-full px-6 py-8">
+
+          {/* Paused banner */}
+          {paused && (
+            <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={1.5} className="w-4 h-4 shrink-0">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+                <p className="text-sm text-amber-300">
+                  <span className="font-semibold">Deliveries paused.</span>{" "}
+                  You&apos;re not receiving Intel Briefs right now.
+                </p>
+              </div>
+              <button
+                onClick={togglePause}
+                disabled={pauseBusy}
+                className="shrink-0 px-4 py-1.5 rounded-lg border border-amber-500/40 text-xs font-medium text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+              >
+                {pauseBusy ? "Resuming…" : "Resume deliveries"}
+              </button>
+            </div>
+          )}
 
           {/* Page title + summary strip */}
           <div className="mb-6">
