@@ -743,22 +743,48 @@ async function deliveryLoop(): Promise<void> {
 // and deliveryLoop so we never duplicate this template.
 // ---------------------------------------------------------------------------
 
+// Shared sonar SVG overlay — matches PDF header exactly
+const EMAIL_HEADER_SONAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:absolute;inset:0;pointer-events:none;opacity:0.18;" preserveAspectRatio="xMidYMid meet">
+  <circle cx="72%" cy="50%" r="60"  fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+  <circle cx="72%" cy="50%" r="110" fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+  <circle cx="72%" cy="50%" r="165" fill="none" stroke="#2BB3CD" stroke-width="0.4"/>
+  <circle cx="72%" cy="50%" r="220" fill="none" stroke="#2BB3CD" stroke-width="0.3"/>
+  <circle cx="72%" cy="50%" r="278" fill="none" stroke="#2BB3CD" stroke-width="0.2"/>
+  <path d="M0,30 Q120,22 240,33 T480,27 T720,34 T900,28"  fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+  <path d="M0,65 Q100,57 220,68 T460,61 T700,70 T900,63"  fill="none" stroke="#2BB3CD" stroke-width="0.4"/>
+  <path d="M0,100 Q130,108 260,98 T520,104 T780,96 T900,101" fill="none" stroke="#2BB3CD" stroke-width="0.35"/>
+  <path d="M0,135 Q90,143 200,133 T440,140 T680,130 T900,137" fill="none" stroke="#2BB3CD" stroke-width="0.25"/>
+  <circle cx="28%" cy="32%" r="1.5" fill="#2BB3CD" opacity="0.5"/>
+  <circle cx="52%" cy="68%" r="1"   fill="#2BB3CD" opacity="0.4"/>
+  <circle cx="78%" cy="38%" r="1.5" fill="#2BB3CD" opacity="0.5"/>
+  <circle cx="42%" cy="78%" r="1"   fill="#2BB3CD" opacity="0.35"/>
+  <circle cx="63%" cy="22%" r="1"   fill="#2BB3CD" opacity="0.3"/>
+</svg>`;
+
 function buildBriefEmailHtml(fullName: string, dateStr: string): string {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <!-- Navy branded header -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F38;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+      <!-- Navy branded header — matches PDF renderPageHeader() exactly -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
         <tr>
-          <td style="padding:22px 24px 18px;">
-            <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.04em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">IQsea</div>
-            <div style="font-size:11px;color:#8fa8c4;text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;">Intelligence Brief</div>
-          </td>
-          <td style="padding:22px 24px 18px;text-align:right;border-left:1px solid rgba(43,179,205,0.3);">
-            <div style="font-size:11px;color:#8fa8c4;font-style:italic;">${dateStr}</div>
-            <div style="font-size:13px;color:#e8eef4;font-weight:600;margin-top:4px;">${fullName || "Subscriber"}</div>
+          <td style="background:#0B1F38;padding:0;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+            ${EMAIL_HEADER_SONAR_SVG}
+            <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
+              <tr>
+                <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
+                  <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
+                </td>
+                <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+                  <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Intelligence Brief</div>
+                  <div style="font-size:12px;color:#8fa8c4;margin-top:7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${dateStr}</div>
+                  <div style="font-size:12px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${fullName || "Subscriber"}</div>
+                  <div style="display:inline-block;margin-top:8px;background:rgba(255,255,255,0.12);color:#e8eef4;padding:2px 11px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;border:1px solid rgba(255,255,255,0.18);">Deep Dive</div>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
-        <tr><td colspan="2" style="height:3px;background:#2BB3CD;"></td></tr>
+        <tr><td style="height:3px;background:#2BB3CD;"></td></tr>
       </table>
       <!-- Body -->
       <div style="padding:24px 24px 0;">
@@ -781,19 +807,26 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
 function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <!-- Navy branded header -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F38;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+      <!-- Navy branded header — matches PDF renderPageHeader() exactly -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
         <tr>
-          <td style="padding:22px 24px 18px;">
-            <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.04em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">IQsea</div>
-            <div style="font-size:11px;color:#8fa8c4;text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;">Monthly Strategic Review</div>
-          </td>
-          <td style="padding:22px 24px 18px;text-align:right;border-left:1px solid rgba(43,179,205,0.3);">
-            <div style="font-size:11px;color:#8fa8c4;font-style:italic;">${periodLabel}</div>
-            <div style="font-size:13px;color:#e8eef4;font-weight:600;margin-top:4px;">${fullName || "Subscriber"}</div>
+          <td style="background:#0B1F38;padding:0;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+            ${EMAIL_HEADER_SONAR_SVG}
+            <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
+              <tr>
+                <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
+                  <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
+                </td>
+                <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+                  <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Monthly Catch-Up</div>
+                  <div style="font-size:12px;color:#8fa8c4;margin-top:7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${periodLabel}</div>
+                  <div style="font-size:12px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${fullName || "Subscriber"}</div>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
-        <tr><td colspan="2" style="height:3px;background:#2BB3CD;"></td></tr>
+        <tr><td style="height:3px;background:#2BB3CD;"></td></tr>
       </table>
       <!-- Body -->
       <div style="padding:24px 24px 0;">
