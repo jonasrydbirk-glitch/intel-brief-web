@@ -746,12 +746,23 @@ async function deliveryLoop(): Promise<void> {
 function buildBriefEmailHtml(fullName: string, dateStr: string): string {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #0ea5e9;">
-        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Intelligence Brief</div>
-      </div>
-      <div style="padding:24px 0;">
-        <p style="font-size:15px;line-height:1.6;">Hi ${fullName || "there"},</p>
+      <!-- Navy branded header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F38;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+        <tr>
+          <td style="padding:22px 24px 18px;">
+            <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.04em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">IQsea</div>
+            <div style="font-size:11px;color:#8fa8c4;text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;">Intelligence Brief</div>
+          </td>
+          <td style="padding:22px 24px 18px;text-align:right;border-left:1px solid rgba(43,179,205,0.3);">
+            <div style="font-size:11px;color:#8fa8c4;font-style:italic;">${dateStr}</div>
+            <div style="font-size:13px;color:#e8eef4;font-weight:600;margin-top:4px;">${fullName || "Subscriber"}</div>
+          </td>
+        </tr>
+        <tr><td colspan="2" style="height:3px;background:#2BB3CD;"></td></tr>
+      </table>
+      <!-- Body -->
+      <div style="padding:24px 24px 0;">
+        <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
           and covers the latest developments relevant to your profile.
@@ -760,7 +771,7 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
           Open the attached PDF for the full analysis.
         </p>
       </div>
-      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+      <div style="padding:20px 24px;margin-top:24px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
         IQsea Intel Engine &middot; Confidential
       </div>
     </div>
@@ -770,12 +781,23 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
 function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <div style="text-align:center;padding:24px 0 16px;border-bottom:2px solid #53b1c1;">
-        <div style="font-size:24px;font-weight:800;color:#0c4a6e;letter-spacing:0.04em;">IQsea</div>
-        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.12em;">Monthly Strategic Review</div>
-      </div>
-      <div style="padding:24px 0;">
-        <p style="font-size:15px;line-height:1.6;">Hi ${fullName || "there"},</p>
+      <!-- Navy branded header -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0B1F38;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+        <tr>
+          <td style="padding:22px 24px 18px;">
+            <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:0.04em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">IQsea</div>
+            <div style="font-size:11px;color:#8fa8c4;text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;">Monthly Strategic Review</div>
+          </td>
+          <td style="padding:22px 24px 18px;text-align:right;border-left:1px solid rgba(43,179,205,0.3);">
+            <div style="font-size:11px;color:#8fa8c4;font-style:italic;">${periodLabel}</div>
+            <div style="font-size:13px;color:#e8eef4;font-weight:600;margin-top:4px;">${fullName || "Subscriber"}</div>
+          </td>
+        </tr>
+        <tr><td colspan="2" style="height:3px;background:#2BB3CD;"></td></tr>
+      </table>
+      <!-- Body -->
+      <div style="padding:24px 24px 0;">
+        <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Your Monthly Strategic Review for <strong>${periodLabel}</strong> is attached.
           This report synthesises the past month's intelligence into strategic themes,
@@ -785,7 +807,7 @@ function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
           Open the attached PDF for the full analysis.
         </p>
       </div>
-      <div style="padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
+      <div style="padding:20px 24px;margin-top:24px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
         IQsea Intel Engine &middot; Confidential
       </div>
     </div>
