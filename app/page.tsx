@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { IQSEAWordmark, IQSEAHeroLogo } from "./components/iqsea-wordmark";
+import { IQSEAWordmark } from "./components/iqsea-wordmark";
 import { FAQAccordion } from "./components/faq-accordion";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -422,7 +423,16 @@ export default function LandingPage() {
 
         <div className="relative max-w-4xl mx-auto z-10">
           {/* Hero logo */}
-          <IQSEAHeroLogo className="mb-12" />
+          <div className="flex justify-center mb-12">
+            <Image
+              src="/brand/logo-white-tagline.png"
+              alt="IQSEA — Your Maritime Edge."
+              width={2172}
+              height={724}
+              className="h-24 sm:h-28 w-auto"
+              priority
+            />
+          </div>
 
           {/* Headline */}
           <h1
