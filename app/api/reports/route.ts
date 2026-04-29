@@ -8,8 +8,8 @@ import { getSupabaseUrl } from "@/lib/supabase";
 // The anon key is blocked by RLS on the reports table — service key bypasses
 // it while the explicit .eq("user_id") filter below preserves per-user isolation.
 const supabaseAdmin = createClient(
-  getSupabaseUrl(),
-  process.env.SUPABASE_SERVICE_KEY ?? ""
+  getSupabaseUrl() || "https://placeholder.supabase.co" || "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY ?? "placeholder"
 );
 
 /**

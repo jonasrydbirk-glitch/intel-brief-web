@@ -4,8 +4,8 @@ import { verifySession } from "@/app/lib/session";
 import { sendEmail } from "@/lib/delivery";
 
 const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_KEY ?? "",
+  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY ?? "placeholder",
   { auth: { persistSession: false } }
 );
 

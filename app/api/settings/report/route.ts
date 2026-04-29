@@ -3,8 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { verifySession } from "@/app/lib/session";
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY ?? "placeholder",
   { auth: { persistSession: false } }
 );
 

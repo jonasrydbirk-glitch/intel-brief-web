@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_KEY ?? "",
-  { auth: { persistSession: false } }
-);
+export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
+    process.env.SUPABASE_SERVICE_KEY ?? "placeholder",
+    { auth: { persistSession: false } }
+  );
+
   const { data: subscribers, error } = await supabaseAdmin
     .from("subscribers")
     .select("id, email, fullName, companyName, role, frequency, depth, timezone, deliveryTime, onboarding_complete, created, modules")

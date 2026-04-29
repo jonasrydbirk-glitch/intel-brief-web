@@ -9,8 +9,8 @@ import { supabase, getSupabaseUrl } from "@/lib/supabase";
 // NOTE: SUPABASE_SERVICE_KEY must be set as a Vercel environment variable
 // for the reports INSERT below to succeed — the anon key is blocked by RLS.
 const supabaseAdmin = createClient(
-  getSupabaseUrl(),
-  process.env.SUPABASE_SERVICE_KEY ?? ""
+  getSupabaseUrl() || "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY ?? "placeholder"
 );
 
 // PDF render + email is fast — 30 s is plenty
