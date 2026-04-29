@@ -3,7 +3,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { HelpTooltip } from "../components/help-tooltip";
 import { PasswordInput } from "../components/password-input";
 import { DepthPreview } from "../components/depth-preview";
@@ -1346,7 +1345,8 @@ function SignupStage({ onSuccess }: { onSuccess: (id: string) => void }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-center mb-2">
-        <Image src="/brand/logo-white-compact.png" alt="IQSEA" width={2508} height={627} className="h-8 w-auto" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-white-compact.svg" alt="IQSEA" className="h-8 w-auto" />
       </div>
 
       <div className="text-center">
@@ -1660,13 +1660,11 @@ export default function OnboardPage() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-8 h-14 border-b border-[var(--border)]">
         <Link href="/" className="flex items-center">
-          <Image
-            src="/brand/logo-white-compact.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-white-compact.svg"
             alt="IQSEA"
-            width={2508}
-            height={627}
             className="h-7 w-auto"
-            priority
           />
         </Link>
         <Link
