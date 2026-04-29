@@ -3,7 +3,7 @@ import Image from "next/image";
 export function IQSEAWordmark({ className = "h-9" }: { className?: string }) {
   return (
     <Image
-      src="/brand/logo-white-wave.png"
+      src="/brand/logo-navy-wave.png"
       alt="IQSEA"
       width={2172}
       height={724}
@@ -17,7 +17,7 @@ export function IQSEAWordmark({ className = "h-9" }: { className?: string }) {
 export function IQSEAWordmarkSmall({ className = "h-7" }: { className?: string }) {
   return (
     <Image
-      src="/brand/logo-white-wave.png"
+      src="/brand/logo-navy-wave.png"
       alt="IQSEA"
       width={2172}
       height={724}
