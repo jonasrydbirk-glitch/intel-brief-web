@@ -109,7 +109,7 @@ function renderPageHeader(params: {
     : "";
 
   // Sonar rings + ocean depth contour lines — futuristic marine texture
-  const headerOverlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:absolute;inset:0;pointer-events:none;opacity:0.07;" preserveAspectRatio="xMidYMid meet">
+  const headerOverlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:absolute;inset:0;pointer-events:none;opacity:0.12;" preserveAspectRatio="xMidYMid meet">
     <!-- Sonar/radar concentric rings, anchored right-of-center -->
     <circle cx="72%" cy="50%" r="60"  fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
     <circle cx="72%" cy="50%" r="110" fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
@@ -135,9 +135,8 @@ function renderPageHeader(params: {
         ${headerOverlaySvg}
         <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
           <tr>
-            <td style="padding:26px 20px 26px 32px;vertical-align:middle;" width="42%">
-              <img src="https://iqsea.io/brand/logo-white-tagline.png" height="44" alt="IQSEA" style="display:block;max-width:210px;margin-bottom:7px;" />
-              <div style="font-size:12px;color:#8fa8c4;font-family:Inter,-apple-system,sans-serif;letter-spacing:0.02em;">Your Maritime Edge.</div>
+            <td style="padding:22px 20px 22px 32px;vertical-align:middle;" width="42%">
+              <img src="https://iqsea.io/brand/logo-white-tagline.png" height="64" alt="IQSEA" style="display:block;max-width:240px;" />
             </td>
             <td style="padding:26px 32px 26px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
               <div style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.15;">${esc(briefType)}</div>
