@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { IQSEAWordmark } from "./components/iqsea-wordmark";
+import { IQSEAWordmark, IQSEAHeroLogo } from "./components/iqsea-wordmark";
 import { FAQAccordion } from "./components/faq-accordion";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -421,14 +421,8 @@ export default function LandingPage() {
       <section className="flex items-center justify-center px-6 pt-24 pb-16 sm:pt-36 sm:pb-24 text-center">
 
         <div className="relative max-w-4xl mx-auto z-10">
-          {/* Badge */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold mb-8 border"
-            style={{ background: "rgba(43,179,205,0.1)", borderColor: "rgba(43,179,205,0.3)", color: "var(--teal-400)" }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--teal-500)" }} />
-            Your Maritime Edge
-          </div>
+          {/* Hero logo */}
+          <IQSEAHeroLogo className="mb-12" />
 
           {/* Headline */}
           <h1
