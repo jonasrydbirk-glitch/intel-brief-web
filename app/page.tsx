@@ -429,7 +429,7 @@ export default function LandingPage() {
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(143,168,196,0.06) 1px, transparent 0)",
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='16' y1='13' x2='16' y2='19' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='13' y1='16' x2='19' y2='16' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E\")",
             backgroundSize: "32px 32px",
           }}
         />
