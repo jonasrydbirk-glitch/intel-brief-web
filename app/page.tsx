@@ -415,7 +415,37 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "var(--navy-950)", color: "var(--slate-100)" }}>
+    <div
+      className="relative flex flex-col min-h-screen overflow-x-hidden"
+      style={{
+        background: "radial-gradient(ellipse 80% 60% at 50% 30%, #122036 0%, var(--navy-950) 60%, #050a14 100%)",
+        color: "var(--slate-100)",
+      }}
+    >
+      {/* Atmospheric overlays — behind all content */}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
+        {/* Dot grid — full page */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(143,168,196,0.06) 1px, transparent 0)",
+            backgroundSize: "32px 32px",
+          }}
+        />
+        {/* Ambient glow orbs — shift position as user scrolls for depth variation */}
+        {/* Hero: large teal, centered */}
+        <div style={{ position: "absolute", top: -200, left: "50%", transform: "translateX(-50%)", width: 900, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        {/* Modules (~35% down): smaller teal, offset right */}
+        <div style={{ position: "absolute", top: "35%", right: "-10%", width: 600, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.08) 0%, transparent 70%)", filter: "blur(50px)" }} />
+        {/* Role grid (~55%): gold-tinted, offset left */}
+        <div style={{ position: "absolute", top: "55%", left: "-5%", width: 500, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(244,180,0,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        {/* Timeline (~70%): teal, centered */}
+        <div style={{ position: "absolute", top: "70%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.10) 0%, transparent 70%)", filter: "blur(45px)" }} />
+        {/* Pricing/CTA (~85%): slightly larger teal */}
+        <div style={{ position: "absolute", top: "85%", left: "50%", transform: "translateX(-50%)", width: 800, height: 550, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.09) 0%, transparent 70%)", filter: "blur(50px)" }} />
+      </div>
+
       <Nav />
 
       {/* ── Section 2: Hero ───────────────────────────────────────────────── */}
@@ -539,7 +569,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 6: Who it's for ───────────────────────────────────────── */}
-      <section className="px-6 py-20 sm:py-28" style={{ background: "var(--navy-900)" }}>
+      <section className="px-6 py-20 sm:py-28" style={{ background: "rgba(9,16,28,0.65)" }}>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <div
@@ -629,7 +659,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 8: Demo placeholder ──────────────────────────────────── */}
-      <section id="demo" className="px-6 py-16 sm:py-20" style={{ background: "var(--navy-900)" }}>
+      <section id="demo" className="px-6 py-16 sm:py-20" style={{ background: "rgba(9,16,28,0.65)" }}>
         <div className="max-w-3xl mx-auto text-center">
           <div
             className="rounded-2xl aspect-video flex items-center justify-center relative overflow-hidden border"
@@ -685,7 +715,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 10: Pricing ───────────────────────────────────────────── */}
-      <section id="pricing" className="px-6 py-20 sm:py-28" style={{ background: "var(--navy-900)" }}>
+      <section id="pricing" className="px-6 py-20 sm:py-28" style={{ background: "rgba(9,16,28,0.65)" }}>
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="font-bold tracking-tight mb-4" style={{ fontSize: "clamp(26px, 3.5vw, 48px)", letterSpacing: "-0.03em", color: "var(--slate-100)" }}>
@@ -762,7 +792,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 12: Final CTA band ────────────────────────────────────── */}
-      <section className="px-6 py-20 sm:py-28" style={{ background: "var(--navy-900)" }}>
+      <section className="px-6 py-20 sm:py-28" style={{ background: "rgba(9,16,28,0.65)" }}>
         <div className="max-w-3xl mx-auto">
           <div
             className="relative rounded-3xl px-8 py-16 text-center overflow-hidden"
@@ -803,7 +833,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 13: Footer ────────────────────────────────────────────── */}
-      <footer id="about" className="border-t px-6 py-14" style={{ borderColor: "var(--border)", background: "var(--navy-950)" }}>
+      <footer id="about" className="border-t px-6 py-14" style={{ borderColor: "var(--border)", background: "rgba(5,10,20,0.92)" }}>
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-10 mb-12">
             {/* Brand column */}
