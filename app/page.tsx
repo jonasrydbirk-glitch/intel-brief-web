@@ -418,7 +418,7 @@ export default function LandingPage() {
     <div
       className="relative flex flex-col min-h-screen overflow-x-hidden"
       style={{
-        background: "radial-gradient(ellipse 80% 60% at 50% 30%, #122036 0%, var(--navy-950) 60%, #050a14 100%)",
+        background: "radial-gradient(ellipse 80% 60% at 50% 30%, #1a3a5c 0%, #0d1f38 50%, #050a14 100%)",
         color: "var(--slate-100)",
       }}
     >
@@ -429,21 +429,21 @@ export default function LandingPage() {
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(143,168,196,0.06) 1px, transparent 0)",
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(143,168,196,0.12) 1px, transparent 0)",
             backgroundSize: "32px 32px",
           }}
         />
         {/* Ambient glow orbs — shift position as user scrolls for depth variation */}
         {/* Hero: large teal, centered */}
-        <div style={{ position: "absolute", top: -200, left: "50%", transform: "translateX(-50%)", width: 900, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", top: -200, left: "50%", transform: "translateX(-50%)", width: 900, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.22) 0%, transparent 70%)", filter: "blur(40px)" }} />
         {/* Modules (~35% down): smaller teal, offset right */}
-        <div style={{ position: "absolute", top: "35%", right: "-10%", width: 600, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.08) 0%, transparent 70%)", filter: "blur(50px)" }} />
+        <div style={{ position: "absolute", top: "35%", right: "-10%", width: 600, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.15) 0%, transparent 70%)", filter: "blur(50px)" }} />
         {/* Role grid (~55%): gold-tinted, offset left */}
-        <div style={{ position: "absolute", top: "55%", left: "-5%", width: 500, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(244,180,0,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div style={{ position: "absolute", top: "55%", left: "-5%", width: 500, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(244,180,0,0.10) 0%, transparent 70%)", filter: "blur(40px)" }} />
         {/* Timeline (~70%): teal, centered */}
-        <div style={{ position: "absolute", top: "70%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.10) 0%, transparent 70%)", filter: "blur(45px)" }} />
+        <div style={{ position: "absolute", top: "70%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.18) 0%, transparent 70%)", filter: "blur(45px)" }} />
         {/* Pricing/CTA (~85%): slightly larger teal */}
-        <div style={{ position: "absolute", top: "85%", left: "50%", transform: "translateX(-50%)", width: 800, height: 550, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.09) 0%, transparent 70%)", filter: "blur(50px)" }} />
+        <div style={{ position: "absolute", top: "85%", left: "50%", transform: "translateX(-50%)", width: 800, height: 550, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.16) 0%, transparent 70%)", filter: "blur(50px)" }} />
       </div>
 
       <Nav />
