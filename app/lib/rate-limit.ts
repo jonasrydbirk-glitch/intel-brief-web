@@ -2,8 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 // Service key required — the anon key may be blocked by RLS on this table.
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY ?? "placeholder",
   { auth: { persistSession: false } }
 );
 

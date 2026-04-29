@@ -4,33 +4,38 @@
   /* IQsea brand palette */
   --navy-950: #0b1424;
   --navy-900: #0f1b30;
+  --navy-880: #122036;
   --navy-800: #132742;
   --navy-700: #1a3358;
   --navy-600: #1f4470;
   --blue-500: #1a6fb5;
   --blue-400: #2d8fd4;
-  --teal-500: #53b1c1;
+  --teal-500: #2BB3CD;
   --teal-400: #6bc4d2;
-  --gold-500: #d4a017;
-  --gold-400: #e6b52a;
+  --teal-300: #8dd4df;
+  --gold-500: #F4B400;
+  --gold-400: #f7c933;
   --slate-400: #8fa8c4;
-  --slate-300: #b0c4d8;
+  --slate-300: #a3bdd4;
+  --slate-200: #c4d4e4;
   --slate-100: #e8eef4;
   --slate-50: #f0f4f8;
 
   --background: var(--navy-950);
-  --foreground: var(--slate-50);
+  --foreground: var(--slate-100);
+  --fg: var(--slate-100);
   --card: var(--navy-800);
-  --card-foreground: var(--slate-50);
+  --card-foreground: var(--slate-100);
   --muted: var(--navy-700);
   --muted-foreground: var(--slate-400);
-  --accent: var(--teal-500);
+  --accent: #2BB3CD;
   --accent-foreground: var(--navy-950);
   --highlight: var(--gold-500);
   --highlight-foreground: var(--navy-950);
   --primary: var(--navy-950);
   --primary-foreground: #ffffff;
-  --border: rgba(143, 168, 196, 0.2);
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.12);
   --input-border: rgba(143, 168, 196, 0.3);
   --ring: var(--teal-500);
 }
@@ -50,14 +55,15 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), Inter, sans-serif;
 }
 
 /* Smooth scrolling */
@@ -84,4 +90,15 @@ html {
 *:focus-visible {
   outline: 2px solid var(--teal-500);
   outline-offset: 2px;
+}
+
+/* Instrument Serif italic utility */
+.font-serif-italic {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+}
+
+/* JetBrains Mono utility */
+.font-data {
+  font-family: var(--font-mono), monospace;
 }
