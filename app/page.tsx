@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import { IQSEAWordmark } from "./components/iqsea-wordmark";
-import { PortScene } from "./components/port-scene";
 import { FAQAccordion } from "./components/faq-accordion";
 
 // ─── Icons ──────────────────────────────────────────────────────────────────
@@ -419,13 +418,7 @@ export default function LandingPage() {
       <Nav />
 
       {/* ── Section 2: Hero ───────────────────────────────────────────────── */}
-      <section className="relative flex items-center justify-center px-6 pt-24 pb-16 sm:pt-36 sm:pb-24 overflow-hidden text-center">
-        {/* PortScene background */}
-        <div className="absolute inset-0 opacity-30 pointer-events-none">
-          <PortScene className="w-full h-full object-cover" />
-        </div>
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, rgba(11,20,36,0.6) 0%, rgba(11,20,36,0.2) 40%, rgba(11,20,36,0.7) 100%)" }} />
+      <section className="flex items-center justify-center px-6 pt-24 pb-16 sm:pt-36 sm:pb-24 text-center">
 
         <div className="relative max-w-4xl mx-auto z-10">
           {/* Badge */}
@@ -489,13 +482,6 @@ export default function LandingPage() {
               </span>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── Section 3: Product screenshot ────────────────────────────────── */}
-      <section className="px-6 py-16 sm:py-20">
-        <div className="max-w-4xl mx-auto">
-          <BriefMockCard />
         </div>
       </section>
 
