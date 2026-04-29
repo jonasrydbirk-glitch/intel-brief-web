@@ -108,56 +108,10 @@ function renderPageHeader(params: {
     ? `<div style="display:inline-block;margin-top:10px;background:rgba(255,255,255,0.12);color:#e8eef4;padding:3px 13px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;font-family:Inter,-apple-system,sans-serif;border:1px solid rgba(255,255,255,0.18);">${esc(depthBadge)}</div>`
     : "";
 
-  // Maritime world map SVG — barely-there atmospheric texture (continental outlines, shipping arcs, port dots)
-  const worldMapSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
-    <!-- Continental outlines -->
-    <g fill="rgba(43,179,205,0.04)" stroke="rgba(43,179,205,0.06)" stroke-width="0.8">
-      <!-- North America -->
-      <polygon points="80,40 160,30 200,55 210,90 190,120 150,140 110,130 75,110 60,80"/>
-      <!-- South America -->
-      <polygon points="145,150 185,145 205,175 195,220 165,245 140,235 125,205 130,170"/>
-      <!-- Europe -->
-      <polygon points="340,30 400,25 415,50 395,70 360,75 330,60 325,40"/>
-      <!-- Africa -->
-      <polygon points="340,85 390,80 415,100 420,150 400,200 370,225 340,215 315,185 310,140 320,100"/>
-      <!-- Asia -->
-      <polygon points="420,25 560,20 620,45 640,80 610,110 560,125 480,120 430,100 415,70"/>
-      <!-- Australia -->
-      <polygon points="580,155 640,148 665,170 660,205 625,220 585,215 565,190 568,165"/>
-    </g>
-    <!-- Shipping route arcs -->
-    <g fill="none" stroke="rgba(43,179,205,0.10)" stroke-width="0.5" stroke-dasharray="4,6">
-      <!-- Trans-Atlantic: US East → Europe -->
-      <path d="M 155,100 Q 260,60 370,55"/>
-      <!-- Trans-Pacific: US West → Asia -->
-      <path d="M 65,90 Q 310,10 490,65"/>
-      <!-- Asia → Europe (via Suez) -->
-      <path d="M 560,80 Q 490,110 415,100 Q 385,95 370,85"/>
-      <!-- Asia → Australia -->
-      <path d="M 560,100 Q 575,130 600,155"/>
-      <!-- Europe → Africa → Asia (Cape) -->
-      <path d="M 360,70 Q 350,140 360,200 Q 390,230 450,210 Q 520,190 560,130"/>
-    </g>
-    <!-- Port city dots -->
-    <g fill="rgba(43,179,205,0.25)">
-      <circle cx="155" cy="100" r="1"/><!-- New York -->
-      <circle cx="85" cy="108" r="1"/><!-- LA -->
-      <circle cx="370" cy="55" r="1"/><!-- London -->
-      <circle cx="395" cy="68" r="1"/><!-- Hamburg -->
-      <circle cx="412" cy="102" r="1"/><!-- Suez/Port Said -->
-      <circle cx="490" cy="80" r="1"/><!-- Mumbai -->
-      <circle cx="565" cy="85" r="1"/><!-- Singapore -->
-      <circle cx="610" cy="65" r="1"/><!-- Shanghai -->
-      <circle cx="605" cy="155" r="1"/><!-- Sydney -->
-      <circle cx="165" cy="215" r="1"/><!-- Santos -->
-    </g>
-  </svg>`;
-
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
     <tr>
-      <td style="background:${C.bgNavy};padding:0;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
-        ${worldMapSvg}
-        <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
+      <td style="background:${C.bgNavy};padding:0;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:26px 20px 26px 32px;vertical-align:middle;" width="42%">
               <img src="https://iqsea.io/brand/logo-white-tagline.png" height="44" alt="IQSEA" style="display:block;max-width:210px;margin-bottom:7px;" />
@@ -257,28 +211,22 @@ function renderItem(item: IntelItem, depth = "deep"): string {
     ? `<div style="font-size:13px;color:${C.body};line-height:1.65;margin-bottom:12px;">${esc(item.summary)}</div>`
     : "";
 
-  // Two-column Analyst Take / Why It Matters (deep only)
+  // Stacked Analyst Take / Why It Matters (deep only)
   let insightHtml = "";
   if (depth === "deep") {
-    const hasLeft  = !!item.commentary?.trim();
-    const hasRight = !!item.relevance?.trim();
-    if (hasLeft || hasRight) {
-      const leftTd = hasLeft
-        ? `<td width="49%" style="padding:10px 12px;background:${C.tealBg};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      const rightTd = hasRight
-        ? `<td width="49%" style="padding:10px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      insightHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>${leftTd}<td width="2%"></td>${rightTd}</tr>
-      </table>`;
-    }
+    const commentaryBlock = item.commentary?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.tealBg};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
+        </div>`
+      : "";
+    const relevanceBlock = item.relevance?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
+        </div>`
+      : "";
+    insightHtml = commentaryBlock + relevanceBlock;
   } else if (depth === "executive" && item.commentary?.trim()) {
     insightHtml = `<div style="font-size:12px;color:${C.navy};font-style:italic;line-height:1.55;padding:6px 10px;background:${C.tealBg};border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:8px;"><strong style="font-style:normal;color:${C.teal};">Analyst take:</strong> ${esc(item.commentary)}</div>`;
   }
@@ -344,25 +292,19 @@ function renderOffDutyItem(item: IntelItem, depth = "deep"): string {
     : "";
   let insightHtml = "";
   if (depth === "deep") {
-    const hasLeft  = !!item.commentary?.trim();
-    const hasRight = !!item.relevance?.trim();
-    if (hasLeft || hasRight) {
-      const leftTd = hasLeft
-        ? `<td width="49%" style="padding:10px 12px;background:${C.tealBg};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      const rightTd = hasRight
-        ? `<td width="49%" style="padding:10px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      insightHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>${leftTd}<td width="2%"></td>${rightTd}</tr>
-      </table>`;
-    }
+    const commentaryBlock = item.commentary?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.tealBg};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
+        </div>`
+      : "";
+    const relevanceBlock = item.relevance?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
+        </div>`
+      : "";
+    insightHtml = commentaryBlock + relevanceBlock;
   } else if (item.commentary?.trim()) {
     insightHtml = `<div style="font-size:12px;color:#6d28d9;line-height:1.5;padding:7px 10px;background:#f5f3ff;border-radius:4px;margin-bottom:7px;font-style:italic;">${esc(item.commentary)}</div>`;
   }
@@ -390,25 +332,19 @@ function renderSafetyItem(item: IntelItem, depth = "deep"): string {
     : "";
   let insightHtml = "";
   if (depth === "deep") {
-    const hasLeft  = !!item.commentary?.trim();
-    const hasRight = !!item.relevance?.trim();
-    if (hasLeft || hasRight) {
-      const leftTd = hasLeft
-        ? `<td width="49%" style="padding:10px 12px;background:${C.tealBg};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      const rightTd = hasRight
-        ? `<td width="49%" style="padding:10px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
-            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
-          </td>`
-        : `<td width="49%"></td>`;
-      insightHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
-        <tr>${leftTd}<td width="2%"></td>${rightTd}</tr>
-      </table>`;
-    }
+    const commentaryBlock = item.commentary?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.tealBg};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
+        </div>`
+      : "";
+    const relevanceBlock = item.relevance?.trim()
+      ? `<div style="margin-bottom:8px;padding:9px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;">
+          <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:4px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
+          <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
+        </div>`
+      : "";
+    insightHtml = commentaryBlock + relevanceBlock;
   } else if (item.commentary?.trim()) {
     insightHtml = `<div style="font-size:12px;color:#92400e;line-height:1.5;padding:7px 10px;background:#fef3c7;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Risk assessment:</strong> ${esc(item.commentary)}</div>`;
   }
