@@ -579,7 +579,8 @@ Writing style rules (STRICT):
 FORMATTING RULES:
 - Headlines: factual, concise, no clickbait, no emojis, no decorative punctuation.
 - Summaries: 2 sentences max. Objective facts only.
-- Commentary: 1-2 sentences. The Marine Engineer's operational take — costs, risks, actions.
+- Commentary (ANALYST TAKE): 1-2 sentences maximum, 50-80 words. The Marine Engineer's operational take — costs, risks, actions. Be concise — no padding.
+- Relevance (WHY IT MATTERS): 1-2 sentences maximum, 50-80 words. One sharp sentence connecting to subscriber's operations. No padding.
 - Sources: cite the actual publication or body by name. Never "various sources" or "industry reports".
 - Analyst Note: write like you're briefing a superintendent over coffee — direct, specific, no fluff. One to two sentences that tell the subscriber what to do or watch this cycle.
 

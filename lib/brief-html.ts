@@ -108,11 +108,10 @@ function renderPageHeader(params: {
     ? `<div style="display:inline-block;margin-top:10px;background:rgba(255,255,255,0.12);color:#e8eef4;padding:3px 13px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;font-family:Inter,-apple-system,sans-serif;border:1px solid rgba(255,255,255,0.18);">${esc(depthBadge)}</div>`
     : "";
 
-  // Maritime world map SVG — simplified continental outlines + shipping arcs + port dots
-  // Rendered at rgba(43,179,205,0.08) for a subtle nautical chart feel
+  // Maritime world map SVG — barely-there atmospheric texture (continental outlines, shipping arcs, port dots)
   const worldMapSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
     <!-- Continental outlines -->
-    <g fill="rgba(43,179,205,0.08)" stroke="rgba(43,179,205,0.12)" stroke-width="0.8">
+    <g fill="rgba(43,179,205,0.04)" stroke="rgba(43,179,205,0.06)" stroke-width="0.8">
       <!-- North America -->
       <polygon points="80,40 160,30 200,55 210,90 190,120 150,140 110,130 75,110 60,80"/>
       <!-- South America -->
@@ -127,7 +126,7 @@ function renderPageHeader(params: {
       <polygon points="580,155 640,148 665,170 660,205 625,220 585,215 565,190 568,165"/>
     </g>
     <!-- Shipping route arcs -->
-    <g fill="none" stroke="rgba(43,179,205,0.15)" stroke-width="1" stroke-dasharray="4,6">
+    <g fill="none" stroke="rgba(43,179,205,0.10)" stroke-width="0.5" stroke-dasharray="4,6">
       <!-- Trans-Atlantic: US East → Europe -->
       <path d="M 155,100 Q 260,60 370,55"/>
       <!-- Trans-Pacific: US West → Asia -->
@@ -140,17 +139,17 @@ function renderPageHeader(params: {
       <path d="M 360,70 Q 350,140 360,200 Q 390,230 450,210 Q 520,190 560,130"/>
     </g>
     <!-- Port city dots -->
-    <g fill="rgba(43,179,205,0.35)">
-      <circle cx="155" cy="100" r="2.5"/><!-- New York -->
-      <circle cx="85" cy="108" r="2"/><!-- LA -->
-      <circle cx="370" cy="55" r="2.5"/><!-- London -->
-      <circle cx="395" cy="68" r="2"/><!-- Hamburg -->
-      <circle cx="412" cy="102" r="2.5"/><!-- Suez/Port Said -->
-      <circle cx="490" cy="80" r="2"/><!-- Mumbai -->
-      <circle cx="565" cy="85" r="2.5"/><!-- Singapore -->
-      <circle cx="610" cy="65" r="2"/><!-- Shanghai -->
-      <circle cx="605" cy="155" r="2"/><!-- Sydney -->
-      <circle cx="165" cy="215" r="2"/><!-- Santos -->
+    <g fill="rgba(43,179,205,0.25)">
+      <circle cx="155" cy="100" r="1"/><!-- New York -->
+      <circle cx="85" cy="108" r="1"/><!-- LA -->
+      <circle cx="370" cy="55" r="1"/><!-- London -->
+      <circle cx="395" cy="68" r="1"/><!-- Hamburg -->
+      <circle cx="412" cy="102" r="1"/><!-- Suez/Port Said -->
+      <circle cx="490" cy="80" r="1"/><!-- Mumbai -->
+      <circle cx="565" cy="85" r="1"/><!-- Singapore -->
+      <circle cx="610" cy="65" r="1"/><!-- Shanghai -->
+      <circle cx="605" cy="155" r="1"/><!-- Sydney -->
+      <circle cx="165" cy="215" r="1"/><!-- Santos -->
     </g>
   </svg>`;
 
@@ -161,11 +160,11 @@ function renderPageHeader(params: {
         <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
           <tr>
             <td style="padding:26px 20px 26px 32px;vertical-align:middle;" width="42%">
-              <img src="https://iqsea.io/brand/logo-white-tagline.png" height="36" alt="IQSEA" style="display:block;max-width:180px;margin-bottom:9px;" />
+              <img src="https://iqsea.io/brand/logo-white-tagline.png" height="44" alt="IQSEA" style="display:block;max-width:210px;margin-bottom:7px;" />
               <div style="font-size:12px;color:#8fa8c4;font-family:Inter,-apple-system,sans-serif;letter-spacing:0.02em;">Your Maritime Edge.</div>
             </td>
-            <td style="padding:26px 32px 26px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.3);" width="58%">
-              <div style="font-size:21px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;font-style:italic;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.1;">${esc(briefType)}</div>
+            <td style="padding:26px 32px 26px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+              <div style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.15;">${esc(briefType)}</div>
               <div style="font-size:13px;color:#8fa8c4;margin-top:7px;font-family:Inter,-apple-system,sans-serif;">${esc(dateLine)}</div>
               <div style="font-size:13px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">${nameCompany}</div>
               ${badgeHtml}
@@ -231,7 +230,7 @@ function ratingButtons(briefJobId: string | undefined, subscriberId: string | un
     </tr>
     <tr>
       <td align="center">
-        <a href="${base}&rating=good" style="display:inline-block;padding:9px 22px;margin:0 5px;background:${C.teal};color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128077; Useful</a>
+        <a href="${base}&rating=good" style="display:inline-block;padding:9px 22px;margin:0 5px;background:#16a34a;color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128077; Useful</a>
         <a href="${base}&rating=ok"   style="display:inline-block;padding:9px 22px;margin:0 5px;background:#64748b;color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128528; OK</a>
         <a href="${base}&rating=bad"  style="display:inline-block;padding:9px 22px;margin:0 5px;background:${C.red};color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128078; Not helpful</a>
       </td>
@@ -289,7 +288,7 @@ function renderItem(item: IntelItem, depth = "deep"): string {
     : "";
 
   const pad = depth === "executive" ? "12px 16px 10px" : "16px 18px 12px";
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:${depth === "executive" ? "10px" : "16px"};background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:${depth === "executive" ? "10px" : "16px"};background:${C.bg};border:1px solid ${C.border};border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
       <td style="padding:${pad};">
         <div style="font-size:${depth === "executive" ? "14px" : "15px"};font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:${summaryHtml ? "7px" : "2px"};font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
@@ -341,17 +340,38 @@ function renderOffDutyItem(item: IntelItem, depth = "deep"): string {
     </div>`;
   }
   const summaryHtml = item.summary?.trim()
-    ? `<div style="font-size:13px;color:${C.body};line-height:1.65;margin-bottom:7px;">${esc(item.summary)}</div>`
+    ? `<div style="font-size:13px;color:${C.body};line-height:1.65;margin-bottom:12px;">${esc(item.summary)}</div>`
     : "";
-  const commentaryHtml = item.commentary?.trim()
-    ? `<div style="font-size:12px;color:#6d28d9;line-height:1.5;padding:7px 10px;background:#f5f3ff;border-radius:4px;margin-bottom:7px;font-style:italic;">${esc(item.commentary)}</div>`
-    : "";
+  let insightHtml = "";
+  if (depth === "deep") {
+    const hasLeft  = !!item.commentary?.trim();
+    const hasRight = !!item.relevance?.trim();
+    if (hasLeft || hasRight) {
+      const leftTd = hasLeft
+        ? `<td width="49%" style="padding:10px 12px;background:${C.tealBg};border-radius:4px;vertical-align:top;">
+            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
+            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
+          </td>`
+        : `<td width="49%"></td>`;
+      const rightTd = hasRight
+        ? `<td width="49%" style="padding:10px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;vertical-align:top;">
+            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
+            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
+          </td>`
+        : `<td width="49%"></td>`;
+      insightHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+        <tr>${leftTd}<td width="2%"></td>${rightTd}</tr>
+      </table>`;
+    }
+  } else if (item.commentary?.trim()) {
+    insightHtml = `<div style="font-size:12px;color:#6d28d9;line-height:1.5;padding:7px 10px;background:#f5f3ff;border-radius:4px;margin-bottom:7px;font-style:italic;">${esc(item.commentary)}</div>`;
+  }
   const sourceRow = sourceHtml ? `<div style="margin-top:6px;">${sourceHtml}</div>` : "";
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.offDutyBg};border:1px solid #e9d5ff;border-left:3px solid ${C.offDutyAcc};border-radius:6px;overflow:hidden;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.offDutyBg};border:1px solid #e9d5ff;border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
       <td style="padding:12px 14px;">
         <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
-        ${summaryHtml}${commentaryHtml}${sourceRow}
+        ${summaryHtml}${insightHtml}${sourceRow}
       </td>
     </tr>
   </table>`;
@@ -366,17 +386,38 @@ function renderSafetyItem(item: IntelItem, depth = "deep"): string {
     </div>`;
   }
   const summaryHtml = item.summary?.trim()
-    ? `<div style="font-size:13px;color:${C.body};line-height:1.65;margin-bottom:7px;">${esc(item.summary)}</div>`
+    ? `<div style="font-size:13px;color:${C.body};line-height:1.65;margin-bottom:12px;">${esc(item.summary)}</div>`
     : "";
-  const commentaryHtml = item.commentary?.trim()
-    ? `<div style="font-size:12px;color:#92400e;line-height:1.5;padding:7px 10px;background:#fef3c7;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Risk assessment:</strong> ${esc(item.commentary)}</div>`
-    : "";
+  let insightHtml = "";
+  if (depth === "deep") {
+    const hasLeft  = !!item.commentary?.trim();
+    const hasRight = !!item.relevance?.trim();
+    if (hasLeft || hasRight) {
+      const leftTd = hasLeft
+        ? `<td width="49%" style="padding:10px 12px;background:${C.tealBg};border-radius:4px;vertical-align:top;">
+            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Analyst Take</div>
+            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.commentary)}</div>
+          </td>`
+        : `<td width="49%"></td>`;
+      const rightTd = hasRight
+        ? `<td width="49%" style="padding:10px 12px;background:${C.bg};border:1px solid ${C.border};border-radius:4px;vertical-align:top;">
+            <div style="font-size:9px;font-weight:700;color:${C.teal};text-transform:uppercase;letter-spacing:0.13em;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">Why It Matters</div>
+            <div style="font-size:12px;color:${C.body};line-height:1.6;">${esc(item.relevance)}</div>
+          </td>`
+        : `<td width="49%"></td>`;
+      insightHtml = `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+        <tr>${leftTd}<td width="2%"></td>${rightTd}</tr>
+      </table>`;
+    }
+  } else if (item.commentary?.trim()) {
+    insightHtml = `<div style="font-size:12px;color:#92400e;line-height:1.5;padding:7px 10px;background:#fef3c7;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Risk assessment:</strong> ${esc(item.commentary)}</div>`;
+  }
   const sourceRow = sourceHtml ? `<div style="margin-top:6px;">${sourceHtml}</div>` : "";
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.safeBg};border:1px solid #fde68a;border-left:3px solid ${C.amber};border-radius:6px;overflow:hidden;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.safeBg};border:1px solid #fde68a;border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
       <td style="padding:12px 14px;">
         <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
-        ${summaryHtml}${commentaryHtml}${sourceRow}
+        ${summaryHtml}${insightHtml}${sourceRow}
       </td>
     </tr>
   </table>`;
@@ -479,7 +520,7 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
       const daysLeft = e.daysLeft ?? 999;
       const urgency = daysLeft <= 30 ? C.red : daysLeft <= 90 ? C.amber : C.teal;
 
-      return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
+      return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.bg};border:1px solid ${C.border};border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
         <tr>
           <td style="padding:14px 16px;vertical-align:middle;" width="75%">
             <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:6px;font-family:Inter,-apple-system,sans-serif;">${esc(e.regulation)}</div>
