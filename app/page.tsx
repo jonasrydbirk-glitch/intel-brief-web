@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState } from "react";
+import { IQseaLogoNav } from "./components/iqsea-logo";
 import { IQSEAWordmark } from "./components/iqsea-wordmark";
 import { FAQAccordion } from "./components/faq-accordion";
 
@@ -90,7 +90,7 @@ function Nav() {
     <header className="sticky top-0 z-50 border-b backdrop-blur-md" style={{ borderColor: "var(--border)", background: "rgba(11,20,36,0.85)" }}>
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
         <Link href="/" className="flex items-center">
-          <IQSEAWordmark className="h-9" />
+          <IQseaLogoNav className="h-9" />
         </Link>
 
         {/* Desktop nav */}
@@ -422,18 +422,6 @@ export default function LandingPage() {
       <section className="flex items-center justify-center px-6 pt-24 pb-16 sm:pt-36 sm:pb-24 text-center">
 
         <div className="relative max-w-4xl mx-auto z-10">
-          {/* Hero logo */}
-          <div className="flex justify-center mb-12">
-            <Image
-              src="/brand/logo-white-tagline.svg"
-              alt="IQSEA — Your Maritime Edge."
-              width={2172}
-              height={724}
-              className="h-24 sm:h-28 w-auto"
-              unoptimized
-              priority
-            />
-          </div>
 
           {/* Headline */}
           <h1

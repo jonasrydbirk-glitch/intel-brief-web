@@ -1662,7 +1662,7 @@ export default function OnboardPage() {
         <Link href="/" className="flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/logo-white-compact.svg"
+            src="/brand/logo-white-tagline.svg"
             alt="IQSEA"
             className="h-7 w-auto"
           />

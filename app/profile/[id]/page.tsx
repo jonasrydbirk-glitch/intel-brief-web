@@ -3,7 +3,7 @@ import path from 'path';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { verifySession } from '@/app/lib/session';
-import { IQseaLogoSmall } from '@/app/components/iqsea-logo';
+import { IQseaLogoNav } from '@/app/components/iqsea-logo';
 
 interface Profile {
   id: string;
@@ -103,7 +103,7 @@ export default async function ProfilePage({
       <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-14">
           <Link href="/" className="flex items-center">
-            <IQseaLogoSmall className="h-7" />
+            <IQseaLogoNav className="h-7" />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link
