@@ -1,11 +1,11 @@
 /**
- * IQsea Brief HTML Renderer — Professional Template
+ * IQsea Brief HTML Renderer — Brand-aligned Template
  *
  * Converts a BriefPayload into a self-contained HTML document styled
- * for PDF output (Puppeteer) and email attachment previewing.
+ * for PDF output (Puppeteer) and email delivery.
  *
- * Design language: maritime consultancy / investment-bank brief.
- * Clean white, deep-navy text, teal accent (#53b1c1), minimal chrome.
+ * Design language: IQsea brand — navy #0B1F38, teal #2BB3CD, gold #F4B400.
+ * White body for printability; navy header banner with logo.
  *
  * Depth-mode-aware:
  *   "executive" — headline + 1-sentence summary + terse commentary
@@ -15,8 +15,6 @@
  * Source-link policy:
  *   ALL news sections render source links — subtle small gray text.
  *   Prospects section: source links are OMITTED (generated leads, not articles).
- *
- * Build 2026-04-16-BRIEF-POLISH
  */
 
 import type {
@@ -30,22 +28,25 @@ import type {
 // Colour palette (all inline — email/PDF safe)
 // ---------------------------------------------------------------------------
 const C = {
-  navy:       "#0b1424",   // primary text, headlines
-  body:       "#374151",   // body text
-  muted:      "#6b7280",   // labels, meta
-  faint:      "#9ca3af",   // sources, footnotes
-  teal:       "#53b1c1",   // accent: borders, links
-  tealDark:   "#3a8fa0",   // hover-equivalent for links
-  border:     "#e5e7eb",   // dividers, item borders
-  borderFaint:"#f3f4f6",   // very light divider (headlines-only mode)
-  bg:         "#f9fafb",   // item card background
-  bgPage:     "#ffffff",   // page background
-  green:      "#16a34a",   // positive change
-  red:        "#dc2626",   // negative change
-  amber:      "#d97706",   // warning / amber urgency
-  safeBg:     "#fffbeb",   // safety item background
-  offDutyBg:  "#fdf4ff",   // off-duty item background
-  offDutyAcc: "#a855f7",   // off-duty accent
+  navy:        "#0B1F38",   // primary headlines, dark text
+  body:        "#1a2e45",   // body text on white background
+  muted:       "#8fa8c4",   // labels, meta, section headers
+  faint:       "#5a7a9a",   // sources, footnotes
+  teal:        "#2BB3CD",   // accent: borders, links, labels
+  tealLight:   "#6bc4d2",   // lighter teal for subtle accents
+  tealDark:    "#1e8fa3",   // hover-equivalent for links
+  gold:        "#F4B400",   // analyst note, warnings
+  border:      "#cdd8e3",   // dividers, item borders
+  borderFaint: "#e4edf4",   // very light divider
+  bg:          "#f0f5fa",   // item card background
+  bgPage:      "#ffffff",   // page background
+  bgNavy:      "#0B1F38",   // header banner background
+  green:       "#16a34a",   // positive change
+  red:         "#dc2626",   // negative change
+  amber:       "#d97706",   // warning / amber urgency
+  safeBg:      "#fffbeb",   // safety item background
+  offDutyBg:   "#f5f0ff",   // off-duty item background
+  offDutyAcc:  "#a855f7",   // off-duty accent
 };
 
 // ---------------------------------------------------------------------------
@@ -82,8 +83,6 @@ function renderSourceLink(source: string | undefined | null): string {
  * Single source:  "Source: [name linked]"
  * Dual source:    "Sources: [primary ↗] · [secondary ↗]"
  * No source:      ""
- *
- * Note: item.secondarySource is an optional field added for dual-source items.
  */
 function renderItemSource(item: IntelItem): string {
   const primary = item.source?.trim();
@@ -101,7 +100,7 @@ function renderItemSource(item: IntelItem): string {
   return `<span style="font-size:11px;color:${C.faint};">Source: ${primaryHtml}</span>`;
 }
 
-/** Render a section heading with teal left-rule and uppercase small-caps label. */
+/** Render a section heading with teal left-rule and uppercase label. */
 function sectionHeading(title: string, accentColor = C.teal): string {
   return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid ${C.border};">
     <div style="width:3px;height:16px;background:${accentColor};border-radius:2px;flex-shrink:0;"></div>
@@ -125,7 +124,7 @@ function renderItem(
       ? `<div style="font-size:14px;color:${C.body};line-height:1.7;margin-bottom:14px;">${esc(item.summary)}</div>`
       : "";
     const commentaryHtml = item.commentary?.trim()
-      ? `<div style="font-size:13px;color:${C.body};font-style:italic;line-height:1.6;padding:12px 16px;background:#f0f9fa;border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:14px;">${esc(item.commentary)}</div>`
+      ? `<div style="font-size:13px;color:${C.body};font-style:italic;line-height:1.6;padding:12px 16px;background:#ddf0f4;border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:14px;">${esc(item.commentary)}</div>`
       : "";
     const relevanceHtml = item.relevance?.trim()
       ? `<div style="font-size:13px;color:${C.body};line-height:1.6;margin-bottom:12px;"><strong style="color:${C.navy};">Why it matters:</strong> ${esc(item.relevance)}</div>`
@@ -133,7 +132,7 @@ function renderItem(
     const quoteHtml = item.quote?.trim()
       ? `<blockquote style="margin:0 0 12px;padding:8px 12px;border-left:2px solid ${C.teal};background:${C.bg};border-radius:0 4px 4px 0;font-size:13px;color:${C.body};font-style:italic;line-height:1.5;">&ldquo;${esc(item.quote.trim())}&rdquo;</blockquote>`
       : "";
-    return `<div style="margin-bottom:28px;padding:20px 22px;background:#f8fafc;border-radius:8px;border-left:3px solid ${C.teal};">
+    return `<div style="margin-bottom:28px;padding:20px 22px;background:${C.bg};border-radius:8px;border-left:3px solid ${C.teal};">
       <h2 style="font-size:17px;font-weight:700;color:${C.navy};line-height:1.3;margin:0 0 14px;">${esc(item.headline)}</h2>
       ${summaryHtml}
       ${commentaryHtml}
@@ -149,7 +148,7 @@ function renderItem(
     : "";
 
   const commentaryHtml = item.commentary?.trim()
-    ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;padding:7px 10px;background:#eff6ff;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Analyst take:</strong> ${esc(item.commentary)}</div>`
+    ? `<div style="font-size:12px;color:${C.navy};line-height:1.5;padding:7px 10px;background:#ddf0f4;border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;color:${C.teal};">Analyst take:</strong> ${esc(item.commentary)}</div>`
     : "";
 
   // ── Deep only ───────────────────────────────────────────────────────────
@@ -162,10 +161,9 @@ function renderItem(
     depth === "deep" && item.relevance?.trim()
       ? `<div style="font-size:11px;color:${C.muted};margin-top:4px;"><strong>Why it matters:</strong> ${esc(item.relevance)}</div>`
       : depth === "executive" && item.relevance?.trim()
-      ? ""  // skip relevance in executive mode — too verbose
+      ? ""
       : "";
 
-  // Source + relevance footer row
   const footerHtml = (sourceHtml || relevanceHtml)
     ? `<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:6px;">
         <div style="flex:1;">${relevanceHtml}</div>
@@ -188,7 +186,6 @@ function renderItem(
  */
 function renderProspectItem(item: IntelItem, depth: string = "deep"): string {
   if (depth === "data") {
-    // Weekly Digest: prospects section is omitted by AI instructions; fallback to slim headline row
     return `<div style="padding:7px 0;border-bottom:1px solid ${C.borderFaint};">
       <span style="font-size:13px;font-weight:600;color:${C.navy};line-height:1.4;">${esc(item.headline)}</span>
     </div>`;
@@ -199,7 +196,7 @@ function renderProspectItem(item: IntelItem, depth: string = "deep"): string {
     : "";
 
   const commentaryHtml = item.commentary?.trim()
-    ? `<div style="font-size:12px;color:#1e40af;line-height:1.5;padding:7px 10px;background:#eff6ff;border-radius:4px;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;">Fit assessment:</strong> ${esc(item.commentary)}</div>`
+    ? `<div style="font-size:12px;color:${C.navy};line-height:1.5;padding:7px 10px;background:#ddf0f4;border-left:2px solid ${C.teal};border-radius:0 4px 4px 0;margin-bottom:7px;font-style:italic;"><strong style="font-style:normal;color:${C.teal};">Fit assessment:</strong> ${esc(item.commentary)}</div>`
     : "";
 
   const relevanceHtml =
@@ -345,15 +342,14 @@ function renderMarketPulseSection(entries: MarketPulseEntry[], depth: string = "
       const isNegative = /^-/.test(change) || /\bdown\b/i.test(change);
       const changeColor = isPositive ? C.green : isNegative ? C.red : C.muted;
 
-      // Weekly Digest: hide source column in market pulse (keep it compact)
       const sourceCell = depth !== "data"
         ? `<td style="padding:6px 8px;font-size:11px;color:${C.faint};font-style:italic;border-bottom:1px solid ${C.borderFaint};text-align:right;">${esc(e.source)}</td>`
         : "";
 
       return `<tr>
         <td style="padding:6px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.borderFaint};">${esc(e.metric)}</td>
-        <td style="padding:6px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.borderFaint};text-align:right;font-variant-numeric:tabular-nums;">${esc(e.value)}</td>
-        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:${changeColor};border-bottom:1px solid ${C.borderFaint};text-align:right;">${esc(change)}</td>
+        <td style="padding:6px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.borderFaint};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-variant-numeric:tabular-nums;">${esc(e.value)}</td>
+        <td style="padding:6px 8px;font-size:12px;font-weight:600;color:${changeColor};border-bottom:1px solid ${C.borderFaint};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
         ${sourceCell}
       </tr>`;
     })
@@ -418,16 +414,28 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
 }
 
 // ---------------------------------------------------------------------------
-// Main export
+// Rating buttons
 // ---------------------------------------------------------------------------
 
-/**
- * Render a BriefPayload to a self-contained HTML document.
- * Pure function — no network calls, no side effects.
- *
- * @param brief   The full brief payload from the Architect stage
- * @param depth   Rendering depth ("executive" | "deep" | "data") — defaults to brief.depth or "deep"
- */
+function ratingButtons(briefJobId: string | undefined, subscriberId: string | undefined, label: string): string {
+  if (!briefJobId || !subscriberId) return "";
+  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
+  const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid ${C.border};padding-top:20px;border-collapse:collapse;">
+    <tr>
+      <td align="center" style="font-size:13px;color:${C.muted};padding-bottom:14px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${label}</td>
+    </tr>
+    <tr>
+      <td align="center">
+        <a href="${base}&rating=good" style="display:inline-block;padding:9px 22px;margin:0 6px;background:${C.teal};color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128077; Useful</a>
+        <a href="${base}&rating=ok"   style="display:inline-block;padding:9px 22px;margin:0 6px;background:#64748b;color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128528; OK</a>
+        <a href="${base}&rating=bad"  style="display:inline-block;padding:9px 22px;margin:0 6px;background:${C.red};color:#ffffff;text-decoration:none;border-radius:100px;font-size:13px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">&#128078; Not helpful</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
 // ---------------------------------------------------------------------------
 // Monthly Strategic Review template
 // ---------------------------------------------------------------------------
@@ -436,32 +444,13 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
  * Render a Monthly Strategic Review BriefPayload to HTML.
  *
  * Distinct from the daily template:
- *   - Header: "MONTHLY STRATEGIC REVIEW" + period range instead of today's date
+ *   - Header: "MONTHLY CATCH-UP" + period range
  *   - Main sections rendered as full-depth narrative cards
  *   - Lead rollup (prospectSection) with fit-assessment styling
  *   - Tender rollup (tenderSection) with opportunity styling
  *   - Monthly market trends table
  *   - No regulatory countdown, no off-duty, no safety sections
  */
-function ratingButtons(briefJobId: string | undefined, subscriberId: string | undefined, label: string): string {
-  if (!briefJobId || !subscriberId) return "";
-  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
-  const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
-  return `
-  <table width="100%" style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:20px;border-collapse:collapse;">
-    <tr>
-      <td align="center" style="font-size:14px;color:#6b7280;padding-bottom:12px;">${label}</td>
-    </tr>
-    <tr>
-      <td align="center">
-        <a href="${base}&rating=good" style="display:inline-block;padding:8px 20px;margin:0 8px;background:#16a34a;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128077; Useful</a>
-        <a href="${base}&rating=ok"   style="display:inline-block;padding:8px 20px;margin:0 8px;background:#6b7280;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128528; OK</a>
-        <a href="${base}&rating=bad"  style="display:inline-block;padding:8px 20px;margin:0 8px;background:#dc2626;color:white;text-decoration:none;border-radius:6px;font-size:14px;">&#128078; Not helpful</a>
-      </td>
-    </tr>
-  </table>`;
-}
-
 export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?: string; subscriberId?: string; siteUrl?: string }): string {
   const periodLabel = brief.monthlyPeriod
     ? (() => {
@@ -511,7 +500,7 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
       ${sectionHeading("30-Day Lead Rollup", "#16a34a")}
       <table width="100%" style="border-collapse:collapse;font-size:13px;">
         <thead>
-          <tr style="background:#f1f5f9;border-bottom:2px solid ${C.teal};">
+          <tr style="background:${C.bg};border-bottom:2px solid ${C.teal};">
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Company</th>
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Date</th>
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Fit Assessment</th>
@@ -539,7 +528,7 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
       ${sectionHeading("30-Day Tender Rollup", C.amber)}
       <table width="100%" style="border-collapse:collapse;font-size:13px;">
         <thead>
-          <tr style="background:#f1f5f9;border-bottom:2px solid ${C.amber};">
+          <tr style="background:${C.bg};border-bottom:2px solid ${C.amber};">
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Tender / Contract</th>
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Region &middot; Deadline &middot; Details</th>
             <th style="text-align:left;padding:8px;font-size:10px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.08em;">Source</th>
@@ -559,8 +548,8 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
       const chgColor = isPos ? C.green : isNeg ? C.red : C.muted;
       return `<tr>
         <td style="padding:7px 8px;font-size:12px;font-weight:500;color:${C.navy};border-bottom:1px solid ${C.border};">${esc(e.metric)}</td>
-        <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;">${esc(e.value)}</td>
-        <td style="padding:7px 8px;font-size:11px;color:${chgColor};font-weight:600;border-bottom:1px solid ${C.border};text-align:right;">${esc(change)}</td>
+        <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(e.value)}</td>
+        <td style="padding:7px 8px;font-size:11px;color:${chgColor};font-weight:600;border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
         <td style="padding:7px 8px;font-size:11px;color:${C.faint};border-bottom:1px solid ${C.border};text-align:right;">${esc(e.source)}</td>
       </tr>`;
     }).join("");
@@ -593,38 +582,36 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: ${C.bgPage};
       color: ${C.body};
       max-width: 700px;
       margin: 0 auto;
-      padding: 36px 24px;
+      padding: 0 0 36px;
       line-height: 1.5;
     }
+    .content-pad { padding: 0 24px; }
   </style>
 </head>
 <body>
 
   <!-- ── Header ──────────────────────────────────────────────────────── -->
-  <div style="margin-bottom:28px;padding-bottom:16px;border-bottom:3px solid ${C.teal};">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
-      <div>
-        <div style="font-size:24px;font-weight:800;color:${C.navy};letter-spacing:0.04em;line-height:1;">IQsea</div>
-        <div style="font-size:10px;color:${C.teal};text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;font-weight:700;">Monthly Catch-Up</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:12px;font-weight:600;color:${C.navy};">${esc(periodLabel)}</div>
-        <div style="font-size:10px;color:${C.faint};margin-top:2px;">Generated ${esc(generatedDate)}</div>
-      </div>
-    </div>
-  </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
+    <tr>
+      <td style="background:#0B1F38;padding:28px 32px;text-align:center;">
+        <img src="https://iqsea.io/brand/logo-white-compact.png" height="40" alt="IQSEA" style="display:block;margin:0 auto 12px;" />
+        <div style="font-size:9px;color:#2BB3CD;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;font-family:Inter,-apple-system,sans-serif;">Monthly Catch-Up</div>
+        <div style="font-size:11px;color:#8fa8c4;margin-top:6px;font-family:Inter,-apple-system,sans-serif;">${esc(periodLabel)}</div>
+        <div style="font-size:11px;color:#8fa8c4;margin-top:2px;font-family:Inter,-apple-system,sans-serif;">${esc(brief.subscriberName)}${brief.companyName ? ` &middot; ${esc(brief.companyName)}` : ""}</div>
+        <div style="font-size:10px;color:#3a5a7a;margin-top:3px;font-family:Inter,-apple-system,sans-serif;">Generated ${esc(generatedDate)}</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="height:3px;background:#2BB3CD;"></td>
+    </tr>
+  </table>
 
-  <!-- ── Meta ────────────────────────────────────────────────────────── -->
-  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px;padding:10px 14px;background:${C.bg};border-radius:6px;border:1px solid ${C.border};font-size:12px;color:${C.muted};">
-    <div><strong style="color:${C.navy};font-weight:600;">For:</strong> ${esc(brief.subscriberName)}</div>
-    <div><strong style="color:${C.navy};font-weight:600;">Company:</strong> ${esc(brief.companyName)}</div>
-    <div><strong style="color:${C.navy};font-weight:600;">Period:</strong> ${esc(periodLabel)}</div>
-  </div>
+  <div class="content-pad" style="padding:28px 24px 0;">
 
   <!-- ── Top Stories ───────────────────────────────────────────────── -->
   ${sectionsHtml}
@@ -658,15 +645,28 @@ export function renderMonthlyBriefHtml(brief: BriefPayload, opts?: { briefJobId?
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->
   <div class="no-print" style="text-align:center;margin-top:20px;">
-    <button onclick="window.print()" style="padding:9px 24px;background:${C.teal};color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">
+    <button onclick="window.print()" style="padding:9px 24px;background:${C.teal};color:#fff;border:none;border-radius:100px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,-apple-system,sans-serif;">
       Save as PDF
     </button>
   </div>
+
+  </div><!-- end content-pad -->
 
 </body>
 </html>`;
 }
 
+// ---------------------------------------------------------------------------
+// Main export — Daily Brief
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a BriefPayload to a self-contained HTML document.
+ * Pure function — no network calls, no side effects.
+ *
+ * @param brief   The full brief payload from the Architect stage
+ * @param depth   Rendering depth ("executive" | "deep" | "data") — defaults to brief.depth or "deep"
+ */
 export function renderBriefHtml(
   brief: BriefPayload,
   depth?: "executive" | "deep" | "data",
@@ -730,37 +730,36 @@ export function renderBriefHtml(
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: ${C.bgPage};
       color: ${C.body};
       max-width: 700px;
       margin: 0 auto;
-      padding: 36px 24px;
+      padding: 0 0 36px;
       line-height: 1.5;
     }
+    .content-pad { padding: 0 24px; }
   </style>
 </head>
 <body>
 
   <!-- ── Header ──────────────────────────────────────────────────────── -->
-  <div style="margin-bottom:28px;padding-bottom:16px;border-bottom:2px solid ${C.teal};">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;">
-      <div>
-        <div style="font-size:24px;font-weight:800;color:${C.navy};letter-spacing:0.04em;line-height:1;">IQsea</div>
-        <div style="font-size:10px;color:${C.muted};text-transform:uppercase;letter-spacing:0.14em;margin-top:3px;">Intelligence Brief</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:11px;color:${C.muted};">${esc(depthLabel)}</div>
-        <div style="font-size:11px;color:${C.faint};margin-top:2px;">${esc(date)}</div>
-      </div>
-    </div>
-  </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
+    <tr>
+      <td style="background:#0B1F38;padding:28px 32px;text-align:center;">
+        <img src="https://iqsea.io/brand/logo-white-compact.png" height="40" alt="IQSEA" style="display:block;margin:0 auto 12px;" />
+        <div style="font-size:9px;color:#2BB3CD;text-transform:uppercase;letter-spacing:0.2em;font-weight:700;font-family:Inter,-apple-system,sans-serif;">Intelligence Brief</div>
+        <div style="font-size:11px;color:#8fa8c4;margin-top:6px;font-family:Inter,-apple-system,sans-serif;">${esc(date)}</div>
+        <div style="font-size:11px;color:#8fa8c4;margin-top:2px;font-family:Inter,-apple-system,sans-serif;">${esc(brief.subscriberName)}${brief.companyName ? ` &middot; ${esc(brief.companyName)}` : ""}</div>
+        <div style="font-size:10px;color:#3a5a7a;margin-top:3px;font-family:Inter,-apple-system,sans-serif;">${esc(depthLabel)}</div>
+      </td>
+    </tr>
+    <tr>
+      <td style="height:3px;background:#2BB3CD;"></td>
+    </tr>
+  </table>
 
-  <!-- ── Meta ────────────────────────────────────────────────────────── -->
-  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px;padding:10px 14px;background:${C.bg};border-radius:6px;border:1px solid ${C.border};font-size:12px;color:${C.muted};">
-    <div><strong style="color:${C.navy};font-weight:600;">For:</strong> ${esc(brief.subscriberName)}</div>
-    <div><strong style="color:${C.navy};font-weight:600;">Company:</strong> ${esc(brief.companyName)}</div>
-  </div>
+  <div class="content-pad" style="padding:28px 24px 0;">
 
   <!-- ── Market Pulse ────────────────────────────────────────────────── -->
   ${marketPulseHtml}
@@ -781,9 +780,9 @@ export function renderBriefHtml(
 
   <!-- ── Analyst Note ────────────────────────────────────────────────── -->
   ${brief.analystNote?.trim() ? `
-  <div style="margin-top:24px;padding:14px 16px;background:#fefce8;border-left:3px solid #eab308;border-radius:5px;">
-    <div style="font-size:10px;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">IQsea Intelligence Perspective</div>
-    <div style="font-size:13px;color:#422006;line-height:1.55;">${esc(brief.analystNote)}</div>
+  <div style="margin-top:24px;padding:14px 16px;background:#fffcec;border-left:3px solid #F4B400;border-radius:0 5px 5px 0;">
+    <div style="font-size:10px;font-weight:700;color:#0B1F38;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">IQsea Intelligence Perspective</div>
+    <div style="font-size:13px;color:#1a2e45;line-height:1.55;">${esc(brief.analystNote)}</div>
   </div>` : ""}
 
   <!-- ── Rating buttons ────────────────────────────────────────────── -->
@@ -806,10 +805,12 @@ export function renderBriefHtml(
 
   <!-- ── Print button (hidden on print) ──────────────────────────────── -->
   <div class="no-print" style="text-align:center;margin-top:20px;">
-    <button onclick="window.print()" style="padding:9px 24px;background:${C.teal};color:#fff;border:none;border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">
+    <button onclick="window.print()" style="padding:9px 24px;background:${C.teal};color:#fff;border:none;border-radius:100px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,-apple-system,sans-serif;">
       Save as PDF
     </button>
   </div>
+
+  </div><!-- end content-pad -->
 
 </body>
 </html>`;

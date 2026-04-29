@@ -58,21 +58,75 @@ export async function POST(req: Request) {
     // Admin notification — best-effort, never fails the request
     try {
       const ratingEmoji = rating === "good" ? "👍" : rating === "bad" ? "👎" : "😐";
+      const ratingColor = rating === "good" ? "#2BB3CD" : rating === "bad" ? "#dc2626" : "#64748b";
       await sendEmail({
         to:      "atlas@iqsea.io",
         subject: `Brief feedback from ${subName} — ${ratingEmoji} ${rating ?? "no rating"}`,
-        htmlBody: `
-          <div style="font-family:sans-serif;color:#e8eef4;background:#0b1424;padding:24px;border-radius:12px;max-width:520px;">
-            <h2 style="color:#53b1c1;margin:0 0 16px;">Brief Feedback</h2>
-            <p style="margin:0 0 6px;"><strong>From:</strong> ${subName}${subEmail ? ` &lt;${subEmail}&gt;` : ""}</p>
-            <p style="margin:0 0 6px;"><strong>Rating:</strong> ${ratingEmoji} ${rating ?? "—"}</p>
-            ${briefJobId ? `<p style="margin:0 0 6px;"><strong>Brief job:</strong> <code style="font-size:12px;">${briefJobId}</code></p>` : ""}
-            <hr style="border:none;border-top:1px solid #1a3358;margin:16px 0;" />
-            ${message
-              ? `<p style="white-space:pre-wrap;line-height:1.6;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
-              : `<p style="color:#6b7280;font-style:italic;">No message provided.</p>`}
-          </div>
-        `,
+        htmlBody: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#050e1c;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050e1c;">
+  <tr>
+    <td align="center" style="padding:32px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <img src="https://iqsea.io/brand/logo-white-compact.png" height="30" alt="IQSEA" style="display:block;margin:0 auto;" />
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#0f1e33;border:1px solid #1d3a5f;border-radius:10px;overflow:hidden;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:#2BB3CD;"></td></tr></table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 28px;">
+              <tr>
+                <td style="padding-bottom:16px;border-bottom:1px solid #1d3a5f;">
+                  <div style="font-size:15px;font-weight:700;color:#2BB3CD;font-family:Inter,-apple-system,sans-serif;">Brief Feedback</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding-top:16px;padding-bottom:6px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:5px 0;font-size:13px;font-family:Inter,-apple-system,sans-serif;">
+                        <span style="color:#8fa8c4;">From</span>&ensp;<span style="color:#e8eef4;font-weight:600;">${subName}${subEmail ? `&ensp;<span style="color:#5a7a9a;font-weight:400;">&lt;${subEmail.replace(/</g, "&lt;").replace(/>/g, "&gt;")}&gt;</span>` : ""}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:13px;font-family:Inter,-apple-system,sans-serif;">
+                        <span style="color:#8fa8c4;">Rating</span>&ensp;<span style="color:${ratingColor};font-weight:700;">${ratingEmoji} ${rating ?? "—"}</span>
+                      </td>
+                    </tr>
+                    ${briefJobId ? `<tr><td style="padding:5px 0;font-size:13px;font-family:Inter,-apple-system,sans-serif;"><span style="color:#8fa8c4;">Brief job</span>&ensp;<span style="color:#6bc4d2;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:12px;">${briefJobId}</span></td></tr>` : ""}
+                  </table>
+                </td>
+              </tr>
+              ${message ? `
+              <tr>
+                <td style="padding-top:16px;">
+                  <div style="background:#0B1F38;border-radius:6px;padding:14px 16px;">
+                    <div style="font-size:13px;color:#e8eef4;line-height:1.65;white-space:pre-wrap;font-family:Inter,-apple-system,sans-serif;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                  </div>
+                </td>
+              </tr>` : `
+              <tr>
+                <td style="padding-top:16px;">
+                  <div style="font-size:13px;color:#5a7a9a;font-style:italic;font-family:Inter,-apple-system,sans-serif;">No message provided.</div>
+                </td>
+              </tr>`}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-top:18px;">
+            <div style="font-size:11px;color:#3a5a7a;font-family:Inter,-apple-system,sans-serif;">IQsea Intel Engine &middot; Internal notification</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`,
       });
     } catch (emailErr) {
       console.error("[feedback] Notification email failed (non-fatal):", emailErr);
@@ -110,15 +164,64 @@ export async function POST(req: Request) {
     await sendEmail({
       to:      "atlas@iqsea.io",
       subject: `New feedback from ${session.email ?? session.userId}`,
-      htmlBody: `
-        <div style="font-family:sans-serif;color:#e8eef4;background:#0b1424;padding:24px;border-radius:12px;">
-          <h2 style="color:#53b1c1;margin:0 0 16px;">New User Feedback</h2>
-          <p style="margin:0 0 8px;"><strong>User:</strong> ${session.email ?? "N/A"}</p>
-          <p style="margin:0 0 8px;"><strong>User ID:</strong> ${session.userId}</p>
-          <hr style="border:none;border-top:1px solid #1a3358;margin:16px 0;" />
-          <p style="white-space:pre-wrap;line-height:1.6;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
-        </div>
-      `,
+      htmlBody: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#050e1c;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050e1c;">
+  <tr>
+    <td align="center" style="padding:32px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <img src="https://iqsea.io/brand/logo-white-compact.png" height="30" alt="IQSEA" style="display:block;margin:0 auto;" />
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#0f1e33;border:1px solid #1d3a5f;border-radius:10px;overflow:hidden;">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:#2BB3CD;"></td></tr></table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 28px;">
+              <tr>
+                <td style="padding-bottom:16px;border-bottom:1px solid #1d3a5f;">
+                  <div style="font-size:15px;font-weight:700;color:#2BB3CD;font-family:Inter,-apple-system,sans-serif;">New User Feedback</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding-top:16px;padding-bottom:16px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:5px 0;font-size:13px;font-family:Inter,-apple-system,sans-serif;">
+                        <span style="color:#8fa8c4;">User</span>&ensp;<span style="color:#e8eef4;font-weight:600;">${(session.email ?? "N/A").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:5px 0;font-size:13px;font-family:Inter,-apple-system,sans-serif;">
+                        <span style="color:#8fa8c4;">User ID</span>&ensp;<span style="color:#6bc4d2;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-size:12px;">${session.userId}</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div style="background:#0B1F38;border-radius:6px;padding:14px 16px;">
+                    <div style="font-size:13px;color:#e8eef4;line-height:1.65;white-space:pre-wrap;font-family:Inter,-apple-system,sans-serif;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-top:18px;">
+            <div style="font-size:11px;color:#3a5a7a;font-family:Inter,-apple-system,sans-serif;">IQsea Intel Engine &middot; Internal notification</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`,
     });
   } catch (emailErr) {
     console.error("[feedback] Notification email failed (non-fatal):", emailErr);

@@ -62,30 +62,74 @@ export async function POST(request: Request) {
     const emailResult = await sendEmail({
       to: email,
       from: "noreply@iqsea.io",
-      subject: "Reset your IQsea Password",
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
-          <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #e8eef4; font-size: 24px; margin: 0;">Reset Your Password</h1>
-          </div>
-          <div style="background: #0f1b30; border: 1px solid #1a3358; border-radius: 12px; padding: 32px;">
-            <p style="color: #b0c4d8; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-              We received a request to reset the password for your IQsea account. Click the button below to set a new password.
-            </p>
-            <div style="text-align: center; margin: 28px 0;">
-              <a href="${resetUrl}" style="display: inline-block; background: #53b1c1; color: #0b1424; font-weight: 600; font-size: 15px; text-decoration: none; padding: 14px 32px; border-radius: 8px;">
-                Reset Password
-              </a>
-            </div>
-            <p style="color: #8fa8c4; font-size: 13px; line-height: 1.5; margin: 24px 0 0;">
-              This link will expire in 1 hour. If you didn&rsquo;t request a password reset, you can safely ignore this email.
-            </p>
-          </div>
-          <p style="color: #8fa8c4; font-size: 12px; text-align: center; margin-top: 32px;">
-            &copy; ${new Date().getFullYear()} IQsea. Maritime intelligence, delivered.
-          </p>
-        </div>
-      `,
+      subject: "Reset your IQsea password",
+      html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background:#050e1c;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050e1c;min-height:100vh;">
+  <tr>
+    <td align="center" style="padding:48px 20px 40px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
+
+        <!-- Logo -->
+        <tr>
+          <td align="center" style="padding-bottom:28px;">
+            <img src="https://iqsea.io/brand/logo-white-compact.png" height="36" alt="IQSEA" style="display:block;margin:0 auto;" />
+          </td>
+        </tr>
+
+        <!-- Card -->
+        <tr>
+          <td style="background:#0f1e33;border:1px solid #1d3a5f;border-radius:12px;overflow:hidden;">
+            <!-- Card accent bar -->
+            <table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:3px;background:#2BB3CD;"></td></tr></table>
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px;">
+              <tr>
+                <td style="padding-bottom:8px;">
+                  <div style="font-size:20px;font-weight:700;color:#e8eef4;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.2;">Reset your password</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding-bottom:28px;">
+                  <div style="font-size:14px;color:#8fa8c4;line-height:1.65;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                    We received a request to reset the password for your IQsea account. Click the button below to choose a new password. This link expires in <strong style="color:#e8eef4;">1 hour</strong>.
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-bottom:28px;">
+                  <a href="${resetUrl}" style="display:inline-block;background:#2BB3CD;color:#0B1F38;font-weight:700;font-size:15px;text-decoration:none;padding:14px 40px;border-radius:100px;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">Reset Password</a>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div style="background:#0B1F38;border-radius:6px;padding:12px 14px;margin-bottom:20px;">
+                    <div style="font-size:10px;color:#5a7a9a;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;margin-bottom:5px;">Reset link</div>
+                    <div style="font-size:11px;color:#6bc4d2;word-break:break-all;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${resetUrl}</div>
+                  </div>
+                  <div style="font-size:12px;color:#5a7a9a;line-height:1.6;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                    If you didn&rsquo;t request a password reset, you can safely ignore this email. Your password will not change.
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td align="center" style="padding-top:24px;">
+            <div style="font-size:11px;color:#3a5a7a;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">&copy; ${new Date().getFullYear()} IQsea &middot; Maritime intelligence, delivered.</div>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`,
     });
     if (!emailResult.success) {
       throw new Error(emailResult.error ?? "Email delivery failed");
