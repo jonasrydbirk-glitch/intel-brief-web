@@ -65,7 +65,7 @@ function UnsubscribeContent() {
               <button
                 onClick={() => act("pause")}
                 disabled={busy}
-                className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm font-medium text-[var(--foreground)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm font-medium text-[var(--foreground)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {busy ? "Pausing…" : "Pause deliveries"}
               </button>
@@ -77,7 +77,7 @@ function UnsubscribeContent() {
                 <button
                   onClick={() => setShowDeleteWarning(true)}
                   disabled={busy}
-                  className="w-full px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-sm text-[var(--muted-foreground)] hover:border-red-500/50 hover:text-red-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                  className="w-full px-4 py-3 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm text-[var(--muted-foreground)] hover:border-red-500/50 hover:text-red-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 >
                   Delete my account
                 </button>
@@ -90,14 +90,14 @@ function UnsubscribeContent() {
                     <button
                       onClick={() => act("delete")}
                       disabled={busy}
-                      className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                      className="flex-1 px-3 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                     >
                       {busy ? "Deleting…" : "Yes, delete everything"}
                     </button>
                     <button
                       onClick={() => setShowDeleteWarning(false)}
                       disabled={busy}
-                      className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                      className="flex-1 px-3 py-2 rounded-full border border-[var(--border)] text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                     >
                       Cancel
                     </button>
@@ -122,7 +122,7 @@ function UnsubscribeContent() {
             </p>
             <Link
               href="/settings/report"
-              className="inline-block px-5 py-2.5 rounded-xl bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-block px-5 py-2.5 rounded-full bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Go to settings
             </Link>
@@ -142,7 +142,7 @@ function UnsubscribeContent() {
             </p>
             <Link
               href="/"
-              className="inline-block px-5 py-2.5 rounded-xl border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              className="inline-block px-5 py-2.5 rounded-full border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
             >
               Back to homepage
             </Link>
@@ -162,7 +162,7 @@ function UnsubscribeContent() {
             <p className="text-sm text-red-300 mb-6">{errorMsg}</p>
             <button
               onClick={() => { setStep("confirm"); setErrorMsg(""); }}
-              className="px-5 py-2.5 rounded-xl border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              className="px-5 py-2.5 rounded-full border border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
             >
               Try again
             </button>

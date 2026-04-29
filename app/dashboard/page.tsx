@@ -58,7 +58,7 @@ export default async function DashboardPage() {
       </p>
       <Link
         href="/settings/report"
-        className="inline-block rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
+        className="inline-block rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
       >
         Update Report Settings
       </Link>

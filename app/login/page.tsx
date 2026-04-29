@@ -54,7 +54,7 @@ function LoginForm() {
           </Link>
           <Link
             href="/onboard"
-            className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground hover:brightness-110 transition"
+            className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground hover:brightness-110 transition"
           >
             Get Started
           </Link>
@@ -65,6 +65,9 @@ function LoginForm() {
       <main className="flex-1 flex items-center justify-center px-6 py-20">
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-border bg-card p-8 sm:p-10">
+            <div className="flex justify-center mb-8">
+              <IQseaLogo className="h-8" />
+            </div>
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold mb-2">Welcome back</h1>
               <p className="text-sm text-muted-foreground">
@@ -130,7 +133,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                className="w-full rounded-full bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>

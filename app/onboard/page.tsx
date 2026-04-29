@@ -1177,7 +1177,7 @@ function EntryStage({
         type="button"
         onClick={() => subject.trim() && onStart(subject.trim())}
         disabled={!subject.trim()}
-        className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        className="w-full rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
         Generate My Preview
       </button>
@@ -1303,7 +1303,7 @@ function SampleStage({
       <button
         type="button"
         onClick={onContinue}
-        className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
+        className="w-full rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
       >
         Create My Account →
       </button>
@@ -1329,7 +1329,7 @@ function NoResultsStage({
       <button
         type="button"
         onClick={onRetry}
-        className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
+        className="w-full rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
       >
         Try another topic
       </button>
@@ -1416,7 +1416,7 @@ function SignupStage({
         type="button"
         onClick={handleSignup}
         disabled={!canSubmit || submitting}
-        className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        className="w-full rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
         {submitting ? "Creating Account…" : "Create Account & Continue"}
       </button>
@@ -1469,7 +1469,7 @@ function CompleteStage() {
         <button
           type="button"
           onClick={() => router.push("/dashboard")}
-          className="w-full rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
+          className="w-full rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 transition"
         >
           Go to Dashboard
         </button>
@@ -1736,7 +1736,7 @@ export default function OnboardPage() {
                       type="button"
                       onClick={() => setQStep((s) => s + 1)}
                       disabled={!canAdvanceQ()}
-                      className="rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
                     >
                       Continue
                     </button>
@@ -1745,7 +1745,7 @@ export default function OnboardPage() {
                       type="button"
                       onClick={handleCompleteProfile}
                       disabled={!canAdvanceQ() || submitting}
-                      className="rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
                     >
                       {submitting ? "Saving Profile…" : "Complete Profile"}
                     </button>

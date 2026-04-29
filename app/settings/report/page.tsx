@@ -1402,7 +1402,7 @@ export default function ReportSettingsPage() {
                   setPwChanging(false);
                 }
               }}
-              className="rounded-lg bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="rounded-full bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--accent-foreground)] hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               {pwChanging ? "Updating..." : "Update Password"}
             </button>
@@ -1428,7 +1428,7 @@ export default function ReportSettingsPage() {
                 type="button"
                 onClick={togglePause}
                 disabled={pauseBusy}
-                className="flex items-center gap-2 rounded-lg border border-amber-500/30 px-5 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-full border border-amber-500/30 px-5 py-2 text-sm font-medium text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {pauseBusy ? (paused ? "Resuming…" : "Pausing…") : (paused ? "Resume" : "Pause")}
               </button>
@@ -1451,7 +1451,7 @@ export default function ReportSettingsPage() {
                   localStorage.removeItem("iqsea_email");
                   router.push("/login");
                 }}
-                className="flex items-center gap-2 rounded-lg border border-red-500/30 px-5 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition"
+                className="flex items-center gap-2 rounded-full border border-red-500/30 px-5 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition"
               >
                 <IconLogout />
                 Sign Out
@@ -1525,7 +1525,7 @@ export default function ReportSettingsPage() {
               <button
                 onClick={togglePause}
                 disabled={pauseBusy}
-                className="shrink-0 px-4 py-1.5 rounded-lg border border-amber-500/40 text-xs font-medium text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                className="shrink-0 px-4 py-1.5 rounded-full border border-amber-500/40 text-xs font-medium text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
               >
                 {pauseBusy ? "Resuming…" : "Resume deliveries"}
               </button>
@@ -1619,7 +1619,7 @@ export default function ReportSettingsPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className={`rounded-lg px-6 py-2 text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`rounded-full px-6 py-2 text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
               dirty
                 ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-110 shadow-md shadow-[#53b1c1]/20"
                 : "bg-[var(--accent)] text-[var(--accent-foreground)] hover:brightness-110"

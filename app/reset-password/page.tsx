@@ -76,7 +76,7 @@ function ResetPasswordForm() {
         </p>
         <Link
           href="/forgot-password"
-          className="inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground hover:brightness-110 transition"
+          className="inline-block rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-accent-foreground hover:brightness-110 transition"
         >
           Request New Link
         </Link>
@@ -137,7 +137,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+          className="w-full rounded-full bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
         >
           {loading ? "Resetting..." : "Reset Password"}
         </button>
@@ -156,7 +156,7 @@ export default function ResetPasswordPage() {
           </Link>
           <Link
             href="/login"
-            className="rounded-lg border border-[var(--border)] px-5 py-2 text-sm font-semibold hover:bg-[var(--muted)]/50 transition"
+            className="rounded-full border border-[var(--border)] px-5 py-2 text-sm font-semibold hover:bg-[var(--muted)]/50 transition"
           >
             Sign In
           </Link>
@@ -166,6 +166,9 @@ export default function ResetPasswordPage() {
       <main className="flex-1 flex items-center justify-center px-6 py-20">
         <div className="w-full max-w-md">
           <div className="rounded-2xl border border-border bg-card p-8 sm:p-10">
+            <div className="flex justify-center mb-8">
+              <IQseaLogo className="h-8" />
+            </div>
             <Suspense
               fallback={
                 <div className="text-center text-muted-foreground text-sm py-8">

@@ -110,7 +110,7 @@ function FeedbackForm() {
                   key={value}
                   type="button"
                   onClick={() => setRating(value)}
-                  className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all border-2 cursor-pointer ${
+                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all border-2 cursor-pointer ${
                     rating === value
                       ? `${bg} text-white border-transparent ring-2 ring-offset-2 ring-offset-[var(--background)] ring-white/30`
                       : "bg-transparent text-[var(--slate-300)] border-[var(--border)] hover:border-[var(--muted-foreground)]"
@@ -172,7 +172,7 @@ function FeedbackForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+        className="w-full rounded-full bg-accent px-4 py-3.5 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
       >
         {loading ? "Sending..." : "Send Feedback"}
       </button>
