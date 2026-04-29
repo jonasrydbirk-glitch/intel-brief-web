@@ -422,29 +422,18 @@ export default function LandingPage() {
         color: "var(--slate-100)",
       }}
     >
-      {/* Atmospheric overlays — behind all content */}
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
-        {/* Dot grid — full page */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='16' y1='13' x2='16' y2='19' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='13' y1='16' x2='19' y2='16' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E\")",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        {/* Ambient glow orbs — shift position as user scrolls for depth variation */}
-        {/* Hero: large teal, centered */}
-        <div style={{ position: "absolute", top: -200, left: "50%", transform: "translateX(-50%)", width: 900, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
-        {/* Modules (~35% down): smaller teal, offset right */}
-        <div style={{ position: "absolute", top: "35%", right: "-10%", width: 600, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.08) 0%, transparent 70%)", filter: "blur(50px)" }} />
-        {/* Role grid (~55%): gold-tinted, offset left */}
-        <div style={{ position: "absolute", top: "55%", left: "-5%", width: 500, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(244,180,0,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
-        {/* Timeline (~70%): teal, centered */}
-        <div style={{ position: "absolute", top: "70%", left: "50%", transform: "translateX(-50%)", width: 700, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.10) 0%, transparent 70%)", filter: "blur(45px)" }} />
-        {/* Pricing/CTA (~85%): slightly larger teal */}
-        <div style={{ position: "absolute", top: "85%", left: "50%", transform: "translateX(-50%)", width: 800, height: 550, borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.09) 0%, transparent 70%)", filter: "blur(50px)" }} />
-      </div>
+      {/* Compass cross dot grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='16' y1='13' x2='16' y2='19' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='13' y1='16' x2='19' y2='16' stroke='rgba(143,168,196,0.08)' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E\")", backgroundSize: "32px 32px" }} />
+      {/* Hero glow — teal, centered, large */}
+      <div className="absolute pointer-events-none" style={{ top: "-200px", left: "50%", transform: "translateX(-50%)", width: "900px", height: "600px", borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.12) 0%, transparent 70%)", filter: "blur(40px)" }} />
+      {/* Modules glow — teal, offset right */}
+      <div className="absolute pointer-events-none" style={{ top: "35%", right: "-10%", width: "600px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.08) 0%, transparent 70%)", filter: "blur(50px)" }} />
+      {/* Roles glow — gold, offset left */}
+      <div className="absolute pointer-events-none" style={{ top: "55%", left: "-5%", width: "500px", height: "400px", borderRadius: "50%", background: "radial-gradient(circle, rgba(244,180,0,0.06) 0%, transparent 70%)", filter: "blur(40px)" }} />
+      {/* Timeline glow — teal, centered */}
+      <div className="absolute pointer-events-none" style={{ top: "70%", left: "50%", transform: "translateX(-50%)", width: "700px", height: "500px", borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.10) 0%, transparent 70%)", filter: "blur(45px)" }} />
+      {/* CTA glow — teal, centered */}
+      <div className="absolute pointer-events-none" style={{ top: "85%", left: "50%", transform: "translateX(-50%)", width: "800px", height: "550px", borderRadius: "50%", background: "radial-gradient(circle, rgba(43,179,205,0.09) 0%, transparent 70%)", filter: "blur(50px)" }} />
 
       <Nav />
 
