@@ -1483,7 +1483,7 @@ export default function ReportSettingsPage() {
       <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-14">
           <Link href="/" className="flex items-center">
-            <IQseaLogoNav className="h-9" />
+            <IQseaLogoNav />
           </Link>
           <nav className="flex items-center gap-6 text-sm">
             <Link

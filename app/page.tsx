@@ -90,7 +90,7 @@ function Nav() {
     <header className="sticky top-0 z-50 border-b backdrop-blur-md" style={{ borderColor: "var(--border)", background: "rgba(11,20,36,0.85)" }}>
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
         <Link href="/" className="flex items-center">
-          <IQseaLogoNav className="h-9" />
+          <IQseaLogoNav />
         </Link>
 
         {/* Desktop nav */}
