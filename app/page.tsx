@@ -425,7 +425,7 @@ export default function LandingPage() {
           {/* Hero logo */}
           <div className="flex justify-center mb-12">
             <Image
-              src="/brand/logo-navy-tagline.png"
+              src="/brand/logo-white-tagline.png"
               alt="IQSEA — Your Maritime Edge."
               width={2172}
               height={724}

@@ -3,10 +3,10 @@ import Image from "next/image";
 export function IQSEAWordmark({ className = "h-9" }: { className?: string }) {
   return (
     <Image
-      src="/brand/logo-navy-wave.png"
+      src="/brand/logo-white-compact.png"
       alt="IQSEA"
-      width={2172}
-      height={724}
+      width={2508}
+      height={627}
       className={className}
       style={{ width: "auto" }}
       priority
@@ -17,10 +17,10 @@ export function IQSEAWordmark({ className = "h-9" }: { className?: string }) {
 export function IQSEAWordmarkSmall({ className = "h-7" }: { className?: string }) {
   return (
     <Image
-      src="/brand/logo-navy-wave.png"
+      src="/brand/logo-white-compact.png"
       alt="IQSEA"
-      width={2172}
-      height={724}
+      width={2508}
+      height={627}
       className={className}
       style={{ width: "auto" }}
     />
