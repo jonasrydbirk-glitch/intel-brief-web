@@ -143,24 +143,15 @@ export async function extractMissingTextBatch(
   // Fetch only extractable items. Fetch 3× batch to account for JS-side
   // cool-down and max-attempts filtering still needed.
   //
-  // IMPORTANT — why we use .or() instead of .not() to exclude headline_only:
-  //
-  // PostgreSQL NULL semantics mean that:
-  //   NOT (metadata->>'contentTier' = 'headline_only')
-  // evaluates to NULL (not TRUE) when the contentTier key is absent from the
-  // metadata JSON object — and PostgreSQL treats NULL as falsy in WHERE
-  // clauses. Using .not("metadata->>contentTier", "eq", "headline_only")
-  // therefore EXCLUDES every item that doesn't have an explicit contentTier
-  // field, which is the vast majority of the library. This silently returns
-  // zero rows and stalls extraction entirely.
-  //
-  // The correct predicate is: contentTier IS NULL OR contentTier != 'headline_only'
-  // which correctly passes through items without the field.
+  // NOTE: We do NOT filter headline_only at the DB level because neither
+  // .neq() nor .or() with metadata JSON fields works correctly with the
+  // Supabase JS client when the JSONB key is absent from most rows — both
+  // return 0 rows due to PostgreSQL NULL semantics on the JSON path operator.
+  // The JS filter below (meta.contentTier === "headline_only") handles it.
   const { data, error: queryError } = await db
     .from("intelligence_items")
     .select("id, url, title, ingested_at, metadata")
     .is("raw_text", null)
-    .or("metadata->>contentTier.is.null,metadata->>contentTier.neq.headline_only")
     .order("ingested_at", { ascending: false })
     .limit(EXTRACTION_BATCH_SIZE * 3);
 
