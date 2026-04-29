@@ -108,10 +108,32 @@ function renderPageHeader(params: {
     ? `<div style="display:inline-block;margin-top:10px;background:rgba(255,255,255,0.12);color:#e8eef4;padding:3px 13px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;font-family:Inter,-apple-system,sans-serif;border:1px solid rgba(255,255,255,0.18);">${esc(depthBadge)}</div>`
     : "";
 
+  // Sonar rings + ocean depth contour lines — futuristic marine texture
+  const headerOverlaySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="position:absolute;inset:0;pointer-events:none;opacity:0.07;" preserveAspectRatio="xMidYMid meet">
+    <!-- Sonar/radar concentric rings, anchored right-of-center -->
+    <circle cx="72%" cy="50%" r="60"  fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+    <circle cx="72%" cy="50%" r="110" fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+    <circle cx="72%" cy="50%" r="165" fill="none" stroke="#2BB3CD" stroke-width="0.4"/>
+    <circle cx="72%" cy="50%" r="220" fill="none" stroke="#2BB3CD" stroke-width="0.3"/>
+    <circle cx="72%" cy="50%" r="278" fill="none" stroke="#2BB3CD" stroke-width="0.2"/>
+    <!-- Ocean depth contour lines — wavy horizontals -->
+    <path d="M0,30 Q120,22 240,33 T480,27 T720,34 T900,28"  fill="none" stroke="#2BB3CD" stroke-width="0.5"/>
+    <path d="M0,65 Q100,57 220,68 T460,61 T700,70 T900,63"  fill="none" stroke="#2BB3CD" stroke-width="0.4"/>
+    <path d="M0,100 Q130,108 260,98 T520,104 T780,96 T900,101" fill="none" stroke="#2BB3CD" stroke-width="0.35"/>
+    <path d="M0,135 Q90,143 200,133 T440,140 T680,130 T900,137" fill="none" stroke="#2BB3CD" stroke-width="0.25"/>
+    <!-- Chart marker dots -->
+    <circle cx="28%" cy="32%" r="1.5" fill="#2BB3CD" opacity="0.5"/>
+    <circle cx="52%" cy="68%" r="1"   fill="#2BB3CD" opacity="0.4"/>
+    <circle cx="78%" cy="38%" r="1.5" fill="#2BB3CD" opacity="0.5"/>
+    <circle cx="42%" cy="78%" r="1"   fill="#2BB3CD" opacity="0.35"/>
+    <circle cx="63%" cy="22%" r="1"   fill="#2BB3CD" opacity="0.3"/>
+  </svg>`;
+
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
     <tr>
-      <td style="background:${C.bgNavy};padding:0;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
+      <td style="background:${C.bgNavy};padding:0;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
+        ${headerOverlaySvg}
+        <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
           <tr>
             <td style="padding:26px 20px 26px 32px;vertical-align:middle;" width="42%">
               <img src="https://iqsea.io/brand/logo-white-tagline.png" height="44" alt="IQSEA" style="display:block;max-width:210px;margin-bottom:7px;" />
