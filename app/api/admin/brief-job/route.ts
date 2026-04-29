@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -17,13 +16,6 @@ import { supabase } from "@/lib/supabase";
  */
 export async function POST(request: Request) {
   try {
-    // Admin auth
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session");
-    if (!session || session.value !== "authenticated") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     let body: { subscriberId?: string; dispatch_now?: boolean };
     try {
       body = await request.json();
@@ -101,12 +93,6 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session");
-    if (!session || session.value !== "authenticated") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get("jobId");
 

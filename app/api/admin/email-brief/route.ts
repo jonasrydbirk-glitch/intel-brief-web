@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import type { BriefPayload } from "@/engine/brief-generator";
 import { renderBriefPdf } from "@/lib/render-pdf";
@@ -28,12 +27,6 @@ export const maxDuration = 30;
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session");
-    if (!session || session.value !== "authenticated") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { subscriberId, brief } = (await request.json()) as {
       subscriberId: string;
       brief: BriefPayload;
