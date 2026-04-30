@@ -771,10 +771,10 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
             ${EMAIL_HEADER_SONAR_SVG}
             <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
               <tr>
-                <td style="padding:16px 16px 16px 20px;vertical-align:middle;" width="42%">
+                <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
                   <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
                 </td>
-                <td style="padding:16px 20px 16px 14px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+                <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
                   <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Intelligence Brief</div>
                   <div style="font-size:12px;color:#8fa8c4;margin-top:7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${dateStr}</div>
                   <div style="font-size:12px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${fullName || "Subscriber"}</div>
@@ -814,10 +814,10 @@ function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
             ${EMAIL_HEADER_SONAR_SVG}
             <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
               <tr>
-                <td style="padding:16px 16px 16px 20px;vertical-align:middle;" width="42%">
+                <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
                   <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
                 </td>
-                <td style="padding:16px 20px 16px 14px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+                <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
                   <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Monthly Catch-Up</div>
                   <div style="font-size:12px;color:#8fa8c4;margin-top:7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${periodLabel}</div>
                   <div style="font-size:12px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${fullName || "Subscriber"}</div>
