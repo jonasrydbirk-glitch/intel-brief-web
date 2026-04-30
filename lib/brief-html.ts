@@ -135,10 +135,10 @@ function renderPageHeader(params: {
         ${headerOverlaySvg}
         <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
           <tr>
-            <td style="padding:22px 20px 22px 32px;vertical-align:middle;" width="42%">
+            <td style="padding:16px 16px 16px 20px;vertical-align:middle;" width="42%">
               <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:320px;" />
             </td>
-            <td style="padding:26px 32px 26px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
+            <td style="padding:16px 20px 16px 14px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
               <div style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.15;">${esc(briefType)}</div>
               <div style="font-size:13px;color:#8fa8c4;margin-top:7px;font-family:Inter,-apple-system,sans-serif;">${esc(dateLine)}</div>
               <div style="font-size:13px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:Inter,-apple-system,sans-serif;">${nameCompany}</div>
@@ -170,7 +170,7 @@ function renderPageFooter(opts: {
     ? `${base}/unsubscribe?sub=${encodeURIComponent(subscriberId)}`
     : `mailto:support@iqsea.io?subject=Unsubscribe`;
 
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:36px;border-top:1px solid ${C.border};padding-top:14px;">
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-top:1px solid ${C.border};padding-top:8px;">
     <tr>
       <td width="33%" style="vertical-align:middle;">
         <span style="font-size:12px;font-weight:800;color:${C.navy};letter-spacing:0.06em;font-family:Inter,-apple-system,sans-serif;">IQsea</span>
@@ -199,7 +199,7 @@ function ratingButtons(briefJobId: string | undefined, subscriberId: string | un
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
   const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
   return `
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid ${C.border};padding-top:20px;border-collapse:collapse;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-top:1px solid ${C.border};padding-top:14px;border-collapse:collapse;">
     <tr>
       <td align="center" style="font-size:13px;color:${C.muted};padding-bottom:14px;font-family:Inter,-apple-system,sans-serif;">${label}</td>
     </tr>
@@ -256,7 +256,7 @@ function renderItem(item: IntelItem, depth = "deep"): string {
     ? `<div style="margin-top:4px;">${sourceHtml}</div>`
     : "";
 
-  const pad = depth === "executive" ? "12px 16px 10px" : "16px 18px 12px";
+  const pad = depth === "executive" ? "10px 14px 8px" : "11px 14px 9px";
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:${depth === "executive" ? "10px" : "16px"};background:${C.bg};border:1px solid ${C.border};border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
       <td style="padding:${pad};">
@@ -290,7 +290,7 @@ function renderProspectItem(item: IntelItem, depth = "deep"): string {
 
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:${depth === "executive" ? "10px" : "14px"};background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
     <tr>
-      <td style="padding:${depth === "executive" ? "12px 16px 10px" : "14px 16px 12px"};">
+      <td style="padding:${depth === "executive" ? "10px 12px 8px" : "11px 13px 9px"};">
         <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
         ${summaryHtml}
         ${fitHtml}
@@ -332,7 +332,7 @@ function renderOffDutyItem(item: IntelItem, depth = "deep"): string {
   const sourceRow = sourceHtml ? `<div style="margin-top:6px;">${sourceHtml}</div>` : "";
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.offDutyBg};border:1px solid #e9d5ff;border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
-      <td style="padding:12px 14px;">
+      <td style="padding:10px 12px;">
         <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
         ${summaryHtml}${insightHtml}${sourceRow}
       </td>
@@ -372,7 +372,7 @@ function renderSafetyItem(item: IntelItem, depth = "deep"): string {
   const sourceRow = sourceHtml ? `<div style="margin-top:6px;">${sourceHtml}</div>` : "";
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;background:${C.safeBg};border:1px solid #fde68a;border-left:3px solid ${C.teal};border-radius:6px;overflow:hidden;">
     <tr>
-      <td style="padding:12px 14px;">
+      <td style="padding:10px 12px;">
         <div style="font-size:14px;font-weight:700;color:${C.navy};line-height:1.35;margin-bottom:5px;font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</div>
         ${summaryHtml}${insightHtml}${sourceRow}
       </td>
@@ -386,7 +386,7 @@ function renderSafetyItem(item: IntelItem, depth = "deep"): string {
 
 function renderSection(title: string, items: IntelItem[], depth = "deep"): string {
   if (!items?.length) return "";
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading(title)}
     ${items.map((item) => renderItem(item, depth)).join("")}
   </div>`;
@@ -394,7 +394,7 @@ function renderSection(title: string, items: IntelItem[], depth = "deep"): strin
 
 function renderProspectSection(items: IntelItem[], depth = "deep"): string {
   if (!items?.length) return "";
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("Client Prospects")}
     ${items.map((item) => renderProspectItem(item, depth)).join("")}
   </div>`;
@@ -402,7 +402,7 @@ function renderProspectSection(items: IntelItem[], depth = "deep"): string {
 
 function renderOffDutySection(items: IntelItem[], depth = "deep"): string {
   if (!items?.length) return "";
-  return `<div style="margin-bottom:28px;margin-top:32px;padding:20px;background:linear-gradient(135deg,#fdf4ff,#f0f9ff);border-radius:10px;border:1px solid #e9d5ff;">
+  return `<div style="margin-bottom:16px;margin-top:16px;padding:14px;background:linear-gradient(135deg,#fdf4ff,#f0f9ff);border-radius:10px;border:1px solid #e9d5ff;">
     ${sectionHeading("Off Duty", C.offDutyAcc)}
     <p style="font-size:12px;color:${C.muted};margin-bottom:14px;font-style:italic;">Off the clock. No KPIs, no surveys, no billable hours.</p>
     ${items.map((item) => renderOffDutyItem(item, depth)).join("")}
@@ -411,7 +411,7 @@ function renderOffDutySection(items: IntelItem[], depth = "deep"): string {
 
 function renderSafetySection(items: IntelItem[], depth = "deep"): string {
   if (!items?.length) return "";
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("Safety &amp; Security", C.amber)}
     <div style="padding:8px 12px;background:#fef3c7;border-radius:5px;margin-bottom:12px;font-size:11px;color:#92400e;font-weight:500;font-family:Inter,-apple-system,sans-serif;">
       Crew welfare &middot; Asset protection &middot; Operational risk intelligence
@@ -434,12 +434,12 @@ function renderMarketPulseSection(entries: MarketPulseEntry[], depth = "deep"): 
       const isNegative = /^-/.test(change) || /\bdown\b/i.test(change);
       const changeColor = isPositive ? C.green : isNegative ? C.red : C.muted;
       const sourceTd = depth !== "data"
-        ? `<td style="padding:7px 8px;font-size:11px;color:${C.muted};font-style:italic;border-bottom:1px solid ${C.border};text-align:right;">${esc(e.source)}</td>`
+        ? `<td style="padding:5px 7px;font-size:11px;color:${C.muted};font-style:italic;border-bottom:1px solid ${C.border};text-align:right;">${esc(e.source)}</td>`
         : "";
       return `<tr>
-        <td style="padding:7px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(e.metric)}</td>
-        <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-variant-numeric:tabular-nums;">${esc(e.value)}</td>
-        <td style="padding:7px 8px;font-size:12px;font-weight:700;color:${changeColor};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
+        <td style="padding:5px 7px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(e.metric)}</td>
+        <td style="padding:5px 7px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;font-variant-numeric:tabular-nums;">${esc(e.value)}</td>
+        <td style="padding:5px 7px;font-size:12px;font-weight:700;color:${changeColor};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
         ${sourceTd}
       </tr>`;
     })
@@ -449,14 +449,14 @@ function renderMarketPulseSection(entries: MarketPulseEntry[], depth = "deep"): 
     ? `<th style="padding:6px 8px;font-size:9px;font-weight:700;color:${C.muted};text-align:right;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Source</th>`
     : "";
 
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("Market Pulse")}
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
       <thead>
         <tr style="background:#f0f9fb;border-bottom:2px solid ${C.teal};">
-          <th style="padding:7px 8px;font-size:9px;font-weight:700;color:${C.muted};text-align:left;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Metric</th>
-          <th style="padding:7px 8px;font-size:9px;font-weight:700;color:${C.muted};text-align:right;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Value</th>
-          <th style="padding:7px 8px;font-size:9px;font-weight:700;color:${C.muted};text-align:right;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Change</th>
+          <th style="padding:5px 7px;font-size:9px;font-weight:700;color:${C.muted};text-align:left;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Metric</th>
+          <th style="padding:5px 7px;font-size:9px;font-weight:700;color:${C.muted};text-align:right;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Value</th>
+          <th style="padding:5px 7px;font-size:9px;font-weight:700;color:${C.muted};text-align:right;text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Change</th>
           ${sourceHeader}
         </tr>
       </thead>
@@ -493,7 +493,7 @@ function renderRegulatoryCountdown(entries: RegulatoryCountdownEntry[]): string 
     })
     .join("");
 
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("Regulatory Countdown")}
     ${cards}
   </div>`;
@@ -510,13 +510,13 @@ function renderLeadRollup(items: IntelItem[]): string {
       ? `<a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:${C.teal};text-decoration:underline;">source ↗</a>`
       : `<span style="font-size:11px;color:${C.muted};">${esc(item.source || "—")}</span>`;
     return `<tr>
-      <td style="padding:7px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</td>
-      <td style="padding:7px 8px;font-size:12px;color:${C.muted};border-bottom:1px solid ${C.border};white-space:nowrap;">${esc(item.commentary || "—")}</td>
-      <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
-      <td style="padding:7px 8px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
+      <td style="padding:5px 7px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</td>
+      <td style="padding:5px 7px;font-size:12px;color:${C.muted};border-bottom:1px solid ${C.border};white-space:nowrap;">${esc(item.commentary || "—")}</td>
+      <td style="padding:5px 7px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
+      <td style="padding:5px 7px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
     </tr>`;
   }).join("");
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("30-Day Lead Rollup", "#16a34a")}
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
       <thead>
@@ -539,12 +539,12 @@ function renderTenderRollup(items: IntelItem[]): string {
       ? `<a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:${C.teal};text-decoration:underline;">source ↗</a>`
       : `<span style="font-size:11px;color:${C.muted};">${esc(item.source || "—")}</span>`;
     return `<tr>
-      <td style="padding:7px 8px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</td>
-      <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
-      <td style="padding:7px 8px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
+      <td style="padding:5px 7px;font-size:12px;font-weight:600;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(item.headline)}</td>
+      <td style="padding:5px 7px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};">${esc(item.summary || "—")}</td>
+      <td style="padding:5px 7px;border-bottom:1px solid ${C.border};">${sourceCell}</td>
     </tr>`;
   }).join("");
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("30-Day Tender Rollup", C.amber)}
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
       <thead>
@@ -567,21 +567,21 @@ function renderMonthlyMarketTrends(entries: MarketPulseEntry[]): string {
     const isNeg    = /^-/.test(change) || /down|fall|declin/i.test(change);
     const chgColor = isPos ? C.green : isNeg ? C.red : C.muted;
     return `<tr>
-      <td style="padding:7px 8px;font-size:12px;font-weight:500;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(e.metric)}</td>
-      <td style="padding:7px 8px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(e.value)}</td>
-      <td style="padding:7px 8px;font-size:11px;color:${chgColor};font-weight:700;border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
-      <td style="padding:7px 8px;font-size:11px;color:${C.muted};border-bottom:1px solid ${C.border};text-align:right;font-style:italic;">${esc(e.source)}</td>
+      <td style="padding:5px 7px;font-size:12px;font-weight:500;color:${C.navy};border-bottom:1px solid ${C.border};font-family:Inter,-apple-system,sans-serif;">${esc(e.metric)}</td>
+      <td style="padding:5px 7px;font-size:12px;color:${C.body};border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(e.value)}</td>
+      <td style="padding:5px 7px;font-size:11px;color:${chgColor};font-weight:700;border-bottom:1px solid ${C.border};text-align:right;font-family:'JetBrains Mono','SF Mono',Consolas,monospace;">${esc(change)}</td>
+      <td style="padding:5px 7px;font-size:11px;color:${C.muted};border-bottom:1px solid ${C.border};text-align:right;font-style:italic;">${esc(e.source)}</td>
     </tr>`;
   }).join("");
-  return `<div style="margin-bottom:28px;">
+  return `<div style="margin-bottom:16px;">
     ${sectionHeading("Monthly Market Trends", C.teal)}
     <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${C.bg};border:1px solid ${C.border};border-radius:6px;overflow:hidden;">
       <thead>
         <tr style="background:#f0f9fb;border-bottom:2px solid ${C.teal};">
-          <th style="padding:7px 8px;text-align:left;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Metric</th>
-          <th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Current</th>
-          <th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">MoM Trend</th>
-          <th style="padding:7px 8px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Source</th>
+          <th style="padding:5px 7px;text-align:left;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Metric</th>
+          <th style="padding:5px 7px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Current</th>
+          <th style="padding:5px 7px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">MoM Trend</th>
+          <th style="padding:5px 7px;text-align:right;font-size:9px;font-weight:700;color:${C.muted};text-transform:uppercase;letter-spacing:0.1em;font-family:Inter,-apple-system,sans-serif;">Source</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -645,10 +645,10 @@ export function renderMonthlyBriefHtml(
       color: ${C.body};
       max-width: 720px;
       margin: 0 auto;
-      padding: 0 0 36px;
+      padding: 0 0 20px;
       line-height: 1.5;
     }
-    .content-pad { padding: 0 28px; }
+    .content-pad { padding: 0 16px; }
   </style>
 </head>
 <body>
@@ -660,7 +660,7 @@ ${renderPageHeader({
   companyName: brief.companyName,
 })}
 
-<div class="content-pad" style="padding-top:28px;">
+<div class="content-pad" style="padding-top:16px;">
 
 ${sectionsHtml}
 
@@ -736,10 +736,10 @@ export function renderBriefHtml(
       color: ${C.body};
       max-width: 720px;
       margin: 0 auto;
-      padding: 0 0 36px;
+      padding: 0 0 20px;
       line-height: 1.5;
     }
-    .content-pad { padding: 0 28px; }
+    .content-pad { padding: 0 16px; }
   </style>
 </head>
 <body>
@@ -752,7 +752,7 @@ ${renderPageHeader({
   depthBadge: depthLabel,
 })}
 
-<div class="content-pad" style="padding-top:28px;">
+<div class="content-pad" style="padding-top:16px;">
 
 ${marketPulseHtml}
 
