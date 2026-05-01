@@ -59,7 +59,7 @@ export async function renderBriefPdf(
     const pdfBuffer = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: { top: "16mm", bottom: "16mm", left: "12mm", right: "12mm" },
+      margin: { top: "5mm", bottom: "5mm", left: "5mm", right: "5mm" },
     });
 
     return Buffer.from(pdfBuffer);

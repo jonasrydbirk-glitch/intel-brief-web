@@ -23,6 +23,8 @@ import { generateBrief, generateMonthlyBrief, BriefPayload, IntelItem, MonthlyCo
 import { generatePreviewStory } from "./preview-story";
 import { renderBriefPdf } from "../lib/render-pdf";
 import { sendEmail } from "../lib/email";
+import { BANNER_INTEL_BRIEF_DATA_URI } from "../lib/brief-banner";
+import { IQSEA_NAVY_LOGO_DATA_URI } from "../lib/brief-logo";
 // RSS / intelligence ingestion pipeline (Phase 2 Part A Step 1)
 import { registeredSources } from "./sources/index";
 import { runAllIngestions } from "./sources/runner";
@@ -763,31 +765,15 @@ const EMAIL_HEADER_SONAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1
 
 function buildBriefEmailHtml(fullName: string, dateStr: string): string {
   return `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <!-- Navy branded header — matches PDF renderPageHeader() exactly -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:0;">
+    <div style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1a2e45;padding:14px;">
+      <img src="${BANNER_INTEL_BRIEF_DATA_URI}" alt="IQSEA Intelligence Brief" width="100%" style="display:block;width:100%;max-width:572px;height:auto;border-radius:10px;border:0;outline:none;" />
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;border-bottom:1px solid #e5e7eb;padding-bottom:8px;">
         <tr>
-          <td style="background:#0B1F38;padding:0;position:relative;overflow:hidden;background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,0.04) 1px,transparent 0);background-size:24px 24px;">
-            ${EMAIL_HEADER_SONAR_SVG}
-            <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
-              <tr>
-                <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
-                  <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
-                </td>
-                <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
-                  <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Intelligence Brief</div>
-                  <div style="font-size:12px;color:#8fa8c4;margin-top:7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${dateStr}</div>
-                  <div style="font-size:12px;color:#e8eef4;margin-top:3px;font-weight:600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">${fullName || "Subscriber"}</div>
-                  <div style="display:inline-block;margin-top:8px;background:rgba(255,255,255,0.12);color:#e8eef4;padding:2px 11px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;border:1px solid rgba(255,255,255,0.18);">Deep Dive</div>
-                </td>
-              </tr>
-            </table>
-          </td>
+          <td style="font-size:13px;color:#6b7280;letter-spacing:0.02em;">${dateStr}</td>
+          <td style="text-align:right;font-size:13px;color:#1a2e45;font-weight:600;white-space:nowrap;">${fullName || "Subscriber"}<span style="display:inline-block;background:#2BB3CD;color:#ffffff;padding:3px 11px;border-radius:100px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;vertical-align:middle;margin-left:10px;">Deep Dive</span></td>
         </tr>
-        <tr><td style="height:3px;background:#2BB3CD;"></td></tr>
       </table>
-      <!-- Body -->
-      <div style="padding:16px 20px 0;">
+      <div style="padding:18px 0 0;">
         <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
@@ -797,8 +783,9 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
           Open the attached PDF for the full analysis.
         </p>
       </div>
-      <div style="padding:12px 20px;margin-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
-        IQsea Intel Engine &middot; Confidential
+      <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:18px;text-align:center;">
+        <img src="${IQSEA_NAVY_LOGO_DATA_URI}" alt="IQSEA" style="display:inline-block;height:40px;width:auto;border:0;outline:none;" />
+        <div style="margin-top:10px;font-size:12px;color:#94a3b8;font-family:Inter,-apple-system,sans-serif;">IQsea Intel Engine &middot; Confidential</div>
       </div>
     </div>
   `;
