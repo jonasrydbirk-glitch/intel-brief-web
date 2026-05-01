@@ -617,6 +617,7 @@ ${renderPageHeader({
   dateLine: periodLabel,
   subscriberName: brief.subscriberName,
   companyName: brief.companyName,
+  depthBadge: "Monthly Review",
 })}
 
 ${sectionsHtml}
