@@ -63,15 +63,20 @@ export default function AlterPage() {
         body: JSON.stringify({ role, segments, regions, focus, company, watchlist: watchlistItems }),
       });
 
-      if (res.status === 403) {
-        setError('Tweak limit reached for this period');
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to update profile. Please try again.');
         return;
       }
 
-      const data = await res.json();
       if (data.success) {
         router.push(`/profile/${id}`);
+      } else {
+        setError('Update did not complete. Please try again.');
       }
+    } catch {
+      setError('Network error — please check your connection and try again.');
     } finally {
       setSubmitting(false);
     }

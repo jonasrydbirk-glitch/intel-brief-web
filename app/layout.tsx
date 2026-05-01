@@ -11,10 +11,33 @@ const instrumentSerif = Instrument_Serif({
 });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
+const SITE_URL = "https://iqsea.io";
+const SITE_TITLE = "IQsea — Your Maritime Edge";
+const SITE_DESCRIPTION =
+  "AI-curated maritime intelligence briefs tailored to your role, fleet, and markets. Stay ahead with daily, data-driven insights.";
+const SITE_OG_IMAGE = "/brand/logo-white-tagline.png";
+
 export const metadata: Metadata = {
-  title: "IQsea — Maritime Intelligence, Delivered",
-  description:
-    "AI-curated maritime intelligence briefs tailored to your role, fleet, and markets. Stay ahead with daily, data-driven insights.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  icons: {
+    icon: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: "IQsea",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [{ url: SITE_OG_IMAGE, alt: "IQsea" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE],
+  },
 };
 
 export default function RootLayout({

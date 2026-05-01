@@ -627,23 +627,14 @@ export default function ReportSettingsPage() {
   async function togglePause() {
     if (!profileId) return;
     setPauseBusy(true);
-    const action = paused ? "resume" : "pause";
+    const nextPaused = !paused;
     try {
-      if (action === "resume") {
-        const res = await fetch("/api/settings/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: profileId, paused: false }),
-        });
-        if (res.ok) setPaused(false);
-      } else {
-        const res = await fetch("/api/unsubscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subscriberId: profileId, action: "pause" }),
-        });
-        if (res.ok) setPaused(true);
-      }
+      const res = await fetch("/api/settings/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: profileId, paused: nextPaused }),
+      });
+      if (res.ok) setPaused(nextPaused);
     } catch {
       // swallow — UI stays unchanged
     } finally {
@@ -1238,7 +1229,7 @@ export default function ReportSettingsPage() {
 
   function renderMonthly() {
     const dayOptions: Array<{ value: number | "last"; label: string }> = [
-      ...Array.from({ length: 28 }, (_, i) => ({ value: i + 1 as number, label: String(i + 1) })),
+      ...Array.from({ length: 31 }, (_, i) => ({ value: i + 1 as number, label: String(i + 1) })),
       { value: "last", label: "Last day of month" },
     ];
 

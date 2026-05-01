@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifySession } from "@/app/lib/session";
-import { sendEmail } from "@/lib/delivery";
+import { sendEmail } from "@/lib/email";
+import { verifyEmailToken } from "@/lib/email-tokens";
 
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
@@ -10,6 +11,24 @@ const supabaseAdmin = createClient(
 );
 
 const VALID_RATINGS = new Set(["good", "ok", "bad"]);
+
+// Per-subscriber in-memory rate limit for brief feedback. Cleared on cold start;
+// adequate to bound abuse without standing up a new table.
+const FEEDBACK_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const FEEDBACK_MAX_PER_WINDOW = 10;
+const feedbackHits = new Map<string, { count: number; windowStart: number }>();
+
+function checkFeedbackRateLimit(subscriberId: string): boolean {
+  const now = Date.now();
+  const entry = feedbackHits.get(subscriberId);
+  if (!entry || now - entry.windowStart >= FEEDBACK_WINDOW_MS) {
+    feedbackHits.set(subscriberId, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= FEEDBACK_MAX_PER_WINDOW) return false;
+  entry.count += 1;
+  return true;
+}
 
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
@@ -26,6 +45,15 @@ export async function POST(req: Request) {
     const briefJobId   = body.briefJobId ? String(body.briefJobId).trim() : null;
     const rating       = body.rating ? String(body.rating).trim() : null;
     const message      = body.message ? String(body.message).trim().slice(0, 5000) : null;
+    const token        = body.token ? String(body.token) : null;
+
+    if (!verifyEmailToken("feedback", subscriberId, token)) {
+      return NextResponse.json({ error: "Invalid or missing token" }, { status: 401 });
+    }
+
+    if (!checkFeedbackRateLimit(subscriberId)) {
+      return NextResponse.json({ error: "Too many feedback submissions, try again later" }, { status: 429 });
+    }
 
     if (rating && !VALID_RATINGS.has(rating)) {
       return NextResponse.json({ error: "Invalid rating" }, { status: 400 });
@@ -59,10 +87,10 @@ export async function POST(req: Request) {
     try {
       const ratingEmoji = rating === "good" ? "👍" : rating === "bad" ? "👎" : "😐";
       const ratingColor = rating === "good" ? "#2BB3CD" : rating === "bad" ? "#dc2626" : "#64748b";
-      await sendEmail({
+      const result = await sendEmail({
         to:      "atlas@iqsea.io",
         subject: `Brief feedback from ${subName} — ${ratingEmoji} ${rating ?? "no rating"}`,
-        htmlBody: `<!DOCTYPE html>
+        html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /></head>
 <body style="margin:0;padding:0;background:#050e1c;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050e1c;">
@@ -128,8 +156,11 @@ export async function POST(req: Request) {
 </body>
 </html>`,
       });
+      if (!result.success) {
+        console.error("[feedback] Notification email failed (non-fatal):", result.error);
+      }
     } catch (emailErr) {
-      console.error("[feedback] Notification email failed (non-fatal):", emailErr);
+      console.error("[feedback] Notification email threw (non-fatal):", emailErr);
     }
 
     return NextResponse.json({ ok: true });
@@ -161,10 +192,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    await sendEmail({
+    const result = await sendEmail({
       to:      "atlas@iqsea.io",
       subject: `New feedback from ${session.email ?? session.userId}`,
-      htmlBody: `<!DOCTYPE html>
+      html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8" /></head>
 <body style="margin:0;padding:0;background:#050e1c;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050e1c;">
@@ -223,8 +254,11 @@ export async function POST(req: Request) {
 </body>
 </html>`,
     });
+    if (!result.success) {
+      console.error("[feedback] Notification email failed (non-fatal):", result.error);
+    }
   } catch (emailErr) {
-    console.error("[feedback] Notification email failed (non-fatal):", emailErr);
+    console.error("[feedback] Notification email threw (non-fatal):", emailErr);
   }
 
   return NextResponse.json({ ok: true });

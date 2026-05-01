@@ -53,41 +53,32 @@ export async function runIngestion(
     itemsFound = items.length;
 
     if (items.length > 0) {
-      // Dedup: find which URLs already exist in the table
-      const urls = items.map((i) => i.url);
-      const { data: existingRows } = await db
+      // Atomic dedup via upsert(onConflict: "url", ignoreDuplicates: true) —
+      // duplicates are skipped at the DB level so concurrent ingestions
+      // don't race between SELECT and INSERT.
+      const rows = items.map((item) => ({
+        id:           item.id,
+        source_type:  item.source_type,
+        source_name:  item.source_name,
+        url:          item.url,
+        title:        item.title,
+        snippet:      item.snippet,
+        published_at: item.published_at,
+        metadata:     item.metadata,
+        // raw_text and embedding are NULL until later pipeline steps
+      }));
+
+      const { data: insertedRows, error: upsertError } = await db
         .from("intelligence_items")
-        .select("url")
-        .in("url", urls);
+        .upsert(rows, { onConflict: "url", ignoreDuplicates: true })
+        .select("id");
 
-      const existingUrls = new Set((existingRows ?? []).map((r: { url: string }) => r.url));
-
-      const newItems = items.filter((i) => !existingUrls.has(i.url));
-      itemsSkipped = items.length - newItems.length;
-
-      if (newItems.length > 0) {
-        const rows = newItems.map((item) => ({
-          id:           item.id,
-          source_type:  item.source_type,
-          source_name:  item.source_name,
-          url:          item.url,
-          title:        item.title,
-          snippet:      item.snippet,
-          published_at: item.published_at,
-          metadata:     item.metadata,
-          // raw_text and embedding are NULL until later pipeline steps
-        }));
-
-        const { error: insertError } = await db
-          .from("intelligence_items")
-          .insert(rows);
-
-        if (insertError) {
-          throw new Error(`Batch insert failed: ${insertError.message}`);
-        }
-
-        itemsNew = newItems.length;
+      if (upsertError) {
+        throw new Error(`Batch upsert failed: ${upsertError.message}`);
       }
+
+      itemsNew = insertedRows?.length ?? 0;
+      itemsSkipped = items.length - itemsNew;
     }
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);

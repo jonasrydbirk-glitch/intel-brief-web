@@ -107,40 +107,55 @@ export function FAQAccordion() {
 
   return (
     <div className="divide-y" style={{ borderColor: "var(--border-strong)" }}>
-      {FAQ_ITEMS.map((item, i) => (
-        <div key={i}>
-          <button
-            onClick={() => setOpenIndex(openIndex === i ? null : i)}
-            className="w-full flex items-center justify-between text-left py-5 gap-4 group"
-          >
-            <span className="font-semibold text-[var(--slate-100)] group-hover:text-white transition-colors">
-              {item.question}
-            </span>
-            <span
-              className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all"
-              style={{
-                background: openIndex === i ? "var(--teal-500)" : "var(--navy-800)",
-                color: openIndex === i ? "var(--navy-950)" : "var(--slate-400)",
-              }}
+      {FAQ_ITEMS.map((item, i) => {
+        const isOpen = openIndex === i;
+        const panelId = `faq-panel-${i}`;
+        const buttonId = `faq-button-${i}`;
+        return (
+          <div key={i}>
+            <button
+              id={buttonId}
+              onClick={() => setOpenIndex(isOpen ? null : i)}
+              aria-expanded={isOpen}
+              aria-controls={panelId}
+              className="w-full flex items-center justify-between text-left py-5 gap-4 group"
             >
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                className="w-3.5 h-3.5 transition-transform"
-                style={{ transform: openIndex === i ? "rotate(45deg)" : "rotate(0deg)" }}
+              <span className="font-semibold text-[var(--slate-100)] group-hover:text-white transition-colors">
+                {item.question}
+              </span>
+              <span
+                aria-hidden="true"
+                className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all"
+                style={{
+                  background: isOpen ? "var(--teal-500)" : "var(--navy-800)",
+                  color: isOpen ? "var(--navy-950)" : "var(--slate-400)",
+                }}
               >
-                <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </span>
-          </button>
-          {openIndex === i && (
-            <div className="pb-5 text-sm leading-relaxed" style={{ color: "var(--slate-300)" }}>
-              {item.answer}
-            </div>
-          )}
-        </div>
-      ))}
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="w-3.5 h-3.5 transition-transform"
+                  style={{ transform: isOpen ? "rotate(45deg)" : "rotate(0deg)" }}
+                >
+                  <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </span>
+            </button>
+            {isOpen && (
+              <div
+                id={panelId}
+                role="region"
+                aria-labelledby={buttonId}
+                className="pb-5 text-sm leading-relaxed"
+                style={{ color: "var(--slate-300)" }}
+              >
+                {item.answer}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

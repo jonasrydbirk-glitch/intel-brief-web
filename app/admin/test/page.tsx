@@ -18,7 +18,10 @@ interface Subscriber {
 
 type NavSection = "overview" | "users" | "tenders" | "outreach" | "logs";
 
-const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
+// Only "overview" navigates to a real route from this page; the rest are
+// in-page tabs on /admin and are shown here as disabled placeholders so the
+// sidebar layout matches but no clickable item leads nowhere.
+const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode; disabled?: boolean }[] = [
   {
     key: "overview",
     label: "Overview",
@@ -34,6 +37,7 @@ const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
   {
     key: "users",
     label: "Users",
+    disabled: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -46,6 +50,7 @@ const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
   {
     key: "tenders",
     label: "Tenders",
+    disabled: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -58,6 +63,7 @@ const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
   {
     key: "outreach",
     label: "Outreach",
+    disabled: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <path d="M22 2L11 13" />
@@ -68,6 +74,7 @@ const NAV_ITEMS: { key: NavSection; label: string; icon: React.ReactNode }[] = [
   {
     key: "logs",
     label: "System Logs",
+    disabled: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
         <polyline points="4 17 10 11 4 5" />
@@ -169,16 +176,28 @@ export default function AdminTestPage() {
         {/* Sidebar — matches Mission Control */}
         <aside className="w-48 shrink-0 border-r border-[var(--border)] bg-[var(--navy-950)] py-4 hidden md:block">
           <nav className="space-y-0.5 px-2">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.key}
-                href="/admin"
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item) =>
+              item.disabled ? (
+                <span
+                  key={item.key}
+                  title="Coming soon"
+                  aria-disabled="true"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-[var(--muted-foreground)] opacity-40 cursor-not-allowed font-[family-name:var(--font-geist-mono)]"
+                >
+                  {item.icon}
+                  {item.label}
+                </span>
+              ) : (
+                <Link
+                  key={item.key}
+                  href="/admin"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              )
+            )}
           </nav>
 
           {/* Test Center + Intel Health links */}
@@ -219,16 +238,28 @@ export default function AdminTestPage() {
 
         {/* Mobile nav */}
         <div className="md:hidden shrink-0 w-full border-b border-[var(--border)] bg-[var(--navy-950)] px-2 py-2 flex gap-1 overflow-x-auto">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.key}
-              href="/admin"
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]"
-            >
-              {item.icon}
-              {item.label}
-            </Link>
-          ))}
+          {NAV_ITEMS.map((item) =>
+            item.disabled ? (
+              <span
+                key={item.key}
+                title="Coming soon"
+                aria-disabled="true"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-[var(--muted-foreground)] opacity-40 cursor-not-allowed font-[family-name:var(--font-geist-mono)]"
+              >
+                {item.icon}
+                {item.label}
+              </span>
+            ) : (
+              <Link
+                key={item.key}
+                href="/admin"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors text-[var(--muted-foreground)] font-[family-name:var(--font-geist-mono)]"
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            )
+          )}
           <Link
             href="/admin/test"
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs bg-[var(--gold-500)]/10 text-[var(--gold-300)] font-semibold font-[family-name:var(--font-geist-mono)]"

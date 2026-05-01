@@ -265,9 +265,13 @@ function Toggle({
     <button
       type="button"
       onClick={onToggle}
+      role="switch"
+      aria-checked={enabled}
+      aria-label={label}
       className="flex items-center gap-3 w-full text-left"
     >
       <div
+        aria-hidden="true"
         className={`relative w-11 h-6 rounded-full transition-colors ${
           enabled ? "bg-[var(--accent)]" : "bg-[var(--muted)]"
         }`}
@@ -853,7 +857,7 @@ function Step5({
               }}
               className={inputCls}
             >
-              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={String(d)}>{d}</option>
               ))}
               <option value="last">Last day of month</option>
@@ -1163,7 +1167,7 @@ function SampleStage({
                   Your preview · {subject}
                 </div>
                 <div className="text-xs text-[var(--slate-400)] mt-1.5">
-                  curated from 21 sources
+                  curated from 22 sources
                 </div>
               </div>
               <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/25 shrink-0 ml-4">
@@ -1312,7 +1316,7 @@ function NoResultsStage({ subject, onRetry }: { subject: string; onRetry: () => 
   );
 }
 
-function SignupStage({ onSuccess }: { onSuccess: (id: string) => void }) {
+function SignupStage({ onSuccess }: { onSuccess: (id: string, email: string) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1329,7 +1333,7 @@ function SignupStage({ onSuccess }: { onSuccess: (id: string) => void }) {
       });
       const result = await res.json();
       if (res.ok) {
-        onSuccess(result.id);
+        onSuccess(result.id, email);
       } else {
         setError(result.error ?? "Something went wrong. Please try again.");
       }
@@ -1340,7 +1344,8 @@ function SignupStage({ onSuccess }: { onSuccess: (id: string) => void }) {
     }
   }
 
-  const canSubmit = email.trim().length > 0 && password.trim().length >= 8;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const canSubmit = EMAIL_REGEX.test(email.trim()) && password.trim().length >= 8;
 
   return (
     <div className="space-y-6">
@@ -1552,7 +1557,13 @@ export default function OnboardPage() {
   // Signup → questionnaire
   // ---------------------------------------------------------------------------
 
-  function handleSignupSuccess() {
+  function handleSignupSuccess(id: string, email: string) {
+    try {
+      localStorage.setItem("iqsea_subscriber_id", id);
+      localStorage.setItem("iqsea_email", email);
+    } catch {
+      // localStorage can fail in privacy modes — continue regardless.
+    }
     setStage("questionnaire");
   }
 

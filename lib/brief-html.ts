@@ -17,6 +17,7 @@ import type {
 } from "@/engine/brief-generator";
 import { BANNER_INTEL_BRIEF_DATA_URI } from "./brief-banner";
 import { IQSEA_NAVY_LOGO_DATA_URI } from "./brief-logo";
+import { signEmailToken } from "./email-tokens";
 
 // ---------------------------------------------------------------------------
 // Colour palette
@@ -134,7 +135,7 @@ function renderPageFooter(opts: {
   const { subscriberId, siteUrl } = opts;
   const base = siteUrl ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
   const unsubHref = subscriberId
-    ? `${base}/unsubscribe?sub=${encodeURIComponent(subscriberId)}`
+    ? `${base}/unsubscribe?sub=${encodeURIComponent(subscriberId)}&t=${encodeURIComponent(signEmailToken("unsub", subscriberId))}`
     : `mailto:support@iqsea.io?subject=Unsubscribe`;
 
   return `<div style="margin-top:24px;border-top:1px solid ${C.border};padding-top:16px;text-align:center;">
@@ -152,7 +153,8 @@ function renderPageFooter(opts: {
 function ratingButtons(briefJobId: string | undefined, subscriberId: string | undefined, label: string): string {
   if (!briefJobId || !subscriberId) return "";
   const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://iqsea.io";
-  const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}`;
+  const token = signEmailToken("feedback", subscriberId);
+  const base = `${siteUrl}/feedback?briefId=${encodeURIComponent(briefJobId)}&sub=${encodeURIComponent(subscriberId)}&t=${encodeURIComponent(token)}`;
   return `
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;border-top:1px solid ${C.border};padding-top:20px;border-collapse:collapse;">
     <tr>

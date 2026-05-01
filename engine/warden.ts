@@ -130,7 +130,7 @@ function log(level: "INFO" | "WARN" | "ERROR", message: string): void {
  *  - Must have path depth >= 2 (e.g. domain.com/section/article)
  *    OR contain article-like path segments (/article/, /news/, /story/, /post/, /press/)
  *    OR be a known video/social platform with content path (YouTube, Vimeo, LinkedIn posts)
- *    OR contain year indicators (2024/2025/2026) suggesting a dated article
+ *    OR contain year indicators (current year or previous two) suggesting a dated article
  *  - Rejects bare homepages like "https://gcaptain.com/" or "https://lloydslist.com"
  */
 function isDirectArticleUrl(url: string, sectionName?: string): boolean {
@@ -183,8 +183,13 @@ function isDirectArticleUrl(url: string, sectionName?: string): boolean {
       return true;
     }
 
-    // Year indicators in path suggest a dated article (e.g. /2026/04/story)
-    if (/\/(2024|2025|2026)\//.test(parsed.pathname)) return true;
+    // Year indicators in path suggest a dated article (e.g. /2026/04/story).
+    // Rolling 3-year window: current year and the previous two.
+    const currentYear = new Date().getUTCFullYear();
+    const yearPattern = new RegExp(
+      `\\/(${currentYear}|${currentYear - 1}|${currentYear - 2})\\/`
+    );
+    if (yearPattern.test(parsed.pathname)) return true;
 
     return false;
   } catch {
@@ -802,7 +807,7 @@ function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
             <table width="100%" cellpadding="0" cellspacing="0" style="position:relative;z-index:1;">
               <tr>
                 <td style="padding:22px 20px 22px 24px;vertical-align:middle;" width="42%">
-                  <img src="https://iqsea.io/brand/logo-white-tagline.png" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
+                  <img src="${IQSEA_NAVY_LOGO_DATA_URI}" height="100" alt="IQSEA" style="display:block;max-width:280px;" />
                 </td>
                 <td style="padding:22px 24px 22px 16px;text-align:right;vertical-align:middle;border-left:1px solid rgba(43,179,205,0.4);" width="58%">
                   <div style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;font-style:normal;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.15;">Monthly Catch-Up</div>
@@ -935,11 +940,19 @@ async function processJobQueue(): Promise<void> {
 
   for (const job of pendingJobs) {
     try {
-      // Claim the job — set to "processing" so no other worker picks it up
-      await supabase
+      // Optimistic claim — only update if still pending (prevents two workers
+      // from picking up the same job in concurrent runs)
+      const { data: claimed } = await supabase
         .from("brief_jobs")
         .update({ status: "processing", updated_at: new Date().toISOString() })
-        .eq("id", job.id);
+        .eq("id", job.id)
+        .eq("status", "pending")
+        .select("id");
+
+      if (!claimed || claimed.length === 0) {
+        log("INFO", `Job ${job.id} already claimed by another worker — skipping.`);
+        continue;
+      }
 
       log("INFO", `Processing job ${job.id} for subscriber ${job.subscriber_id}${job.dispatch_now ? " [DISPATCH MODE]" : ""}${job.job_type === "preview" ? " [PREVIEW]" : ""}`);
 
@@ -1008,7 +1021,8 @@ async function processJobQueue(): Promise<void> {
           dataStart,
         };
 
-        const monthlyBrief = await generateMonthlyBrief(job.subscriber_id, monthlyContext);
+        const rawMonthlyBrief = await generateMonthlyBrief(job.subscriber_id, monthlyContext);
+        const monthlyBrief = validateBriefUrls(rawMonthlyBrief);
 
         await supabaseAdmin
           .from("brief_jobs")

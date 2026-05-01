@@ -567,6 +567,7 @@ export default async function IntelHealthPage() {
               {
                 href: "/admin",
                 label: "Overview",
+                disabled: false,
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
                     <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -579,6 +580,7 @@ export default async function IntelHealthPage() {
               {
                 href: "/admin",
                 label: "Users",
+                disabled: true,
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -591,6 +593,7 @@ export default async function IntelHealthPage() {
               {
                 href: "/admin",
                 label: "Tenders",
+                disabled: true,
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -603,6 +606,7 @@ export default async function IntelHealthPage() {
               {
                 href: "/admin",
                 label: "Outreach",
+                disabled: true,
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
                     <path d="M22 2L11 13" />
@@ -613,6 +617,7 @@ export default async function IntelHealthPage() {
               {
                 href: "/admin",
                 label: "System Logs",
+                disabled: true,
                 icon: (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-4 h-4">
                     <polyline points="4 17 10 11 4 5" />
@@ -620,16 +625,28 @@ export default async function IntelHealthPage() {
                   </svg>
                 ),
               },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            ))}
+            ].map((item) =>
+              item.disabled ? (
+                <span
+                  key={item.label}
+                  title="Coming soon"
+                  aria-disabled="true"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-[var(--muted-foreground)] opacity-40 cursor-not-allowed font-[family-name:var(--font-geist-mono)]"
+                >
+                  {item.icon}
+                  {item.label}
+                </span>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-colors text-[var(--muted-foreground)] hover:text-[var(--slate-300)] hover:bg-[var(--navy-900)] font-[family-name:var(--font-geist-mono)]"
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              )
+            )}
           </nav>
 
           {/* Secondary nav */}

@@ -42,3 +42,7 @@ next-env.d.ts
 
 # subscriber data
 data/subscribers/
+
+# warden runtime logs
+engine/warden.log
+*.log

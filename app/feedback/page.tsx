@@ -22,6 +22,7 @@ function FeedbackForm() {
 
   const briefId    = searchParams.get("briefId") ?? "";
   const subscriberId = searchParams.get("sub") ?? "";
+  const token        = searchParams.get("t") ?? "";
   const ratingParam  = (searchParams.get("rating") ?? "") as Rating | "";
 
   const isBriefMode = Boolean(briefId && subscriberId);
@@ -51,6 +52,7 @@ function FeedbackForm() {
       if (isBriefMode) {
         payload.subscriberId = subscriberId;
         payload.briefJobId   = briefId;
+        if (token) payload.token = token;
         if (rating)  payload.rating  = rating;
         if (message.trim()) payload.message = message.trim();
       } else {

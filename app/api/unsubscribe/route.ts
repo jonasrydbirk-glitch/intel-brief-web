@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyEmailToken } from "@/lib/email-tokens";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
@@ -13,10 +14,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "subscriberId is required" }, { status: 400 });
   }
 
-  const { subscriberId, action } = body as { subscriberId: string; action: string };
+  const { subscriberId, action, token } = body as {
+    subscriberId: string;
+    action: string;
+    token?: string;
+  };
 
   if (action !== "pause" && action !== "delete") {
     return NextResponse.json({ error: "action must be pause or delete" }, { status: 400 });
+  }
+
+  if (!verifyEmailToken("unsub", subscriberId, token)) {
+    return NextResponse.json({ error: "Invalid or missing token" }, { status: 401 });
   }
 
   // Verify subscriber exists before acting

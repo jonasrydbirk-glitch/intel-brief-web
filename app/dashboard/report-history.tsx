@@ -12,30 +12,47 @@ interface Report {
   pdf_url: string | null;
 }
 
+// Dedupe concurrent /api/reports calls so ReportCount and ReportHistory
+// share a single network request when mounted together. Cleared when the
+// in-flight request settles, so subsequent mounts always fetch fresh.
+let inFlight: Promise<Report[]> | null = null;
+
+function fetchReports(): Promise<Report[]> {
+  if (inFlight) return inFlight;
+  inFlight = fetch("/api/reports")
+    .then((res) => (res.ok ? (res.json() as Promise<Report[]>) : ([] as Report[])))
+    .catch(() => [] as Report[])
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
+}
+
+function useReports(): { reports: Report[]; loading: boolean } {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReports().then((data) => {
+      if (cancelled) return;
+      setReports(data);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { reports, loading };
+}
+
 export function ReportHistory({
   emptyState,
 }: {
   emptyState: React.ReactNode;
 }) {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setReports(data);
-        }
-      } catch {
-        // Silently fail — empty state will show
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+  const { reports, loading } = useReports();
 
   if (loading) {
     return (
@@ -142,22 +159,6 @@ export function ReportHistory({
 }
 
 export function ReportCount() {
-  const [count, setCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/reports");
-        if (res.ok) {
-          const data = await res.json();
-          setCount(data.length);
-        }
-      } catch {
-        // leave as null
-      }
-    }
-    load();
-  }, []);
-
-  return <>{count !== null ? count : "\u2014"}</>;
+  const { reports, loading } = useReports();
+  return <>{loading ? "\u2014" : reports.length}</>;
 }

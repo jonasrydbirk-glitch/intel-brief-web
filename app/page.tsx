@@ -174,6 +174,22 @@ function Nav() {
 // ─── Brief mock card ─────────────────────────────────────────────────────────
 
 function BriefMockCard() {
+  // Mock-brief dates: today (long) and yesterday (short). Computed at render
+  // time so the marketing snapshot always feels current.
+  const now = new Date();
+  const todayLong = now.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayShort = yesterday.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
   return (
     <div
       className="rounded-2xl overflow-hidden shadow-2xl border text-sm"
@@ -197,7 +213,7 @@ function BriefMockCard() {
             <div className="font-semibold text-xs tracking-widest uppercase mb-1" style={{ color: "var(--teal-500)" }}>
               Your Maritime Brief
             </div>
-            <div className="text-xs" style={{ color: "var(--slate-400)" }}>Wednesday, 29 April 2026 · 09:00</div>
+            <div className="text-xs" style={{ color: "var(--slate-400)" }} suppressHydrationWarning>{todayLong} · 09:00</div>
           </div>
           <div className="text-right">
             <div className="text-xs" style={{ color: "var(--slate-400)", fontFamily: "var(--font-mono)" }}>5 min read</div>
@@ -208,7 +224,7 @@ function BriefMockCard() {
         <div className="rounded-xl p-4 border" style={{ background: "var(--navy-800)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-2 mb-2">
             <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: "rgba(244,180,0,0.15)", color: "var(--gold-500)" }}>Regulation</span>
-            <span className="text-xs" style={{ color: "var(--slate-400)" }}>IMO · Apr 28, 2026</span>
+            <span className="text-xs" style={{ color: "var(--slate-400)" }} suppressHydrationWarning>IMO · {yesterdayShort}</span>
           </div>
           <div className="font-semibold mb-1" style={{ color: "var(--slate-100)" }}>IMO MEPC 84 — Key Outcomes</div>
           <p className="text-xs leading-relaxed" style={{ color: "var(--slate-300)" }}>
@@ -476,13 +492,6 @@ export default function LandingPage() {
             >
               See a sample brief
             </Link>
-            <a
-              href="#demo"
-              className="rounded-full px-8 py-3.5 font-semibold text-sm transition-all border w-full sm:w-auto text-center"
-              style={{ borderColor: "var(--border-strong)", color: "var(--slate-200)", background: "rgba(255,255,255,0.04)" }}
-            >
-              Watch 90-second demo
-            </a>
           </div>
 
           {/* Trust checkmarks */}
@@ -647,35 +656,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Section 8: Demo placeholder ──────────────────────────────────── */}
-      <section id="demo" className="px-6 py-16 sm:py-20" style={{ background: "rgba(9,16,28,0.65)" }}>
-        <div className="max-w-3xl mx-auto text-center">
-          <div
-            className="rounded-2xl aspect-video flex items-center justify-center relative overflow-hidden border"
-            style={{ background: "var(--navy-880)", borderColor: "var(--border-strong)" }}
-          >
-            <div
-              className="absolute inset-0 opacity-20 pointer-events-none"
-              style={{ background: "radial-gradient(ellipse at center, #2BB3CD 0%, transparent 70%)" }}
-            />
-            <div className="relative z-10 flex flex-col items-center gap-4">
-              <IQSEAWordmark className="h-12" />
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center border-2 cursor-pointer transition-all hover:scale-105"
-                style={{ borderColor: "var(--teal-500)", background: "rgba(43,179,205,0.15)" }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 ml-1" style={{ color: "var(--teal-500)" }}>
-                  <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          <p className="mt-5 text-sm" style={{ color: "var(--slate-400)" }}>
-            See IQSEA in action — 90 seconds
-          </p>
-        </div>
-      </section>
-
       {/* ── Section 9: Testimonial ────────────────────────────────────────── */}
       <section className="px-6 py-20 sm:py-28">
         <div className="max-w-2xl mx-auto text-center">
@@ -714,11 +694,14 @@ export default function LandingPage() {
               <span className="text-sm" style={{ color: annual ? "var(--slate-400)" : "var(--slate-100)" }}>Monthly</span>
               <button
                 onClick={() => setAnnual(!annual)}
+                role="switch"
+                aria-checked={annual}
+                aria-label="Toggle annual billing"
                 className="relative w-12 h-6 rounded-full transition-colors"
                 style={{ background: annual ? "var(--teal-500)" : "var(--navy-700)" }}
-                aria-label="Toggle annual billing"
               >
                 <span
+                  aria-hidden="true"
                   className="absolute top-1 w-4 h-4 rounded-full transition-transform"
                   style={{ background: "white", left: "4px", transform: annual ? "translateX(24px)" : "translateX(0)" }}
                 />
@@ -762,7 +745,7 @@ export default function LandingPage() {
                 "Custom integrations",
               ]}
               ctaLabel="Talk to us"
-              ctaHref="#"
+              ctaHref="mailto:admin@iqsea.io"
               badge="Coming soon"
               annual={annual}
             />
@@ -835,16 +818,15 @@ export default function LandingPage() {
                 {[
                   {
                     label: "LinkedIn",
+                    href: "https://www.linkedin.com/company/iqsea/",
                     d: "M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z M2 9h4v12H2z M4 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
                   },
-                  {
-                    label: "X",
-                    d: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.741l7.732-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z",
-                  },
-                ].map(({ label, d }) => (
+                ].map(({ label, href, d }) => (
                   <a
                     key={label}
-                    href="#"
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     aria-label={label}
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-white/10"
                     style={{ background: "var(--navy-800)", color: "var(--slate-400)" }}
@@ -864,21 +846,21 @@ export default function LandingPage() {
                 links: [
                   { label: "Features", href: "#modules" },
                   { label: "Pricing", href: "#pricing" },
-                  { label: "Sample brief", href: "#demo" },
+                  { label: "Sample brief", href: "/onboard" },
                 ],
               },
               {
                 heading: "Company",
                 links: [
                   { label: "About", href: "#about" },
-                  { label: "Contact", href: "#" },
+                  { label: "Contact", href: "mailto:admin@iqsea.io" },
                 ],
               },
               {
                 heading: "Legal",
                 links: [
-                  { label: "Privacy", href: "#" },
-                  { label: "Terms", href: "#" },
+                  { label: "Privacy", href: "/privacy" },
+                  { label: "Terms", href: "/terms" },
                 ],
               },
             ].map(({ heading, links }) => (

@@ -31,19 +31,18 @@
  *
  *  Entries are matched as hostname suffix (e.g. "lloydslist.com" matches
  *  "www.lloydslist.com" and "news.lloydslist.com"). */
+// Active RSS / WP-REST source domains have been removed from this list because
+// their article URLs are reachable for the bot (we ingest from them daily).
+// Keep entries only for domains that genuinely 4xx the bot or sit behind a
+// paywall at the article level. Cross-reference with engine/sources/rss.ts
+// before re-adding anything.
 const PAYWALL_DOMAINS = new Set([
   "lloydslist.com",
-  "tradewindsnews.com",
+  "tradewindsnews.com",   // sitemap-only ingestion; article body is paywalled
   "riviera.co.uk",
-  "maritimeexecutive.com",
-  "splash247.com",
-  "seatrade-maritime.com",
-  "hellenicshippingnews.com",
   "fairplay.ihs.com",
   "drewry.co.uk",
   "clarksons.com",
-  "offshore-energy.biz",
-  "theloadstar.com",
   "breakbulk.com",
   "joc.com",
   "ft.com",

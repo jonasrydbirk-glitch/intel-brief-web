@@ -236,12 +236,11 @@ export async function scoutStage(
       case "weekly":
         return { hours: "168", label: "the last 7 days" };
       case "3x":
-        return { hours: "168", label: "the last 7 days" };
+        return { hours: "72", label: "the last 3 days" };
       case "business":
-        return { hours: "168", label: "the last 7 days" };
       case "daily":
       default:
-        return { hours: "168", label: "the last 7 days" };
+        return { hours: "48", label: "the last 48 hours" };
     }
   })();
 
@@ -348,6 +347,14 @@ Return a JSON object with a single key "queries" containing an array of query st
 
   // Raw dump for debugging — see what the Scout AI actually returned
   dumpRaw("Scout", content);
+
+  // Truncation check — if Scout's query list got cut at the token limit, the
+  // downstream retriever sees a degraded query set. Flag it for tuning rather
+  // than failing the brief.
+  const finishReason = data.choices?.[0]?.finish_reason;
+  if (finishReason === "length") {
+    dumpRaw("Scout TRUNCATED", `finish_reason=length — query list cut at token limit. Consider raising max_tokens.`);
+  }
 
   // safeParseJSON now handles fence-stripping, brace extraction, and empty input
   const parsed = safeParseJSON<{ queries?: string[] }>(content);
@@ -720,6 +727,7 @@ Produce the intelligence brief as a JSON object with this exact shape:
         { role: "user", content: userPrompt },
       ],
       max_tokens: 8192,
+      temperature: 0.3,
     }),
   });
 
@@ -917,7 +925,7 @@ export async function generateBrief(
   // Stage 1.6: Cross-day dedup — filter out URLs already sent to this subscriber
   // within the last 7 days. Best-effort: a query failure does NOT abort the brief.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000).toISOString();
-  let dedupFilteredCount = 0;
+  let sentUrls: Set<string> = new Set();
   try {
     const { data: sentRows } = await supabaseAdmin
       .from("sent_articles")
@@ -926,16 +934,43 @@ export async function generateBrief(
       .gte("sent_at", sevenDaysAgo);
 
     if (sentRows && sentRows.length > 0) {
-      const sentUrls = new Set(sentRows.map((r: { url: string }) => r.url));
+      sentUrls = new Set(sentRows.map((r: { url: string }) => r.url));
       const beforeCount = scoutResult.searchHits.length;
       scoutResult.searchHits = scoutResult.searchHits.filter(
         (h) => !sentUrls.has(h.url)
       );
-      dedupFilteredCount = beforeCount - scoutResult.searchHits.length;
+      const dedupFilteredCount = beforeCount - scoutResult.searchHits.length;
       dumpRaw(
         "Dedup",
         `Dedup: ${dedupFilteredCount} hits filtered (seen in last 7d), ${scoutResult.searchHits.length} remain`
       );
+
+      // If dedup wiped out more than half the top hits, the brief is starved
+      // for fresh material. Re-run each query with bumped limits, excluding
+      // anything already kept or already sent, to backfill candidates.
+      if (beforeCount > 0 && dedupFilteredCount / beforeCount > 0.5) {
+        dumpRaw(
+          "Dedup",
+          `>50% filtered — backfilling with bumped retriever limits`
+        );
+        const keptUrls = new Set(scoutResult.searchHits.map((h) => h.url));
+        for (const query of scoutResult.queries) {
+          const { hits } = await retrieveForQuery(query, {
+            freshDays:    7,
+            libraryLimit: 12,
+            tavilyLimit:  8,
+          });
+          for (const hit of hits) {
+            if (keptUrls.has(hit.url) || sentUrls.has(hit.url)) continue;
+            keptUrls.add(hit.url);
+            scoutResult.searchHits.push(hit);
+          }
+        }
+        dumpRaw(
+          "Dedup",
+          `Backfill complete — ${scoutResult.searchHits.length} total hits`
+        );
+      }
     }
   } catch (err) {
     dumpRaw("Dedup", `Dedup query failed (non-fatal): ${String(err)}`);

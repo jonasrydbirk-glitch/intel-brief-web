@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { BriefPayload } from "@/engine/brief-generator";
 import { renderBriefPdf } from "@/lib/render-pdf";
-import { sendEmail } from "@/lib/delivery";
+import { sendEmail } from "@/lib/email";
 import { supabase, getSupabaseUrl } from "@/lib/supabase";
 
 // NOTE: SUPABASE_SERVICE_KEY must be set as a Vercel environment variable
@@ -89,19 +89,22 @@ export async function POST(request: Request) {
 
     const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: subscriber.email,
       from: "brief@iqsea.io",
       subject,
-      htmlBody,
+      html: htmlBody,
       attachments: [
         {
           filename: pdfFilename,
-          contentBytes: pdfBase64,
+          content: pdfBase64,
           contentType: "application/pdf",
         },
       ],
     });
+    if (!emailResult.success) {
+      throw new Error(emailResult.error ?? "Email send failed");
+    }
 
     // Save report record
     await supabaseAdmin.from("reports").insert({

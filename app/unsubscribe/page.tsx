@@ -10,6 +10,7 @@ type Step = "confirm" | "paused" | "deleted" | "error";
 function UnsubscribeContent() {
   const params = useSearchParams();
   const subscriberId = params.get("sub") ?? "";
+  const token = params.get("t") ?? "";
 
   const [step, setStep] = useState<Step>("confirm");
   const [busy, setBusy] = useState(false);
@@ -17,8 +18,8 @@ function UnsubscribeContent() {
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
 
   async function act(action: "pause" | "delete") {
-    if (!subscriberId) {
-      setErrorMsg("Missing subscription ID. Please use the link from your email.");
+    if (!subscriberId || !token) {
+      setErrorMsg("Missing or invalid unsubscribe link. Please use the link from your email.");
       setStep("error");
       return;
     }
@@ -27,7 +28,7 @@ function UnsubscribeContent() {
       const res = await fetch("/api/unsubscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscriberId, action }),
+        body: JSON.stringify({ subscriberId, action, token }),
       });
       const data = await res.json();
       if (!res.ok) {
