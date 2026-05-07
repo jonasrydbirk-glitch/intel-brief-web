@@ -25,6 +25,7 @@ import { renderBriefPdf } from "../lib/render-pdf";
 import { sendEmail } from "../lib/email";
 import { BANNER_INTEL_BRIEF_DATA_URI } from "../lib/brief-banner";
 import { IQSEA_NAVY_LOGO_DATA_URI } from "../lib/brief-logo";
+import { buildBriefViewUrl, buildBriefOpenPixelUrl } from "../lib/brief-link";
 // RSS / intelligence ingestion pipeline (Phase 2 Part A Step 1)
 import { registeredSources } from "./sources/index";
 import { runAllIngestions } from "./sources/runner";
@@ -681,17 +682,32 @@ async function deliveryLoop(): Promise<void> {
       const pdfFilename = isMonthly
         ? `IQsea-Monthly-Review-${monthLabel.replace(/\s+/g, "-")}.pdf`
         : `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
-      const emailHtml   = isMonthly
-        ? buildMonthlyEmailHtml(sub.fullName, periodLabel)
-        : buildBriefEmailHtml(sub.fullName, dateStr);
+
+      // Persist PDF on the brief_jobs row so the signed-link API route can
+      // serve it.  Must happen BEFORE the email goes out — recipients may
+      // click the button within seconds of arrival.
+      const { error: pdfStoreErr } = await supabaseAdmin
+        .from("brief_jobs")
+        .update({
+          pdf_base64:   pdfBase64,
+          pdf_filename: pdfFilename,
+          updated_at:   new Date().toISOString(),
+        })
+        .eq("id", job.id);
+      if (pdfStoreErr) {
+        throw new Error(`Failed to store PDF on brief_jobs: ${pdfStoreErr.message}`);
+      }
+
+      const viewUrl  = buildBriefViewUrl(job.id);
+      const pixelUrl = buildBriefOpenPixelUrl(job.id);
+      const emailHtml = isMonthly
+        ? buildMonthlyEmailHtml(sub.fullName, periodLabel, viewUrl, pixelUrl)
+        : buildBriefEmailHtml(sub.fullName, dateStr, viewUrl, pixelUrl);
 
       const emailResult = await sendEmail({
         to:   sub.email,
         subject,
         html: emailHtml,
-        attachments: [
-          { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
-        ],
       });
       if (!emailResult.success) {
         throw new Error(
@@ -763,7 +779,40 @@ const EMAIL_HEADER_SONAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1
   <circle cx="63%" cy="22%" r="1"   fill="#2BB3CD" opacity="0.3"/>
 </svg>`;
 
-function buildBriefEmailHtml(fullName: string, dateStr: string): string {
+function buildBriefEmailHtml(
+  fullName: string,
+  dateStr: string,
+  viewUrl?: string,
+  pixelUrl?: string
+): string {
+  const ctaBlock = viewUrl
+    ? `
+        <div style="margin:24px 0 8px;text-align:center;">
+          <a href="${viewUrl}" style="display:inline-block;padding:14px 32px;background:#2BB3CD;color:#ffffff;text-decoration:none;border-radius:100px;font-size:15px;font-weight:700;letter-spacing:0.04em;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">View Your Intelligence Brief &rarr;</a>
+        </div>
+        <p style="font-size:13px;line-height:1.6;margin:0;color:#6b7280;text-align:center;">Single-click access &middot; no login required.</p>`
+    : "";
+
+  const bodyCopy = viewUrl
+    ? `
+        <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Your latest intelligence brief was generated on ${dateStr} and covers the developments most relevant to your profile.
+        </p>`
+    : `
+        <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
+          and covers the latest developments relevant to your profile.
+        </p>
+        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
+          Open the attached PDF for the full analysis.
+        </p>`;
+
+  const pixelTag = pixelUrl
+    ? `<img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;width:1px;height:1px;border:0;outline:none;" />`
+    : "";
+
   return `
     <div style="font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;margin:0 auto;color:#1a2e45;padding:14px;">
       <img src="${BANNER_INTEL_BRIEF_DATA_URI}" alt="IQSEA Intelligence Brief" width="100%" style="display:block;width:100%;max-width:572px;height:auto;border-radius:10px;border:0;outline:none;" />
@@ -774,24 +823,24 @@ function buildBriefEmailHtml(fullName: string, dateStr: string): string {
         </tr>
       </table>
       <div style="padding:18px 0 0;">
-        <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Your latest intelligence brief is attached as a PDF. This report was generated on ${dateStr}
-          and covers the latest developments relevant to your profile.
-        </p>
-        <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Open the attached PDF for the full analysis.
-        </p>
+        ${bodyCopy}
+        ${ctaBlock}
       </div>
       <div style="margin-top:24px;border-top:1px solid #e5e7eb;padding-top:18px;text-align:center;">
         <img src="${IQSEA_NAVY_LOGO_DATA_URI}" alt="IQSEA" style="display:inline-block;height:40px;width:auto;border:0;outline:none;" />
         <div style="margin-top:10px;font-size:12px;color:#94a3b8;font-family:Inter,-apple-system,sans-serif;">IQsea Intel Engine &middot; Confidential</div>
       </div>
+      ${pixelTag}
     </div>
   `;
 }
 
-function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
+function buildMonthlyEmailHtml(
+  fullName: string,
+  periodLabel: string,
+  viewUrl?: string,
+  pixelUrl?: string
+): string {
   return `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
       <!-- Navy branded header — matches PDF renderPageHeader() exactly -->
@@ -819,17 +868,25 @@ function buildMonthlyEmailHtml(fullName: string, periodLabel: string): string {
       <div style="padding:16px 20px 0;">
         <p style="font-size:15px;line-height:1.6;margin:0;">Hi ${fullName || "there"},</p>
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
-          Your Monthly Strategic Review for <strong>${periodLabel}</strong> is attached.
+          Your Monthly Strategic Review for <strong>${periodLabel}</strong> is ready.
           This report synthesises the past month's intelligence into strategic themes,
           prospect rollups, and market trends — tailored to your profile.
         </p>
+        ${viewUrl ? `
+        <div style="margin:24px 0 8px;text-align:center;">
+          <a href="${viewUrl}" style="display:inline-block;padding:14px 32px;background:#2BB3CD;color:#ffffff;text-decoration:none;border-radius:100px;font-size:15px;font-weight:700;letter-spacing:0.04em;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">View Your Monthly Review &rarr;</a>
+        </div>
+        <p style="font-size:13px;line-height:1.6;margin:0 0 8px;color:#94a3b8;text-align:center;">Single-click access &middot; no login required.</p>
+        ` : `
         <p style="font-size:15px;line-height:1.6;margin-top:12px;">
           Open the attached PDF for the full analysis.
         </p>
+        `}
       </div>
       <div style="padding:12px 20px;margin-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center;">
         IQsea Intel Engine &middot; Confidential
       </div>
+      ${pixelUrl ? `<img src="${pixelUrl}" alt="" width="1" height="1" style="display:block;width:1px;height:1px;border:0;outline:none;" />` : ""}
     </div>
   `;
 }
@@ -1085,7 +1142,22 @@ async function processJobQueue(): Promise<void> {
         const subject = `Your IQsea Intel Brief - ${dateStr}`;
         const pdfFilename = `IQsea-Intel-Brief-${dateStr.replace(/\s+/g, "-")}.pdf`;
 
-        const htmlBody = buildBriefEmailHtml(sub.fullName, dateStr);
+        // Persist PDF before email goes out — see deliveryLoop comment.
+        const { error: pdfStoreErr } = await supabaseAdmin
+          .from("brief_jobs")
+          .update({
+            pdf_base64:   pdfBase64,
+            pdf_filename: pdfFilename,
+            updated_at:   new Date().toISOString(),
+          })
+          .eq("id", job.id);
+        if (pdfStoreErr) {
+          throw new Error(`Failed to store PDF on brief_jobs: ${pdfStoreErr.message}`);
+        }
+
+        const viewUrl  = buildBriefViewUrl(job.id);
+        const pixelUrl = buildBriefOpenPixelUrl(job.id);
+        const htmlBody = buildBriefEmailHtml(sub.fullName, dateStr, viewUrl, pixelUrl);
 
         log("INFO", `Job ${job.id} — delivering to ${sub.email}...`);
 
@@ -1093,9 +1165,6 @@ async function processJobQueue(): Promise<void> {
           to:   sub.email,
           subject,
           html: htmlBody,
-          attachments: [
-            { filename: pdfFilename, content: pdfBase64, contentType: "application/pdf" },
-          ],
         });
         if (!emailResult.success) {
           const detail =
