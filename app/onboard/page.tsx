@@ -7,6 +7,11 @@ import { HelpTooltip } from "../components/help-tooltip";
 import { PasswordInput } from "../components/password-input";
 import { DepthPreview } from "../components/depth-preview";
 import { DELIVERY_TIMES } from "../../lib/constants";
+import {
+  METRIC_CATEGORIES,
+  groupByCategory,
+  type MarketMetricCategory,
+} from "../../lib/market-metrics";
 
 /* ────── types ────── */
 
@@ -36,6 +41,7 @@ interface FormData {
   offDutyInterests: string;
   marketPulseEnabled: boolean;
   marketPulseDataToTrack: string;
+  marketPulseMetrics: string[];
   regulatoryTimelineEnabled: boolean;
   regulatoryTimelineRegulations: string;
   competitorTrackerEnabled: boolean;
@@ -76,6 +82,7 @@ const INITIAL: FormData = {
   offDutyInterests: "",
   marketPulseEnabled: false,
   marketPulseDataToTrack: "",
+  marketPulseMetrics: [],
   regulatoryTimelineEnabled: false,
   regulatoryTimelineRegulations: "",
   competitorTrackerEnabled: false,
@@ -454,6 +461,103 @@ function Step3({
   );
 }
 
+function MarketPulseMetricPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const grouped = groupByCategory();
+  const count = selected.length;
+  const toggle = (id: string) => {
+    onChange(
+      selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
+    );
+  };
+
+  const summary =
+    count === 0
+      ? "None selected — the AI will pick metrics based on your free-text data above."
+      : `${count} selected${
+          count < 5 ? " — we recommend 5–8 for a balanced table." : count > 10 ? " — that's a lot. Pick the ones you actually watch." : "."
+        }`;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <label className={labelCls + " mb-0"}>
+          Pick from curated metrics
+          <HelpTooltip
+            examples={[
+              "Tick BDI, BCI, BSI if you trade dry bulk spot",
+              "VLSFO Singapore + Rotterdam covers most bunker desks",
+              "JKM + TTF + Brent gives you the LNG arbitrage at a glance",
+            ]}
+          />
+        </label>
+        <span className="text-[11px] text-[var(--slate-400)]">{summary}</span>
+      </div>
+      <div className="space-y-3">
+        {METRIC_CATEGORIES.map((cat: MarketMetricCategory) => (
+          <div key={cat}>
+            <div className="text-[11px] font-bold tracking-[0.14em] uppercase text-[var(--teal-400)] mb-1.5">
+              {cat}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {grouped[cat].map((m) => {
+                const isOn = selected.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggle(m.id)}
+                    className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                      isOn
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]"
+                        : "border-[var(--border)] bg-[var(--navy-950)]/40 hover:border-[var(--accent)]/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-[var(--slate-100)] truncate">
+                          {m.name}
+                        </div>
+                        <div className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                          {m.unit} · {m.frequency} · {m.source}
+                        </div>
+                      </div>
+                      <div
+                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          isOn
+                            ? "bg-[var(--accent)] border-[var(--accent)]"
+                            : "border-[var(--border)]"
+                        }`}
+                      >
+                        {isOn && (
+                          <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
+                            <polyline
+                              points="2 6 5 9 10 3"
+                              stroke="var(--navy-950)"
+                              strokeWidth={1.8}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StepAdvancedModules({
   data,
   update,
@@ -557,14 +661,20 @@ function StepAdvancedModules({
           Track live market data — bunker prices, freight indexes, and key rates relevant to your operations.
         </p>
         {data.marketPulseEnabled && (
-          <div className="pt-2 space-y-4">
+          <div className="pt-2 space-y-5">
             <TextInput
-              label={<>Data to Track <HelpTooltip examples={["Bunker Prices SG", "Freight Indexes", "Baltic Dry Index", "VLSFO Rotterdam", "TC Rates Supramax"]} /></>}
+              label={<>Data to Track (free text) <HelpTooltip examples={["Bunker Prices SG", "Freight Indexes", "Baltic Dry Index", "VLSFO Rotterdam", "TC Rates Supramax"]} /></>}
               placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
               value={data.marketPulseDataToTrack}
               onChange={(v) => update({ marketPulseDataToTrack: v })}
               examples={["Bunker Prices SG", "Freight Indexes", "Baltic Dry Index", "VLSFO Rotterdam", "TC Rates Supramax"]}
             />
+            <div className="border-t border-[var(--border)] pt-4">
+              <MarketPulseMetricPicker
+                selected={data.marketPulseMetrics}
+                onChange={(next) => update({ marketPulseMetrics: next })}
+              />
+            </div>
           </div>
         )}
       </div>

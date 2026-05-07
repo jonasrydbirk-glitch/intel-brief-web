@@ -9,6 +9,12 @@ import { HelpTooltip } from "../../components/help-tooltip";
 import { PasswordInput } from "../../components/password-input";
 import { DepthPreview } from "../../components/depth-preview";
 import { DELIVERY_TIMES } from "../../../lib/constants";
+import {
+  METRIC_CATEGORIES,
+  groupByCategory,
+  sanitiseMetricIds,
+  type MarketMetricCategory,
+} from "../../../lib/market-metrics";
 
 /* ────── types ────── */
 
@@ -20,6 +26,7 @@ interface ProfileData {
   role: string;
   assets: string[];
   subjects: string[];
+  market_pulse_metrics?: string[];
   modules: {
     tender: { enabled: boolean; region?: string; type?: string; focusAreas?: string };
     prospects: { enabled: boolean; perReport?: number; focusAreas?: string };
@@ -58,6 +65,7 @@ interface FormState {
   offDutyInterests: string;
   marketPulseEnabled: boolean;
   marketPulseDataToTrack: string;
+  marketPulseMetrics: string[];
   regulatoryTimelineEnabled: boolean;
   regulatoryTimelineRegulations: string;
   competitorTrackerEnabled: boolean;
@@ -102,6 +110,7 @@ const PLACEHOLDER: FormState = {
   offDutyInterests: "",
   marketPulseEnabled: false,
   marketPulseDataToTrack: "",
+  marketPulseMetrics: [],
   regulatoryTimelineEnabled: false,
   regulatoryTimelineRegulations: "",
   competitorTrackerEnabled: false,
@@ -164,6 +173,7 @@ function profileToForm(p: ProfileData): FormState {
       (p.monthlyReview || []).join("\n") || PLACEHOLDER.monthlyReview,
     marketPulseEnabled: p.modules?.marketPulse?.enabled ?? false,
     marketPulseDataToTrack: p.modules?.marketPulse?.dataToTrack || "",
+    marketPulseMetrics: sanitiseMetricIds(p.market_pulse_metrics),
     regulatoryTimelineEnabled: p.modules?.regulatoryTimeline?.enabled ?? false,
     regulatoryTimelineRegulations: p.modules?.regulatoryTimeline?.regulations || "",
     // monthlyLeadSummary: read new key, fall back to legacy monthlyProspectRollup for existing subscribers
@@ -532,6 +542,112 @@ function ModuleCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ────── Market Pulse metric picker ────── */
+
+function MarketPulseMetricPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const grouped = groupByCategory();
+  const count = selected.length;
+  const toggle = (id: string) => {
+    onChange(
+      selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
+    );
+  };
+
+  const summary =
+    count === 0
+      ? "None selected — the AI will pick metrics based on the free-text Data to Track field."
+      : `${count} selected${
+          count < 5
+            ? " — we recommend 5–8."
+            : count > 10
+            ? " — pick the ones you actually watch."
+            : "."
+        }`;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <label className={labelClass + " mb-0 inline-flex items-center"}>
+          Curated metrics
+          <HelpTooltip
+            examples={[
+              "Tick BDI, BCI, BSI if you trade dry bulk spot",
+              "VLSFO Singapore + Rotterdam covers most bunker desks",
+              "JKM + TTF + Brent for the LNG arbitrage at a glance",
+            ]}
+          />
+        </label>
+        <span className="text-[11px] text-[var(--muted-foreground)]">{summary}</span>
+      </div>
+      <div className="space-y-3">
+        {METRIC_CATEGORIES.map((cat: MarketMetricCategory) => (
+          <div key={cat}>
+            <div className="text-[11px] font-bold tracking-[0.14em] uppercase text-[#53b1c1] mb-1.5">
+              {cat}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {grouped[cat].map((m) => {
+                const isOn = selected.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(m.id);
+                    }}
+                    className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                      isOn
+                        ? "border-[var(--accent)] bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]"
+                        : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--accent)]/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-[var(--foreground)] truncate">
+                          {m.name}
+                        </div>
+                        <div className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                          {m.unit} · {m.frequency} · {m.source}
+                        </div>
+                      </div>
+                      <div
+                        className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          isOn
+                            ? "bg-[var(--accent)] border-[var(--accent)]"
+                            : "border-[var(--border)]"
+                        }`}
+                      >
+                        {isOn && (
+                          <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
+                            <polyline
+                              points="2 6 5 9 10 3"
+                              stroke="var(--navy-950)"
+                              strokeWidth={1.8}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -906,30 +1022,41 @@ export default function ReportSettingsPage() {
         enabled: form.marketPulseEnabled,
         description:
           "Track live market data — bunker prices, freight indexes, and key rates relevant to your operations.",
-        configSummary: form.marketPulseDataToTrack || undefined,
+        configSummary:
+          form.marketPulseMetrics.length > 0
+            ? `${form.marketPulseMetrics.length} curated metric${form.marketPulseMetrics.length === 1 ? "" : "s"}${form.marketPulseDataToTrack ? ` · ${form.marketPulseDataToTrack}` : ""}`
+            : form.marketPulseDataToTrack || undefined,
         onToggle: () => update({ marketPulseEnabled: !form.marketPulseEnabled }),
         expanded: expandedModule === "marketPulse",
         onExpandToggle: () => toggleModule("marketPulse"),
         children: (
-          <div>
-            <label className={labelClass + " inline-flex items-center"}>
-              Data to Track{" "}
-              <HelpTooltip
-                examples={[
-                  "Bunker Prices SG, Baltic Dry Index",
-                  "VLSFO Rotterdam, Capesize FFA Q3",
-                  "Marine coating market prices, newbuild order book",
-                ]}
+          <>
+            <div>
+              <label className={labelClass + " inline-flex items-center"}>
+                Data to Track (free text){" "}
+                <HelpTooltip
+                  examples={[
+                    "Bunker Prices SG, Baltic Dry Index",
+                    "VLSFO Rotterdam, Capesize FFA Q3",
+                    "Marine coating market prices, newbuild order book",
+                  ]}
+                />
+              </label>
+              <input
+                type="text"
+                value={form.marketPulseDataToTrack}
+                onChange={(e) => update({ marketPulseDataToTrack: e.target.value })}
+                placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
+                className={inputClass}
               />
-            </label>
-            <input
-              type="text"
-              value={form.marketPulseDataToTrack}
-              onChange={(e) => update({ marketPulseDataToTrack: e.target.value })}
-              placeholder="e.g. Bunker Prices SG, Freight Indexes, Baltic Dry Index"
-              className={inputClass}
-            />
-          </div>
+            </div>
+            <div className="border-t border-[var(--border)] pt-4">
+              <MarketPulseMetricPicker
+                selected={form.marketPulseMetrics}
+                onChange={(next) => update({ marketPulseMetrics: next })}
+              />
+            </div>
+          </>
         ),
       },
       {

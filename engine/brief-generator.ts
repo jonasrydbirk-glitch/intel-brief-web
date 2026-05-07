@@ -12,6 +12,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
 import { stripEmojis, sanitiseItem, safeParseJSON } from "@/lib/json-utils";
+import { sanitiseMetricIds, getMetricById } from "@/lib/market-metrics";
 import { retrieveForQuery } from "./search/retriever";
 import type { SearchHit } from "./search/types";
 import { verifyBriefUrls } from "./verification/runner";
@@ -127,6 +128,12 @@ export interface SubscriberProfile {
   monthlyReviewDay?: number | "last";
   /** Delivery time for monthly brief (HH:MM). Falls back to deliveryTime. */
   monthlyReviewTime?: string;
+  /**
+   * Curated Market Pulse metric IDs the subscriber wants in their brief.
+   * Empty array = AI picks (legacy behaviour). IDs are validated against
+   * lib/market-metrics.ts; unknown IDs are silently dropped on read.
+   */
+  market_pulse_metrics?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -272,12 +279,21 @@ Topics: ${profile.modules.offDuty.interests}
 - Keep it fun and upbeat — this is NOT work intel, it's a personal treat at the end of the brief.`
     : "";
 
+  const curatedMetrics = (profile.market_pulse_metrics ?? [])
+    .map((id) => getMetricById(id))
+    .filter((m): m is NonNullable<ReturnType<typeof getMetricById>> => Boolean(m));
+
   const marketPulseInstructions = profile.modules.marketPulse?.enabled
     ? `\n\nMarket Pulse Queries (REQUIRED — generate 2-3 market data queries):
 The subscriber wants live market data tracking.
-Data points to track: ${profile.modules.marketPulse.dataToTrack || "bunker prices, freight indexes, key maritime rates"}
+${curatedMetrics.length > 0
+  ? `Curated metrics (PRIORITY — search for current values for each of these):
+${curatedMetrics.map((m) => `- ${m.name} (${m.unit}) — published by ${m.source}, updates ${m.frequency}`).join("\n")}
+- Search for the latest published values, week-on-week or day-on-day changes for the metrics above.
+- Prefer the named source where possible. ALWAYS pull a concrete numerical value — if you cannot find one for a metric this cycle, drop it rather than search for a substitute.`
+  : `Data points to track: ${profile.modules.marketPulse.dataToTrack || "bunker prices, freight indexes, key maritime rates"}
 - Search for the latest values, movements, and changes in these market indicators from ${freshnessWindow.label}.
-- Focus on price movements, index changes, and rate fluctuations.`
+- Focus on price movements, index changes, and rate fluctuations.`}`
     : "";
 
   const regulatoryInstructions = profile.modules.regulatoryTimeline?.enabled
@@ -391,6 +407,12 @@ export async function architectStage(
   scout: ScoutResult
 ): Promise<BriefPayload> {
   const todayISO = new Date().toISOString().slice(0, 10); // e.g. "2026-04-07"
+
+  // Curated Market Pulse metrics — empty when subscriber hasn't picked any,
+  // in which case the Architect falls back to the legacy free-text behaviour.
+  const curatedMetrics = (profile.market_pulse_metrics ?? [])
+    .map((id) => getMetricById(id))
+    .filter((m): m is NonNullable<ReturnType<typeof getMetricById>> => Boolean(m));
 
   // Depth-mode output instructions — controls density and format of generated brief
   const depthInstructions = profile.depth === "executive"
@@ -562,6 +584,11 @@ EMPTY SECTIONS (ABSOLUTE, NON-NEGOTIABLE):
 - Do NOT output placeholder items, filler content, or generic commentary when there is no real news.
 - An empty section is always better than a fabricated one.
 
+MARKET PULSE NUMERICAL DISCIPLINE (ABSOLUTE, NON-NEGOTIABLE):
+- For Market Pulse, you MUST provide actual numerical values for the "value" and "change" columns.
+- If you cannot find a concrete number for a metric in the search metadata, OMIT that metric entirely rather than showing "See source", "TBC", "n/a", or any other placeholder.
+- A short, complete table of real numbers is always better than a long table padded with placeholders.
+
 BUYER SENTIMENT (when freight rates are high):
 - If any freight rate or charter rate data suggests elevated or rising markets, include a "Buyer Sentiment" note within relevant sections analysing how OEMs (shipbuilders, engine makers) and service providers (yards, class societies, equipment suppliers) are likely responding.
 - Flag whether high rates are driving newbuild orders, retrofit demand, or service backlogs — and what that means for the subscriber's operations, procurement timeline, or yard slot availability.
@@ -641,14 +668,22 @@ For each item:
 Do NOT return an empty array or null for offDutySection when this module is enabled.` : ""}
 ${profile.modules.marketPulse?.enabled ? `
 MARKET PULSE INSTRUCTIONS (REQUIRED when market pulse module is enabled):
-You MUST populate "marketPulseSection" with 4-8 market data entries.
-Data to track: ${profile.modules.marketPulse.dataToTrack || "bunker prices, freight indexes, key maritime rates"}
+${curatedMetrics.length > 0 ? `Market Pulse metrics to include — the subscriber has hand-picked these from the curated list:
+${curatedMetrics.map((m) => `- ${m.name} (${m.unit}) — preferred source: ${m.source}, updates ${m.frequency}`).join("\n")}
+
+STRICT RULES for the curated set:
+- ONLY include the metrics listed above. Do NOT add extra metrics. Do NOT substitute one for another.
+- For each metric, you MUST provide an actual numerical value in the "value" field. NEVER write "See source", "TBC", "n/a", or any placeholder.
+- If the search metadata does not contain a concrete number for a metric this cycle, OMIT that metric entirely from "marketPulseSection". Do not fabricate.
+- The output array length will therefore be ≤ ${curatedMetrics.length} (one row per metric you have a real number for).
+- Use the unit shown above as the canonical unit for that metric — do not invent a different unit.` : `You MUST populate "marketPulseSection" with 4-8 market data entries.
+Data to track: ${profile.modules.marketPulse.dataToTrack || "bunker prices, freight indexes, key maritime rates"}`}
 For each entry, strict rules:
 - "metric": Metric name only — max 4 words (e.g. "VLSFO Singapore", "Baltic Dry Index").
-- "value": Current value with units (e.g. "$587/mt", "1,842", "$15,200/day"). If exact real-time data is unavailable, write "See source".
+- "value": Current value with units (e.g. "$587/mt", "1,842", "$15,200/day"). MUST be a real number${curatedMetrics.length > 0 ? " — placeholders are forbidden, omit the row instead." : '. If exact real-time data is unavailable, write "See source".'}
 - "change": Direction and magnitude — 10 WORDS MAXIMUM. Use compact format only: "+2.3% WoW", "-$12/mt WoW", "Flat". Abbreviations: WoW = week-on-week, DoD = day-on-day, MoM = month-on-month. NEVER write a full sentence in this field.
 - "source": Publication NAME only — NOT a URL (e.g. "Ship & Bunker", "Baltic Exchange", "Clarksons"). One reference per row.
-Do NOT return null for marketPulseSection when this module is enabled. NO EMOJIS.` : ""}
+${curatedMetrics.length > 0 ? "Return an empty array [] only if NONE of the curated metrics had a sourceable number this cycle." : 'Do NOT return null for marketPulseSection when this module is enabled.'} NO EMOJIS.` : ""}
 ${profile.modules.regulatoryTimeline?.enabled ? `
 REGULATORY COUNTDOWN INSTRUCTIONS (REQUIRED when regulatory timeline module is enabled):
 ${profile.modules.regulatoryTimeline.regulations ? `The subscriber is specifically tracking: ${profile.modules.regulatoryTimeline.regulations}\nPrioritise these regulations in your countdown entries.` : ""}
@@ -798,6 +833,12 @@ export function scribeStage(brief: BriefPayload): BriefPayload {
           change: stripEmojis(entry.change ?? ""),
           source: stripEmojis(entry.source ?? ""),
         }))
+        // Drop placeholder rows — Architect is told to omit, but defend in depth.
+        .filter((entry) => {
+          const v = entry.value.trim().toLowerCase();
+          if (!v) return false;
+          return !["see source", "n/a", "na", "tbc", "tbd", "-", "—"].includes(v);
+        })
     : null;
 
   const filteredRegulatory = brief.regulatoryCountdown
@@ -876,7 +917,7 @@ export async function fetchSubscriberProfile(
   const { data, error } = await supabase
     .from("subscribers")
     .select(
-      "id, fullName, companyName, role, assets, subjects, modules, frequency, depth, monthlyReview, monthlyReviewDay, monthlyReviewTime"
+      "id, fullName, companyName, role, assets, subjects, modules, frequency, depth, monthlyReview, monthlyReviewDay, monthlyReviewTime, market_pulse_metrics"
     )
     .eq("id", subscriberId)
     .single();
@@ -887,7 +928,10 @@ export async function fetchSubscriberProfile(
     );
   }
 
-  return data as SubscriberProfile;
+  // Normalise market_pulse_metrics: drop unknown IDs, ensure array shape.
+  const profile = data as SubscriberProfile;
+  profile.market_pulse_metrics = sanitiseMetricIds(profile.market_pulse_metrics);
+  return profile;
 }
 
 // ---------------------------------------------------------------------------

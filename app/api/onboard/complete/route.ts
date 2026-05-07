@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySession } from "@/app/lib/session";
 import { supabase } from "@/lib/supabase";
+import { sanitiseMetricIds } from "@/lib/market-metrics";
 
 export async function PATCH(request: Request) {
   try {
@@ -65,6 +66,7 @@ export async function PATCH(request: Request) {
       monthlyReviewDay: body.monthlyReviewDay ?? 1,
       // Default monthly time to daily delivery time if the user left it unchanged
       monthlyReviewTime: body.monthlyReviewTime || body.deliveryTime || "08:00",
+      market_pulse_metrics: sanitiseMetricIds(body.marketPulseMetrics),
       onboarding_complete: true,
     };
 

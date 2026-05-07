@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifySession } from "@/app/lib/session";
+import { sanitiseMetricIds } from "@/lib/market-metrics";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://placeholder.supabase.co",
@@ -84,6 +85,9 @@ export async function POST(request: Request) {
   if (body.monthlyReviewDay !== undefined) updates.monthlyReviewDay = String(body.monthlyReviewDay);
   if (body.monthlyReviewTime !== undefined) updates.monthlyReviewTime = body.monthlyReviewTime;
   if (body.paused === true || body.paused === false) updates.paused = body.paused;
+  if (body.marketPulseMetrics !== undefined) {
+    updates.market_pulse_metrics = sanitiseMetricIds(body.marketPulseMetrics);
+  }
 
   // Module updates
   const hasModuleUpdate = [
